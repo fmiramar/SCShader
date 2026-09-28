@@ -1,0 +1,115 @@
+name: SCShader CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scshader-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: Rust and harness checks (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@1.97.1
+        with:
+          components: rustfmt, clippy
+      - run: cargo fmt --manifest-path renderer/Cargo.toml -- --check
+      - run: cargo clippy --manifest-path renderer/Cargo.toml --all-targets --all-features --locked -- -D warnings
+      - run: cargo test --manifest-path renderer/Cargo.toml --all-features --locked
+      - run: python -m unittest discover -s tests/python -v
+      - run: cargo run --manifest-path renderer/Cargo.toml --locked -- --version
+
+  supercollider:
+    name: SuperCollider class check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y supercollider-language
+      - name: Install extension source for the class-library check
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QTWEBENGINE_DISABLE_SANDBOX: 1
+        run: |
+          mkdir -p "$HOME/.local/share/SuperCollider/Extensions/SCShader"
+          cp -R Classes HelpSource "$HOME/.local/share/SuperCollider/Extensions/SCShader/"
+      - name: Check classes and typed serialization
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QTWEBENGINE_DISABLE_SANDBOX: 1
+        run: python3 tools/run_sc_checks.py compile_check typed_controls_unit diagnostics_unit
+
+  package:
+    name: Package ${{ matrix.platform }}-${{ matrix.architecture }}
+    needs: [rust, supercollider]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15-intel
+            platform: macos
+            architecture: x64
+            command: ./tools/package_macos.sh x64
+          - os: macos-15
+            platform: macos
+            architecture: arm64
+            command: ./tools/package_macos.sh arm64
+          - os: ubuntu-24.04
+            platform: linux
+            architecture: x64
+            command: ./tools/package_linux.sh x64
+          - os: windows-2025
+            platform: windows
+            architecture: x64
+            command: pwsh -File tools/package_windows.ps1 -Architecture x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Assemble architecture-labelled extension archive
+        shell: bash
+        env:
+          SCSHADER_ARTIFACT_PREFIX: ${{ github.repository_owner }}
+          SCSHADER_REQUIRE_NOTICE_TEXTS: ${{ startsWith(github.ref, 'refs/tags/v') && '1' || '0' }}
+        run: ${{ matrix.command }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.repository_owner }}-SCShader-${{ matrix.platform }}-${{ matrix.architecture }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: Publish tagged release assets
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: release-assets/*

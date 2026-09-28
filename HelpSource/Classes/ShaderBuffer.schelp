@@ -1,0 +1,96 @@
+class:: ShaderBuffer
+summary:: Float32 GPU-data resource for the SCShader spectrum binding
+categories:: External>Graphics
+related:: Guides/SCShader, Classes/Shader, Classes/ShaderFFTTexture, Classes/ShaderWaveformTexture
+
+description::
+ShaderBuffer owns a finite Float32 array in the language and a matching one-row code::R32Float:: GPU texture in the renderer. code::setn:: sends values as big-endian float32 OSC blobs in chunks of at most 2048 values, keeping each packet below the usual macOS UDP datagram ceiling. The renderer uploads the complete padded texture after each accepted chunk. The v1 limit is 16384 values, additionally restricted by the GPU's maximum one-row texture width; unsupported lengths report an error without terminating the renderer.
+
+Bind it using code::shader.setBuffer(\spectrum, buffer)::. link::Classes/ShaderFFTTexture:: and link::Classes/ShaderWaveformTexture:: bind their owned buffers automatically. In WGSL the fixed binding is code::@group(0) @binding(3) var spectrum_buffer: texture_2d<f32>::. It is non-filterable, so use code::textureLoad(spectrum_buffer, vec2<i32>(bin, 0), 0).r::. This is not general WGSL reflection, arbitrary storage buffers, shared-memory transport, or a replacement for link::Classes/Buffer::.
+
+classmethods::
+
+method:: float
+
+argument:: length
+Number of Float32 values from 1 through 16384.
+
+argument:: server
+Ready ShaderServer. Defaults to code::ShaderServer.default::.
+
+method:: new
+
+argument:: length
+Number of Float32 values from 1 through 16384.
+
+argument:: server
+Ready ShaderServer. Defaults to code::ShaderServer.default::.
+
+instancemethods::
+
+method:: set
+
+argument:: index
+Zero-based Float32 index.
+
+argument:: value
+Finite numeric value.
+
+method:: setn
+
+argument:: start
+Zero-based first index. Defaults to 0.
+
+argument:: array
+Finite numeric values for consecutive indices.
+
+method:: value
+
+argument:: index
+Zero-based index.
+
+returns::
+The current language-side Float32 value.
+
+method:: asArray
+
+returns::
+A copy of the language-side Float32 values. This is useful for inspection and tests; it does not read back from the GPU.
+
+method:: free
+
+discussion::
+Releases the renderer resource. A Shader whose active spectrum buffer is freed falls back to an internal zero-filled one-row texture.
+
+examples::
+
+This example uses the packaged extension. Run one demo at a time and wait for setup to finish. It creates its own resources; no earlier example is required. See link::Guides/SCShader:: for the full walkthrough.
+
+code::
+(
+var source = ShaderDef.filenameSymbol.asString.dirname.dirname +/+ "shaders/fullscreen.wgsl";
+v = ShaderServer.new(\bufferHelp);
+v.waitForBoot { |server|
+    d = ShaderDef(\helpPulse, source);
+    x = Shader(d, [\amount, 0.5], server);
+    b = ShaderBuffer.float(128, server);
+    b.setn(0, Array.fill(128, { |index| index / 127 }));
+    x.setBuffer(\spectrum, b);
+};
+)
+::
+
+Cleanup before starting another example; wait for any renderer window to close:
+
+code::
+(
+b.free; x.free; d.free; v.free;
+)
+::
+
+subsection:: See also
+
+link::Guides/SCShader::
+link::Classes/Shader::
+link::Classes/ShaderFFTTexture::
+link::Classes/ShaderWaveformTexture::

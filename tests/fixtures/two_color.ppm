@@ -1,0 +1,6 @@
+P3
+# Small public-domain test fixture: red/blue checker image.
+2 2
+255
+255 48 32   32 96 255
+32 96 255   255 48 32

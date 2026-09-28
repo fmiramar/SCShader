@@ -1,0 +1,55 @@
+class:: ShaderToy
+summary:: Shadertoy-style fragment definition for the SCShader compatibility path
+categories:: External>Graphics
+related:: Guides/SCShader, Classes/ShaderDef, Classes/Shader, Classes/ShaderTexture, Classes/ShaderWindow
+
+description::
+ShaderToy is a convenience subclass of link::Classes/ShaderDef:: for original Shadertoy-style GLSL fragment sources. The renderer prepends a fixed GLSL 4.50 wrapper, parses the complete fragment with wgpu's Naga frontend, and uses SCShader's built-in fullscreen vertex stage. It expects code::mainImage(out vec4 fragColor, in vec2 fragCoord):: and supplies its own code::main::; a source that declares its own code::main:: is rejected before GPU compilation.
+
+The wrapper supplies code::iResolution:: in framebuffer pixels, code::iTime::, code::iTimeDelta::, code::iFrame::, code::iMouse:: using Shadertoy's signed click convention, and UTC code::iDate::. code::iChannel0:: through code::iChannel3:: are accepted but currently alias the one SCShader code::\source:: texture, so they are not independent channels. code::scPhase:: follows renderer time, code::scAmplitude:: follows the existing code::amount:: control, and the other SC-specific analysis names currently resolve to zero. The source is not copied from Shadertoy and compatibility does not grant permission to redistribute third-party shaders.
+
+This is a supported subset, not desktop-GLSL emulation. The renderer keeps the prior valid pipeline when the Naga parse, validation, or backend compilation fails and reports source path, fragment stage, and backend diagnostics through ShaderServer's structured error channel.
+
+classmethods::
+
+method:: new
+
+argument:: name
+Symbolic definition name. A newer definition with the same name replaces the registry entry.
+
+argument:: path
+Path to a GLSL fragment source that defines code::mainImage::. Its source type is fixed to code::\shadertoy::.
+
+returns::
+A ShaderToy definition, usable wherever a ShaderDef is accepted.
+
+examples::
+
+This example uses the packaged extension. Run one demo at a time and wait for setup to finish. It creates its own resources; no earlier example is required. See link::Guides/SCShader:: for the full walkthrough.
+
+code::
+(
+var source = ShaderDef.filenameSymbol.asString.dirname.dirname +/+ "shaders/shadertoy_gradient.frag";
+v = ShaderServer.new(\toyHelp);
+v.waitForBoot { |server|
+    d = ShaderToy(\helpGradient, source);
+    x = Shader(d, [\amount, 0.5], server);
+};
+)
+::
+
+Cleanup before starting another example; wait for any renderer window to close:
+
+code::
+(
+x.free; d.free; v.free;
+)
+::
+
+subsection:: See also
+
+link::Guides/SCShader::
+link::Classes/ShaderDef::
+link::Classes/Shader::
+link::Classes/ShaderTexture::
+link::Classes/ShaderWindow::

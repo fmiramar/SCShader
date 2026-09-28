@@ -1,0 +1,50 @@
+class:: ShaderWaveformTexture
+summary:: Controlled-rate recent-waveform stream for SCShader's spectrum binding
+categories:: External>Graphics
+related:: Guides/SCShader, Classes/ShaderBuffer, Classes/ShaderFFTTexture, Classes/Shader
+
+description::
+ShaderWaveformTexture samples a recent window from a mono audio bus and writes its values into an owned link::Classes/ShaderBuffer::. At each requested visual update, a bank of delay-and-latch readers captures points across the recent code::window:: duration. The resulting one-row Float32 GPU texture shares the fixed code::spectrum:: binding with link::Classes/ShaderFFTTexture::, so bind it with code::shader.setTexture(\spectrum, waveform)::.
+
+This is a visual-rate snapshot, not an audio-rate oscilloscope and not a replacement for a SuperCollider Scope. It favors a bounded, explicit 2 through 8192 point count and blob transfer into the renderer over unbounded server polling. Relative to vanilla code::DelayN:: and code::Latch::, it combines those familiar UGens into a renderer-mappable waveform resource.
+
+classmethods::
+
+method:: new
+
+argument:: server
+Booted audio Server that owns code::source::.
+
+argument:: source
+Non-negative mono audio-bus index.
+
+argument:: points
+Number of captured samples from 2 through 8192. Defaults to 512.
+
+argument:: window
+Recent capture duration in seconds. Must be positive. Defaults to 0.05.
+
+argument:: rate
+Positive reply rate in Hz. Defaults to 30.
+
+argument:: shaderServer
+Ready ShaderServer that owns the resulting ShaderBuffer. Defaults to code::ShaderServer.default::.
+
+instancemethods::
+
+method:: start
+
+discussion::
+Creates the capture Synth and OSC responder. Call it from a Routine because it synchronizes the generated SynthDef. The capture Synth runs at the audio server's default-group tail.
+
+method:: free
+
+discussion::
+Frees the OSC responder, capture Synth, and owned ShaderBuffer.
+
+subsection:: See also
+
+link::Guides/SCShader::
+link::Classes/ShaderBuffer::
+link::Classes/ShaderFFTTexture::
+link::Classes/Shader::

@@ -1,0 +1,125 @@
+class:: ShaderBus
+summary:: Visual-rate, language-owned control bus for Shader uniforms
+categories:: External>Graphics
+related:: Guides/SCShader, Classes/Shader, Classes/ShaderAnalysis
+
+description::
+ShaderBus holds one or more floating-point visual controls in code::sclang::. It batches all mapped changes destined for each Shader into one timestamped renderer bundle, so a Pattern, MIDI responder, Routine, or language-side analysis process does not need to issue a separate message for every mapped uniform.
+
+The bus smooths in the language at 60 Hz. A code::smoothing:: value of zero applies a new value on its next scheduled flush; larger values retain more of the previous value at each step. Map any reflected float control, including code::amount::. Bus updates replace an active renderer-side glide for that control. Unlike a server control bus, ShaderBus does not poll code::scsynth::. Use link::Classes/ShaderAnalysis:: when a ShaderBus should receive audio-server analysis.
+
+classmethods::
+
+method:: control
+
+argument:: channels
+Number of control channels. Must be a positive Integer. Defaults to 1.
+
+argument:: smoothing
+Per-60-Hz-step retained fraction from 0 (immediate) to less than 1 (slower). Defaults to 0.
+
+method:: new
+
+argument:: channels
+Number of control channels. Must be a positive Integer. Defaults to 1.
+
+argument:: smoothing
+Per-60-Hz-step retained fraction from 0 (immediate) to less than 1 (slower). Defaults to 0.
+
+instancemethods::
+
+method:: set
+
+argument:: value
+Finite Float to assign as the channel's destination value.
+
+argument:: channel
+Zero-based control channel. Defaults to 0.
+
+discussion::
+Schedules a coalesced visual-rate flush. Calling code::set:: several times before the next flush sends only the final destination for that step.
+
+method:: setn
+
+argument:: start
+Zero-based first channel. Defaults to 0.
+
+argument:: array
+Finite numeric values for consecutive channels.
+
+method:: value
+
+argument:: channel
+Zero-based control channel. Defaults to 0.
+
+returns::
+The current smoothed value, which can differ briefly from the destination set with code::set::.
+
+method:: map
+
+argument:: shader
+Running or pending link::Classes/Shader:: to receive the value.
+
+argument:: uniform
+Reflected float uniform name.
+
+argument:: channel
+Zero-based control channel. Defaults to 0.
+
+discussion::
+Maps one channel to one uniform. Repeating the same Shader/uniform mapping replaces its earlier channel mapping.
+
+method:: unmap
+
+argument:: shader
+Previously mapped Shader.
+
+argument:: uniform
+Previously mapped uniform name.
+
+method:: flush
+
+argument:: latency
+Optional non-negative renderer lead time in seconds. Defaults to each mapped ShaderServer's code::latency::.
+
+discussion::
+Advances smoothing once and dispatches a batch immediately. Normal use does not need this method because code::set:: schedules it automatically; it is useful to establish a known value before a performance starts.
+
+method:: free
+
+discussion::
+Stops future automatic updates and removes mappings. It does not free mapped Shaders.
+
+examples::
+
+This example uses the packaged extension. Run one demo at a time and wait for setup to finish. It creates its own resources; no earlier example is required. See link::Guides/SCShader:: for the full walkthrough.
+
+code::
+(
+var source = ShaderDef.filenameSymbol.asString.dirname.dirname +/+ "shaders/fullscreen.wgsl";
+v = ShaderServer.new(\busHelp);
+v.waitForBoot { |server|
+    d = ShaderDef(\helpPulse, source);
+    x = Shader(d, [\amount, 0.5], server);
+    b = ShaderBus.control(1, 0.15);
+    x.map(\amount, b);
+    b.set(0.8);
+};
+)
+::
+
+Cleanup before starting another example; wait for any renderer window to close:
+
+code::
+(
+b.free;
+v.clearScheduled;
+x.free; d.free; v.free;
+)
+::
+
+subsection:: See also
+
+link::Guides/SCShader::
+link::Classes/Shader::
+link::Classes/ShaderAnalysis::

@@ -1,0 +1,125 @@
+class:: ShaderAnalysis
+summary:: Controlled-rate scsynth analysis bridge for ShaderBus mappings
+categories:: External>Graphics
+related:: Guides/SCShader, Classes/ShaderBus, Classes/Shader
+
+description::
+ShaderAnalysis creates a small code::scsynth:: SynthDef that reads a mono audio bus and sends compact, controlled-rate code::SendReply:: data back to the language. It exposes one link::Classes/ShaderBus:: per selected descriptor, making analysis values directly mappable to Shader uniforms without writing OSC routing by hand.
+
+The available descriptors are code::\amplitude::, code::\pitch::, code::\confidence::, code::\centroid::, code::\flatness::, code::\onset::, and code::\zeroCrossing::. It uses standard SuperCollider UGens: code::Amplitude::, code::Pitch::, code::SpecCentroid::, code::SpecFlatness::, code::Onsets::, and code::ZeroCrossing::. It is not an audio-rate visual transport: choose a deliberate reply rate such as 30, 60, or 120 Hz. The analysis Synth is placed at the audio server's default-group tail so ordinary source Synths write their buses first.
+
+Relative to vanilla SuperCollider analysis UGens, ShaderAnalysis does not introduce a new DSP algorithm; it packages their results as smoothing, renderer-mappable ShaderBuses. Its practical difference from a normal control Bus is that no per-frame server polling is required.
+
+classmethods::
+
+method:: new
+
+argument:: server
+Booted SuperCollider audio Server that owns code::source::.
+
+argument:: source
+Non-negative mono audio-bus index to analyse. Use code::Bus.audio(server, 1).index:: for an internal source, or 0 for the first hardware input channel.
+
+argument:: analyses
+Symbols to expose, selected from code::\amplitude, \pitch, \confidence, \centroid, \flatness, \onset, \zeroCrossing::. Defaults to code::#[\amplitude]::.
+
+argument:: rate
+Reply rate in Hz. Must be positive. Defaults to 30.
+
+argument:: smoothing
+ShaderBus smoothing retained fraction from 0 to less than 1. Defaults to 0.
+
+instancemethods::
+
+method:: start
+
+discussion::
+Sends and synchronizes the generated SynthDef, then starts the analysis Synth. Call this method from a Routine because it uses code::server.sync::. Repeated calls while it is already running do nothing.
+
+method:: at
+
+argument:: analysis
+One requested descriptor symbol.
+
+returns::
+The descriptor's ShaderBus, or code::nil:: when it was not requested. The bracket form code::analysis[\amplitude]:: calls this method.
+
+method:: set
+
+argument:: analysis
+One requested descriptor symbol.
+
+argument:: value
+Finite numeric destination value. This is useful when an external analyser supplies data using the same mapping interface.
+
+method:: flush
+
+argument:: latency
+Optional renderer lead time in seconds, passed to each contained ShaderBus.
+
+method:: free
+
+discussion::
+Frees the language OSC responder and analysis Synth. It does not free the source Synth, source Bus, mapped ShaderBuses, or Shaders.
+
+examples::
+
+This example uses the packaged extension. Run one demo at a time and wait for setup to finish. It creates its own resources; no earlier example is required. See link::Guides/SCShader:: for the full walkthrough.
+
+code::
+(
+var source = ShaderDef.filenameSymbol.asString.dirname.dirname +/+ "shaders/fullscreen.wgsl";
+v = ShaderServer.new(\guideAnalysis);
+v.waitForBoot { |server|
+    d = ShaderDef(\guideAmplitude, source);
+    x = Shader(d, [\amount, 0.8], server);
+    s.waitForBoot {
+        ~scShaderSetup = Routine({
+            var deadline = Main.elapsedTime + 5;
+            while({ x.isRunning.not and: { Main.elapsedTime < deadline } }, { 0.01.wait });
+            if(x.isRunning.not) { Error("Shader did not become ready; inspect x.lastError.").throw };
+            ~scShaderSample = Buffer.readChannel(s, ExampleFiles.child, channels: [0]);
+            ~scShaderAudioBus = Bus.audio(s, 1);
+            SynthDef(\scShaderGuideSource, { |out = 0, bufnum = 0|
+                var signal = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum), loop: 1);
+                // signal = SoundIn.ar(0); // optional live input instead
+                signal = signal * Line.kr(0, 1, 0.1);
+                Out.ar(out, signal);
+                Out.ar(0, (signal * 0.12) ! 2);
+            }).add;
+            s.sync; // buffer and SynthDef must be ready before playback
+            ~scShaderAudio = Synth(\scShaderGuideSource,
+                [\out, ~scShaderAudioBus.index, \bufnum, ~scShaderSample.bufnum]);
+            ~scShaderAnalysis = ShaderAnalysis(s, ~scShaderAudioBus.index,
+                [\amplitude, \centroid], 30, 0.12);
+            ~scShaderAnalysis.start;
+            x.map(\amount, ~scShaderAnalysis[\amplitude]);
+        }).play(SystemClock);
+    };
+};
+)
+::
+
+Cleanup before starting another example; wait for any renderer window to close:
+
+code::
+(
+~scShaderSetup.tryPerform(\stop);
+~scShaderAnalysis.tryPerform(\free);
+~scShaderAnalysis.tryPerform(\at, \amplitude).tryPerform(\free);
+~scShaderAnalysis.tryPerform(\at, \centroid).tryPerform(\free);
+~scShaderAudio.tryPerform(\free);
+~scShaderAudioBus.tryPerform(\free);
+~scShaderSample.tryPerform(\free);
+v.clearScheduled; // discard already-scheduled bus updates before freeing x
+x.tryPerform(\free); d.tryPerform(\free);
+v.free;
+// Leave the audio server running; do not stop unrelated audio.
+)
+::
+
+subsection:: See also
+
+link::Guides/SCShader::
+link::Classes/ShaderBus::
+link::Classes/Shader::

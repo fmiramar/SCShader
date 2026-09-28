@@ -1,0 +1,76 @@
+class:: ShaderDef
+summary:: File-backed shader definition for the SCShader fullscreen ABI
+categories:: External>Graphics
+related:: Guides/SCShader, Classes/Shader, Classes/ShaderServer
+
+description::
+Describes a reusable WGSL, supported-subset GLSL, or Shadertoy-style source file before it becomes a live link::Classes/Shader:: resource. This class does not compile SuperCollider code into a shader. It registers definitions by name so code::Shader(\name):: can resolve a definition later.
+
+Each resource has an independent fullscreen pipeline. Native WGSL retains code::vs_main:: and code::fs_main:: and the existing built-in uniform binding. An optional flat struct at group 0, binding 4 supplies user controls. Naga reflects its offsets and types: code::float::, code::int::, code::uint::, code::bool::, code::vec2::, code::vec3::, code::vec4::, code::mat2::, code::mat3::, and code::mat4::. Vectors and matrices use Float32 components. The reserved code::amount: float:: remains at binding 0. Arrays, nested structs, non-square matrices, and integer vectors are not supported controls.
+
+GPU uniform storage cannot contain a native boolean. Use a code::u32:: member and a source comment such as code::// @scshader bool enabled::, then test it against zero in the shader. User fields start at zero, including matrices; supply identity matrices explicitly. The limit is 127 custom fields and 16 KiB of uniform data.
+
+classmethods::
+
+method:: new
+
+argument:: name
+Symbolic definition name. Creating another definition with the same name replaces the registry entry.
+
+argument:: path
+Source path. It is read and compiled by the renderer when a live Shader is created or reloaded.
+
+argument:: uniforms
+Optional Event declaring types needed before creation, for example code::(gain: \float, color: \vec4)::. Omit it to discover custom controls from the renderer after creation. This is validation metadata, not a GPU layout declaration; the renderer's full reflection is authoritative. The built-in code::amount:: is always present.
+
+argument:: sourceType
+code::\wgsl:: for native WGSL (default), code::\glsl:: for the documented GLSL 4.50 fragment subset, or code::\shadertoy:: for the code::mainImage:: wrapper. link::Classes/ShaderToy:: is the shorter constructor for the latter.
+
+method:: at
+
+argument:: name
+Definition name to look up.
+
+returns::
+The registered ShaderDef or code::nil::.
+
+instancemethods::
+
+method:: uniformType
+
+argument:: uniformName
+Control name to query.
+
+returns::
+The declared type Symbol, or nil. For authoritative live reflection, inspect code::shader.uniforms:: after creation.
+
+method:: free
+
+discussion::
+Removes this definition from the name registry. Existing live Shaders retain their stored definition and are not automatically freed.
+
+examples::
+
+This example uses the packaged extension. Run one demo at a time and wait for setup to finish. It creates its own resources; no earlier example is required. See link::Guides/SCShader:: for the full walkthrough.
+
+code::
+(
+var source = ShaderDef.filenameSymbol.asString.dirname.dirname +/+ "shaders/fullscreen.wgsl";
+d = ShaderDef(\helpDefinition, source);
+d.uniformType(\amount).postln;
+)
+::
+
+Cleanup before starting another example; wait for any renderer window to close:
+
+code::
+(
+d.free;
+)
+::
+
+subsection:: See also
+
+link::Guides/SCShader::
+link::Classes/Shader::
+link::Classes/ShaderServer::

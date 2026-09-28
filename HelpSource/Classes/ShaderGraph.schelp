@@ -1,0 +1,122 @@
+class:: ShaderGraph
+summary:: Validated linear multipass chain for SCShader
+categories:: External>Graphics
+related:: Guides/SCShader, Classes/Shader, Classes/ShaderTexture
+
+description::
+ShaderGraph validates and commits a sequence of live link::Classes/Shader:: resources to the renderer. Each pass renders into a renderer-owned ping-pong target, and the next pass samples that completed target; the terminal pass renders to the native window and stores the next feedback frame. Every Shader retains its own WGSL pipeline and code::amount:: uniform state, so two passes may use different source files and control values.
+
+This first graph implementation is intentionally a connected acyclic linear chain: one code::\out:: to one code::\source:: input for each non-terminal pass. It rejects branches, missing nodes, ordinary cycles, node/server mismatches, duplicate inputs or outputs, and freed resources before it sends a graph change. An explicit code::connectFeedback:: edge may target only the terminal pass; it makes the prior completed chain output the following frame's first-pass source. General directed acyclic graphs, per-edge texture formats/dimensions, independent branch outputs, and arbitrary cyclic feedback nodes remain future work.
+
+Relative to link::Classes/Shader:: alone, ShaderGraph changes the renderer from one selected fullscreen pipeline to a safe sequence of fullscreen passes. It is not a general node graph or a substitute for a GPU compositor.
+
+classmethods::
+
+method:: new
+
+argument:: server
+Ready ShaderServer shared by all graph nodes. Defaults to code::ShaderServer.default::.
+
+instancemethods::
+
+method:: add
+
+argument:: shader
+Live Shader on this graph's ShaderServer.
+
+method:: remove
+
+argument:: shader
+Previously added Shader. Its normal and feedback edges are also removed.
+
+method:: connect
+
+argument:: from
+Source Shader pass.
+
+argument:: output
+Must be code::\out::. Defaults to code::\out::.
+
+argument:: to
+Destination Shader pass.
+
+argument:: input
+Must be code::\source::. Defaults to code::\source::.
+
+method:: connectFeedback
+
+argument:: shader
+Terminal Shader pass in an already connected chain.
+
+argument:: amount
+Finite prior-frame feedback mix from 0 through 1. Defaults to 0.98.
+
+discussion::
+Creates the graph's only currently supported feedback edge. It is applied through the renderer's prior-frame targets and therefore has the normal feedback warmup: the first frame reads the cleared black target.
+
+method:: validate
+
+returns::
+The validated Shader array in render order. Throws before sending OSC if the graph is malformed.
+
+method:: commit
+
+returns::
+The committed Shader array in render order.
+
+discussion::
+Sends the full validated pass sequence atomically to the renderer. The renderer retains the previously committed graph when it rejects an invalid resource ID.
+
+method:: clear
+
+discussion::
+Removes all graph nodes and restores the renderer's normal selected-Shader display path.
+
+method:: free
+
+discussion::
+Clears the renderer graph and marks this language graph unusable. It does not free node Shaders.
+
+examples::
+
+This example uses the packaged extension. Run one demo at a time and wait for setup to finish. It creates its own resources; no earlier example is required. See link::Guides/SCShader:: for the full walkthrough.
+
+code::
+(
+var source = ShaderDef.filenameSymbol.asString.dirname.dirname +/+ "shaders/fullscreen.wgsl";
+v = ShaderServer.new(\guideGraph);
+v.waitForBoot { |server|
+    d = ShaderDef(\guidePass, source);
+    a = Shader(d, [\amount, 0.35], server);
+    b = Shader(d, [\amount, 0.8], server);
+    ~scShaderSetup = Routine({
+        var deadline = Main.elapsedTime + 5;
+        while({ (a.isRunning.not or: { b.isRunning.not })
+            and: { Main.elapsedTime < deadline } }, { 0.01.wait });
+        if(a.isRunning.not or: { b.isRunning.not }) {
+            Error("Both graph shaders must become ready.").throw;
+        };
+        g = ShaderGraph(server);
+        g.add(a).connect(a, \out, b, \source);
+        g.commit;
+    }).play(SystemClock);
+};
+)
+::
+
+Cleanup before starting another example; wait for any renderer window to close:
+
+code::
+(
+~scShaderSetup.tryPerform(\stop);
+g.tryPerform(\free);
+a.tryPerform(\free); b.tryPerform(\free);
+d.tryPerform(\free); v.free;
+)
+::
+
+subsection:: See also
+
+link::Guides/SCShader::
+link::Classes/Shader::
+link::Classes/ShaderTexture::

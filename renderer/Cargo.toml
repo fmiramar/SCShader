@@ -1,0 +1,24 @@
+[package]
+name = "scshader-renderer"
+version = "0.0.17"
+edition = "2024"
+rust-version = "1.97.1"
+description = "Process-separated renderer for the SCShader SuperCollider shader interface"
+license = "GPL-3.0-or-later"
+publish = false
+
+[dependencies]
+bytemuck = { version = "=1.25.2", features = ["derive"] }
+image = { version = "=0.25.8", default-features = false, features = ["jpeg", "png", "pnm"] }
+pollster = "=1.0.1"
+rosc = "=0.11.4"
+wgpu = { version = "=30.0.0", features = ["glsl"] }
+winit = "=0.30.13"
+
+[features]
+gpu-counters = ["wgpu/counters"]
+gpu-test-hooks = []
+
+[profile.release]
+lto = "thin"
+strip = true

@@ -1,0 +1,183 @@
+class:: ShaderWindow
+summary:: One renderer-owned native window controlled from SuperCollider
+categories:: External>Graphics
+related:: Guides/SCShader, Classes/ShaderServer
+
+description::
+Represents the one native window owned by an SCShader renderer. Create it before code::ShaderServer.boot:: to select the initial logical size, title, placement, decorations, monitor, VSync, and cursor state. The renderer runs independently of SuperCollider and owns the actual window; this class is a loopback OSC controller, not a code::Window:: subclass and cannot embed into Qt views.
+
+One code::ShaderServer:: supports one code::ShaderWindow:: in this milestone. A renderer can run on the requested monitor and can be switched to borderless fullscreen, but independently rendered multiple windows and dynamically changing monitors are not implemented. code::close:: closes that native window and therefore stops its owning renderer process.
+
+code::size:: and code::position:: are logical display units. After a metrics reply, code::logicalSize::, code::pixelSize::, and code::pixelRatio:: report the actual window geometry so HiDPI code can distinguish points from framebuffer pixels.
+
+Input delivery is disabled by default. When code::inputEnabled:: is true, mouse positions are normalized to 0 through 1 across the current framebuffer; mouse moves are coalesced to at most one event per rendered frame, while button, key, focus, and resize events are delivered as they arrive. Key names are window-system logical keys, not raw hardware scan codes.
+
+classmethods::
+
+method:: new
+
+argument:: width
+Initial positive logical width. Default 1280.
+
+argument:: height
+Initial positive logical height. Default 720.
+
+argument:: title
+Initial non-empty title. Default code::"SCShader"::.
+
+argument:: server
+Owning code::ShaderServer::. Default code::ShaderServer.default::.
+
+instancemethods::
+
+method:: size
+
+argument:: value
+A code::Point:: of positive integer logical width and height. Sends a resize immediately when the renderer is running.
+
+returns::
+The requested logical width and height as a code::Point::.
+
+method:: width
+
+argument:: value
+A positive integer logical width.
+
+method:: height
+
+argument:: value
+A positive integer logical height.
+
+method:: title
+
+argument:: value
+A non-empty title string.
+
+method:: position
+
+argument:: value
+A code::Point:: of integer logical screen coordinates. The window system may constrain the final location; inspect code::position:: after a metrics reply.
+
+method:: fullscreen
+
+argument:: value
+True requests borderless fullscreen on the current window monitor; false returns to windowed mode.
+
+method:: borderless
+
+argument:: value
+True removes native decorations in windowed mode.
+
+method:: monitor
+
+argument:: value
+A zero-based non-negative monitor index, used only when the renderer starts in fullscreen mode. Set before booting; changing a running renderer's monitor is not implemented.
+
+method:: vsync
+
+argument:: value
+True selects the renderer's automatic VSync present mode; false requests automatic non-VSync presentation where the platform supports it.
+
+method:: cursorVisible
+
+argument:: value
+Whether the native window displays its cursor.
+
+method:: inputEnabled
+
+argument:: value
+Enables or disables renderer-to-language input events. Default false.
+
+method:: front
+
+discussion::
+Makes the renderer window visible and requests window focus where the platform permits it.
+
+method:: close
+
+discussion::
+Closes the renderer-owned native window. Because this milestone has one window per renderer, it also ends the renderer process; use code::ShaderServer.quit:: when process lifecycle is the intended operation.
+
+method:: requestMetrics
+
+discussion::
+Requests a fresh metrics reply. The class also receives one after readiness and after a supported runtime property change.
+
+method:: logicalSize
+
+returns::
+The latest actual logical client-area size as a code::Point::.
+
+method:: pixelSize
+
+returns::
+The latest actual framebuffer size as a code::Point::.
+
+method:: pixelRatio
+
+returns::
+The latest framebuffer-pixels-per-logical-unit scale factor.
+
+method:: mouseMoveAction
+
+argument:: function
+An optional Function called as code::{ |window, normalizedPosition| ... }::. Mouse motion is coalesced to at most once per rendered frame.
+
+method:: mouseDownAction
+
+argument:: function
+An optional Function called as code::{ |window, normalizedPosition, button| ... }::. Button values are 0 left, 1 right, 2 middle, 3 back, 4 forward, or the platform's other button value.
+
+method:: mouseUpAction
+
+argument:: function
+An optional Function called with the same arguments as code::mouseDownAction::.
+
+method:: keyDownAction
+
+argument:: function
+An optional Function called as code::{ |window, key, repeat| ... }::. code::key:: is a logical key-name string and code::repeat:: is a Boolean.
+
+method:: keyUpAction
+
+argument:: function
+An optional Function called as code::{ |window, key, repeat| ... }::.
+
+method:: resizeAction
+
+argument:: function
+An optional Function called as code::{ |window, logicalSize, pixelSize, pixelRatio| ... }::. This requires code::inputEnabled::.
+
+method:: focusAction
+
+argument:: function
+An optional Function called as code::{ |window, focused| ... }::. This requires code::inputEnabled::.
+
+examples::
+
+This example uses the packaged extension. Run one demo at a time and wait for setup to finish. It creates its own resources; no earlier example is required. See link::Guides/SCShader:: for the full walkthrough.
+
+code::
+(
+v = ShaderServer.new(\guideWindow);
+w = ShaderWindow.new(960, 540, "SCShader", v);
+w.inputEnabled_(true);
+w.mouseDownAction_({ |window, point, button| [point, button].postln });
+v.waitForBoot { |server|
+    server.status { |receiver, status| status.postln };
+};
+)
+::
+
+Cleanup before starting another example; wait for any renderer window to close:
+
+code::
+(
+w.free; v.free;
+)
+::
+
+subsection:: See also
+
+link::Guides/SCShader::
+link::Classes/ShaderServer::

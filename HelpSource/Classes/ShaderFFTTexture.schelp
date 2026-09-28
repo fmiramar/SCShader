@@ -1,0 +1,101 @@
+class:: ShaderFFTTexture
+summary:: Controlled-rate FFT-magnitude stream for SCShader's spectrum binding
+categories:: External>Graphics
+related:: Guides/SCShader, Classes/ShaderBuffer, Classes/ShaderWaveformTexture, Classes/Shader
+
+description::
+ShaderFFTTexture reads a mono audio bus, computes a standard SuperCollider FFT, extracts linear magnitudes, and maintains them in an owned link::Classes/ShaderBuffer::. Its name describes the shader-facing result: a one-row Float32 GPU texture at the fixed code::spectrum:: binding, not a general image link::Classes/ShaderTexture::. The stream is sent from code::scsynth:: by controlled-rate code::SendReply:: packets, then relayed from the language to the renderer as float32 OSC blobs.
+
+The requested code::rate:: is an upper target rate. Replies are quantized to FFT-window boundaries and reduced with code::PulseDivider::, so an FFT whose hop rate is below the requested rate cannot exceed its natural update rate. Magnitudes are raw linear FFT-bin values; normalize, compress, or log-scale them in the shader or in a future mapping layer. The implementation extracts demand-rate bins in groups of at most 32 because of SuperCollider's Demand input limit.
+
+Relative to vanilla link::Classes/FFT::, this class keeps FFT work in code::scsynth:: but packages the resulting magnitudes for GPU use. It does not make FFT data audio-rate in the renderer and has no phase, mel, chroma, or shared-memory modes.
+
+classmethods::
+
+method:: new
+
+argument:: server
+Booted audio Server that owns code::source::.
+
+argument:: source
+Non-negative mono audio-bus index.
+
+argument:: fftSize
+Power-of-two FFT size from 64 through 16384. Defaults to 2048. The ShaderBuffer has code::fftSize / 2:: bins.
+
+argument:: rate
+Positive desired maximum reply rate in Hz. Defaults to 30.
+
+argument:: shaderServer
+Ready ShaderServer that owns the resulting ShaderBuffer. Defaults to code::ShaderServer.default::.
+
+instancemethods::
+
+method:: start
+
+discussion::
+Creates the analysis Synth and OSC responder. Call it from a Routine because it synchronizes the generated SynthDef. The Synth is placed at the audio server's default-group tail so ordinary sources write their bus first.
+
+method:: free
+
+discussion::
+Frees the OSC responder, analysis Synth, and owned ShaderBuffer.
+
+examples::
+
+This example uses the packaged extension. Run one demo at a time and wait for setup to finish. It creates its own resources; no earlier example is required. See link::Guides/SCShader:: for the full walkthrough.
+
+code::
+(
+var source = ShaderDef.filenameSymbol.asString.dirname.dirname +/+ "shaders/spectrum_bars.wgsl";
+v = ShaderServer.new(\guideFFT);
+v.waitForBoot { |server|
+    d = ShaderDef(\guideSpectrum, source);
+    x = Shader(d, [\amount, 0.8], server);
+    s.waitForBoot {
+        ~scShaderSetup = Routine({
+            var deadline = Main.elapsedTime + 5;
+            while({ x.isRunning.not and: { Main.elapsedTime < deadline } }, { 0.01.wait });
+            if(x.isRunning.not) { Error("Shader did not become ready; inspect x.lastError.").throw };
+            ~scShaderSample = Buffer.readChannel(s, ExampleFiles.child, channels: [0]);
+            ~scShaderAudioBus = Bus.audio(s, 1);
+            SynthDef(\scShaderGuideSource, { |out = 0, bufnum = 0|
+                var signal = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum), loop: 1);
+                // signal = SoundIn.ar(0); // optional live input instead
+                signal = signal * Line.kr(0, 1, 0.1);
+                Out.ar(out, signal);
+                Out.ar(0, (signal * 0.12) ! 2);
+            }).add;
+            s.sync; // buffer and SynthDef must be ready before playback
+            ~scShaderAudio = Synth(\scShaderGuideSource,
+                [\out, ~scShaderAudioBus.index, \bufnum, ~scShaderSample.bufnum]);
+            ~scShaderFFT = ShaderFFTTexture(s, ~scShaderAudioBus.index, 2048, 30, server);
+            ~scShaderFFT.start;
+            x.setTexture(\spectrum, ~scShaderFFT);
+        }).play(SystemClock);
+    };
+};
+)
+::
+
+Cleanup before starting another example; wait for any renderer window to close:
+
+code::
+(
+~scShaderSetup.tryPerform(\stop);
+x.tryPerform(\free);
+~scShaderFFT.tryPerform(\free);
+~scShaderAudio.tryPerform(\free);
+~scShaderAudioBus.tryPerform(\free);
+~scShaderSample.tryPerform(\free);
+d.tryPerform(\free); v.free;
+// Leave the audio server running; do not stop unrelated audio.
+)
+::
+
+subsection:: See also
+
+link::Guides/SCShader::
+link::Classes/ShaderBuffer::
+link::Classes/ShaderWaveformTexture::
+link::Classes/Shader::

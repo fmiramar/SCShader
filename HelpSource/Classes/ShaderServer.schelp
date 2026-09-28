@@ -1,0 +1,226 @@
+class:: ShaderServer
+summary:: Controller for the separate SCShader renderer process
+categories:: External>Graphics
+related:: Guides/SCShader, Classes/ShaderWindow
+
+description::
+Controls a local SCShader renderer over loopback OSC. The renderer owns GPU and window-system work in an independent Rust process, while this class handles executable launching, v1 readiness, diagnostic replies, process exit, ping barriers, clock-offset estimation, timed bundles, and status requests. It does not communicate with code::scsynth:: and cannot put GPU work into SuperCollider's audio thread.
+
+Executable discovery checks an explicit code::rendererPath::, the extension's bundled renderer, code::SCSHADER_RENDERER::, and then code::PATH::. Windows uses code::scshader-renderer.exe::. An explicit missing path fails instead of silently choosing another executable. For source builds, set code::rendererPath:: explicitly. The controller sends only v1 OSC messages. One link::Classes/ShaderWindow:: can retain multiple fullscreen Shader resources; link::Classes/ShaderGraph:: selects a safe linear multipass sequence rather than providing a general multi-window visual graph.
+
+A reboot waits for the old child to exit before launching its replacement. A previous shutdown's delayed termination callback cannot target the new process. Old Shader handles become freed when their renderer exits; clock estimates reset on a new boot. Recreate resources after reboot: automatic scene restoration is not implemented.
+
+A GPU device loss within the running process permits one controlled recreation. Last-valid shader sources, controls and ramps, decoded images, data buffers, graph bindings, resource IDs, frame count, and clocks survive this attempt. Feedback and intermediate frame history clear to black. A second loss, failed recovery, or uncaptured GPU validation/out-of-memory error exits with code 70. This does not promise recovery from a driver hang or reconstruct a crashed process.
+
+classmethods::
+
+method:: rendererExecutableName
+
+returns::
+The renderer filename for the current platform, including code::.exe:: on Windows.
+
+method:: default
+
+returns::
+The default local controller at loopback port 57140.
+
+method:: local
+
+returns::
+The local controller, currently the same object as code::default::.
+
+method:: new
+
+argument:: name
+An identifier used in diagnostics and OSC responder names.
+
+argument:: host
+Renderer host. The renderer itself binds only to loopback in this milestone.
+
+argument:: port
+Renderer UDP port. Choose a free loopback port when running more than one development instance.
+
+instancemethods::
+
+method:: rendererPath
+
+argument:: path
+Executable path set before code::boot::. Omit it to discover the bundled renderer in a packaged installation. A missing executable is reported clearly.
+
+method:: rendererArgs
+
+argument:: args
+Additional command-line argument strings placed before the controller's code::--listen-port:: argument. Set before booting.
+
+discussion::
+When a link::Classes/ShaderWindow:: is registered before booting, its generated startup options are added after these arguments. Do not provide conflicting window flags through this low-level property.
+Use code::["--backend", "dx12"]:: or code::["--backend", "vulkan"]:: for backend testing. Linux also accepts code::["--window-system", "x11"]:: or code::["--window-system", "wayland"]::. The defaults select Metal on macOS, Direct3D 12 on Windows, and Vulkan on Linux, with automatic display selection. Unsupported explicit choices fail; native Windows/Linux qualification remains separate from compilation.
+
+method:: boot
+
+argument:: onFailure
+Optional function evaluated with the controller and lifecycle error Event when the child exits or cannot finish the handshake.
+
+discussion::
+Launches the configured child process and retries the v1 hello message for up to five seconds. A successful reply updates code::isRunning::, code::version::, code::backend::, and code::device::. This method is asynchronous; use code::waitForBoot:: before sending resource commands.
+
+method:: waitForBoot
+
+argument:: action
+Function evaluated with the ready controller.
+
+argument:: onFailure
+Optional function evaluated with the controller and error Event.
+
+method:: quit
+
+argument:: onComplete
+Optional function evaluated after the locally launched child exits. The controller first sends code::/scshader/v1/quit:: and terminates only its own child if it remains alive after one second.
+
+method:: reboot
+
+argument:: onComplete
+Function evaluated after the replacement renderer completes its readiness handshake.
+
+argument:: onFailure
+Optional function evaluated with a lifecycle error Event.
+
+method:: isRunning
+
+returns::
+True only after a valid ready reply and before the tracked child exits.
+
+method:: sendMsg
+
+argument:: ... args
+An OSC address followed by its arguments. Use the documented v1 protocol; this low-level method does not validate application message shapes.
+
+method:: sendBundle
+
+argument:: time
+OSC bundle time passed through to the renderer.
+
+argument:: ... messages
+One or more OSC messages.
+
+discussion::
+The renderer maps an OSC bundle's normal UTC/NTP timetag into its own monotonic clock when it receives the packet. Future commands wait in timestamp order, retaining packet order for equal timetags, and are applied before the next eligible frame. Normal SuperCollider relative bundle times work unchanged. Immediate OSC messages and the OSC immediate timetag remain immediate.
+
+The scheduled application point is not display scan-out; visual timing remains frame-oriented rather than sample-accurate. An event that is more than 50 ms overdue is applied immediately and also reports code::E_LATE_EVENT::.
+
+Future work is limited to 8192 commands including bundle containers, 16 MiB of charged payload, and one hour of lookahead. A packet has at most 256 total elements and 16 levels of nesting. Direct bundle members dispatch consecutively; a nested immediate bundle inherits its parent's deadline. Invalid packets are rejected before enqueue. A runtime resource/compile error does not roll back earlier commands in a valid bundle.
+
+method:: clearScheduled
+Discard all pending future renderer commands and cancel this controller's timing-marker callbacks. Does not undo already-applied work, cancel active glides, stop Patterns, or restore language-side cached control targets. Stop producers first if clearing a running Pattern or bus stream. A subsequent code::status:: request can confirm zero pending count and bytes; code::sync:: is an immediate command barrier, not a wait for future deadlines.
+
+returns::
+This controller.
+
+method:: scheduleMarker
+
+argument:: time
+Relative OSC bundle time, as passed to code::sendBundle::.
+
+argument:: action
+Optional function receiving the controller and a timing Event after the marker is applied. The Event contains code::sequence::, code::scheduledRendererTime::, and code::appliedRendererTime::.
+
+argument:: messages
+Optional Array of OSC messages to place before the marker in the same timed bundle. This is useful for measuring the renderer-side application timing of a uniform update; it does not measure display presentation.
+
+returns::
+The marker sequence number.
+
+method:: sync
+
+argument:: timeout
+Maximum ping/pong wait in seconds. Default 1.
+
+argument:: action
+Optional callback receiving the controller and pong reply. With an action, code::sync:: is non-blocking. Without an action it waits and must be called from a Routine.
+
+method:: status
+
+argument:: action
+Optional callback receiving the controller and a status Event.
+
+returns::
+The most recently received status Event, or code::nil:: before the first reply. The callback receives code::fps::, code::frameIndex::, code::gpuFrameMs::, code::cpuFrameMs::, code::scheduledEventCount::, code::shaderCount::, code::textureCount::, code::bufferCount::, code::windowCount::, code::scheduledPayloadBytes::, code::rejectedScheduled::, and code::droppedContinuous::. Future-event counts include bundle containers; bytes are charged live payload, not total process memory. Rejected/dropped packet counters persist until the renderer restarts. Older renderers without these last three fields report zero defaults. code::shaderCount:: excludes the renderer's built-in fallback. code::gpuFrameMs:: is code::-1:: when timestamp queries are unavailable.
+
+discussion::
+Version 0.0.14 also appends code::lateEventCount::, code::textureBytesEstimate::, code::showStats::, code::gpuRecoveryCount::, and code::lastCompileOK:: to status Events. Texture bytes exclude CPU image caches, swapchain, and driver overhead. Last compile result describes the most recent attempt; a failed attempt retains its previous valid pipeline. Missing old-renderer fields use zero/false defaults, with code::lastCompileOK:: defaulting true.
+
+Version 0.0.16 appends code::suppressedDiagnostics::, defaulting to zero for older renderers. Structured diagnostics and their log entries share a burst of 20 plus 20 per second across all senders. Further errors increment this lifetime counter without replying or logging. Critical GPU device-loss/fatal errors bypass the rate limit. Status and successful replies remain available; stop flooding invalid requests before relying on individual error replies. Diagnostic message bodies are limited to 4096 UTF-8 bytes plus a truncation marker. GPU recovery retains the budget/counter; a new process resets them.
+
+method:: showStats
+
+argument:: enabled
+Boolean, false by default. Enable a compact renderer overlay with frame rate, CPU frame time, backend/device, framebuffer dimensions, last compile result, scheduled/late counts, and owned-texture memory estimate. Set before boot or while running. The overlay refreshes text four times per second and is excluded from feedback; it adds a presentation pass while enabled. GPU timing remains unavailable rather than estimated.
+
+method:: recoveryAction
+
+argument:: action
+Optional function receiving the controller and recovery Event after a successful in-process GPU restart. The Event includes code::count::, code::message::, and code::feedbackHistoryCleared::. Existing Shader handles remain usable.
+
+method:: gpuRecoveryCount, lastRecovery
+Read-only count and last recovery Event. A new renderer process resets them. No GPU recovery is attempted more than once per process.
+
+method:: clockSync
+
+argument:: samples
+Number of ping/pong measurements to take. Default 8.
+
+argument:: interval
+Seconds to wait between samples. Default 0.02.
+
+argument:: timeout
+Maximum wait for each ping reply. Default 1.
+
+argument:: action
+Optional function receiving the controller and its clock estimate Event after all samples arrive.
+
+discussion::
+Runs asynchronously in a Routine. For every pong, the controller combines the SuperCollider send time, renderer reply time, and SuperCollider receive time. It retains the lowest-round-trip sample, estimating code::rendererTime = Main.elapsedTime + rendererClockOffset::. This does not presume the two process clocks share a start epoch.
+
+method:: clockEstimate
+
+returns::
+An Event containing code::rendererClockOffset::, code::roundTrip::, and code::sampleCount::. The first two fields are code::nil:: until a pong has arrived.
+
+method:: lastTiming
+
+returns::
+The latest timing-marker Event, or code::nil:: before one returns.
+
+method:: dumpOSC
+
+argument:: enabled
+Posts controller sends and received replies when true.
+
+examples::
+
+This example uses the packaged extension. Run one demo at a time and wait for setup to finish. It creates its own resources; no earlier example is required. See link::Guides/SCShader:: for the full walkthrough.
+
+code::
+(
+v = ShaderServer.new(\serverHelp);
+v.waitForBoot { |server|
+    [server.version, server.backend, server.device].postln;
+    server.status { |receiver, status| status.postln };
+};
+)
+::
+
+Cleanup before starting another example; wait for any renderer window to close:
+
+code::
+(
+v.free;
+)
+::
+
+subsection:: See also
+
+link::Guides/SCShader::
+link::Classes/ShaderWindow::
+link::Classes/ShaderDef::
+link::Classes/Shader::

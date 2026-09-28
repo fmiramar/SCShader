@@ -1,0 +1,176 @@
+class:: Shader
+summary:: Live SCShader fullscreen resource controlled from SuperCollider
+categories:: External>Graphics
+related:: Guides/SCShader, Classes/ShaderDef, Classes/ShaderToy, Classes/ShaderServer, Classes/ShaderWindow, Classes/ShaderTexture, Classes/ShaderGraph
+
+description::
+Creates a live renderer resource from a link::Classes/ShaderDef:: after its link::Classes/ShaderServer:: is ready. The language allocates an ID, sends the source path, receives reflected control names and types, and holds validated pending values until both reflection and creation are acknowledged. Flat group-0/binding-4 user controls support floats, integers, booleans, float vectors, and square float matrices in addition to the legacy code::amount:: control.
+
+Each live Shader retains an independent renderer pipeline and compact uniform state. Without a graph, the most recently created resource is presented; link::Classes/ShaderGraph:: can commit a validated linear multipass chain. The renderer compiles a candidate source before assignment. A failed create, reload, or watched file change preserves the previous valid pipeline and sets code::lastError:: from the structured code::E_SHADER_COMPILE:: reply.
+
+The registered code::\shader:: Event type makes a live Shader, a ShaderDef, or a registered ShaderDef name usable from code::Pbind::. Pattern values for reflected uniforms are sent in a timed OSC bundle after code::latency:: seconds, defaulting to code::ShaderServer.latency::. A not-yet-created Shader retains the values and sends them after its creation acknowledgement, so pre-create the Shader when the first Pattern event must obey the requested latency.
+
+classmethods::
+
+method:: new
+
+argument:: definition
+A ShaderDef or registered ShaderDef name.
+
+argument:: args
+Uniform/value pairs. Initial custom names need declared types in the ShaderDef; otherwise wait for code::isRunning:: and use code::set:: after automatic reflection arrives.
+
+argument:: server
+Ready ShaderServer. Defaults to code::ShaderServer.default::.
+
+method:: at
+
+argument:: id
+Live Shader resource ID.
+
+returns::
+The registered Shader or code::nil::.
+
+method:: atName
+
+argument:: name
+Registered ShaderDef name of a live Shader.
+
+returns::
+The most recently created non-freed Shader for that definition name, or code::nil::.
+
+instancemethods::
+
+method:: set
+
+argument:: ... pairs
+Uniform/value pairs. All pairs are validated before sending. Float components must be finite and in Float32 range; vectors and matrices require exactly their component counts, with flat column-major matrices. Signed controls require 32-bit Integers, boolean controls require true/false. For unsigned values above 2147483647, use integral Float literals such as code::4294967295.0:: because sclang Integers wrap at 32 bits. A set cancels that control's active glide.
+
+method:: setn
+
+argument:: uniformName
+Reflected vector or matrix name.
+
+argument:: values
+Flat component array. Alias for setting that one control, without implicit flattening or truncation.
+
+method:: glide
+
+argument:: uniformName
+Reflected control name on an already-running Shader.
+
+argument:: value
+Typed target value, checked like code::set::.
+
+argument:: duration
+Finite non-negative seconds, default 0.1. Zero applies immediately.
+
+argument:: mode
+code::\linear:: (default), code::\smooth:: (cubic smoothstep), or code::\step:: (immediate). Integer/bool controls allow only step. The renderer evaluates each frame from its monotonic clock; retargeting starts at the current interpolated value. Matrices interpolate components, not decomposed rotations.
+
+method:: get, getn
+
+argument:: uniformName
+Reflected control name on a live Shader.
+
+argument:: action
+Asynchronous function receiving the renderer's current value, including an in-progress glide. Request IDs associate replies with callbacks. A missing reply calls the function with nil after two seconds and records code::E_TIMEOUT::. Freeing the Shader cancels outstanding callbacks. This reads CPU-side renderer state, not GPU pixels.
+
+method:: setAt
+
+argument:: time
+Non-negative relative seconds from now.
+
+argument:: ... pairs
+Uniform/value pairs to send in one timestamped renderer bundle. The shader must already be running for its update to be scheduled; otherwise values are retained and sent after creation.
+
+method:: value
+
+argument:: uniformName
+Reflected uniform name.
+
+returns::
+A copy of the latest language-side target, or code::nil:: before a value is set. It is not the renderer's current interpolated value; use code::get:: for that.
+
+method:: setTexture
+
+argument:: name
+The supported binding name, currently code::\source::.
+
+argument:: texture
+A ShaderTexture owned by the same ShaderServer.
+
+method:: feedback
+
+argument:: source
+code::\previous:: or code::\framebuffer::. Both identify the last completed offscreen renderer frame in this one-pass implementation.
+
+argument:: amount
+Finite feedback mix from 0 through 1. Default 0.98.
+
+discussion::
+The renderer always writes its next frame to the other of two offscreen textures, then swaps them after presentation. It never samples from the texture currently being rendered. Both targets are cleared and recreated after a resize, so resizing intentionally resets feedback history.
+
+method:: reload
+
+discussion::
+Requests an immediate source reload. The renderer also polls all live source files every 250 ms, including inactive passes. Invalid edits preserve the last valid pipeline and controls. Matching names and types preserve values and ramps across successful edits; new/type-changed controls start at zero. Removed or type-changed pending values are discarded with a reflection-change warning.
+
+method:: free
+
+discussion::
+Restores the renderer's built-in fullscreen shader and removes this object's ID after the renderer confirms the free.
+
+method:: isRunning
+
+returns::
+True after the renderer acknowledges creation, including after a successful reload.
+
+method:: isFreed
+
+returns::
+True after the renderer confirms a free or rejects this ID as unavailable.
+
+method:: reloadCount
+
+returns::
+Number of successful explicit or file-watch reload acknowledgements received by this object.
+
+method:: lastError
+
+returns::
+The most recent structured renderer error Event for this resource, if any.
+
+examples::
+
+This example uses the packaged extension. Run one demo at a time and wait for setup to finish. It creates its own resources; no earlier example is required. See link::Guides/SCShader:: for the full walkthrough.
+
+code::
+(
+var source = ShaderDef.filenameSymbol.asString.dirname.dirname +/+ "shaders/fullscreen.wgsl";
+v = ShaderServer.new(\shaderHelp);
+v.waitForBoot { |server|
+    d = ShaderDef(\helpPulse, source);
+    x = Shader(d, [\amount, 0.5], server);
+    x.set(\amount, 0.8);
+};
+)
+::
+
+Cleanup before starting another example; wait for any renderer window to close:
+
+code::
+(
+x.free; d.free; v.free;
+)
+::
+
+subsection:: See also
+
+link::Guides/SCShader::
+link::Classes/ShaderDef::
+link::Classes/ShaderToy::
+link::Classes/ShaderServer::
+link::Classes/ShaderWindow::
+link::Classes/ShaderTexture::
+link::Classes/ShaderGraph::

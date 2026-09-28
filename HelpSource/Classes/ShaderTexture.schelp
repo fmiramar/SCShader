@@ -1,0 +1,40 @@
+class:: ShaderTexture
+summary:: Static image texture resource for the SCShader renderer
+categories:: External>Graphics
+related:: Guides/SCShader, Classes/Shader, Classes/ShaderServer
+
+description::
+Loads one static image into the renderer GPU process. PNG, JPEG, and PNM image decoding is provided by the maintained Rust code::image:: crate. Create it after its ShaderServer is ready, then bind it using link::Classes/Shader:: code::setTexture(\source, texture)::.
+
+The current renderer supports one named binding, code::\source::. Decode failures report code::E_TEXTURE_LOAD:: and retain the requested resource ID with a small magenta/black placeholder. Images are limited to 4096 pixels per axis or the GPU limit if smaller. The renderer caches decoded RGBA pixels for one in-process GPU-device recovery, costing four CPU bytes per pixel in addition to GPU storage. GPU failures follow ShaderServer's separate recovery/fatal-exit policy. This is not yet a video, camera, shared-memory, FFT, or general texture-reflection API.
+
+classmethods::
+
+method:: new
+
+argument:: path
+Path to a readable PNG, JPEG, or PNM image.
+
+argument:: server
+Ready ShaderServer. Defaults to code::ShaderServer.default::.
+
+method:: at
+
+argument:: id
+Texture resource ID.
+
+returns::
+The registered ShaderTexture or code::nil::.
+
+instancemethods::
+
+method:: free
+
+discussion::
+Releases the renderer texture resource. Free a texture only after rebinding the shader or disabling feedback; the renderer falls back to its black source texture if the active source is freed.
+
+subsection:: See also
+
+link::Guides/SCShader::
+link::Classes/Shader::
+link::Classes/ShaderServer::

@@ -1,0 +1,319 @@
+title:: SCShader
+summary:: Process-separated shader control for SuperCollider
+categories:: Guides>External
+related:: Classes/ShaderServer, Classes/ShaderWindow, Classes/ShaderDef, Classes/ShaderToy, Classes/Shader, Classes/ShaderTexture, Classes/ShaderBuffer, Classes/ShaderFFTTexture, Classes/ShaderWaveformTexture, Classes/ShaderGraph, Classes/ShaderBus, Classes/ShaderAnalysis
+
+section:: Architecture
+
+SCShader keeps real-time audio and GPU work separate. link::Classes/ShaderServer:: runs in the SuperCollider language and controls a local Rust renderer through loopback OSC; the renderer process owns its own window, GPU device, and render loop. code::scsynth:: is not involved in visual rendering, so a shader error or renderer crash cannot execute GPU work in the audio callback.
+
+section:: Current implementation
+
+The first renderer displays an original fullscreen WGSL animation in one configurable native window. link::Classes/ShaderWindow:: selects its startup logical size, title, position, decorations, fullscreen monitor, VSync, and cursor visibility, then changes the supported properties at runtime. It reports logical size, framebuffer size, and pixel ratio separately, which matters on HiDPI displays. The renderer supports v1 hello/ready, ping/pong, status, timed bundle markers, structured error, and quit messages. Status reports CPU-side frame timing and counters; GPU frame time is code::-1:: when timestamp queries are unavailable.
+
+link::Classes/ShaderServer:: launches a configured or packaged renderer executable, retries the v1 handshake, tracks child-process exit, sends ping barriers, estimates its clock relation, and requests status. One controller owns one link::Classes/ShaderWindow::; closing the window stops its renderer. Input is opt-in, with normalized mouse positions and logical keyboard/focus/resize events. link::Classes/ShaderDef:: describes a WGSL, supported GLSL, or Shadertoy source. link::Classes/Shader:: owns an independent pipeline, validates typed controls, supports reload/free replies, and registers the code::\shader:: Event type for normal Pattern use.
+
+The renderer polls all live source files four times per second, including inactive graph passes. A candidate's reflection and pipeline must validate before replacement. If parsing, validation, or reading fails, the last valid image and controls remain active and code::E_SHADER_COMPILE:: is reported. Successful reloads preserve matching control names/types and active glides; changed types reset to zero.
+
+Incoming OSC packets and future work have separate bounds. Future scheduling admits at most 8192 commands including bundle containers and 16 MiB of charged payload, up to one hour ahead. A bundle's direct members dispatch consecutively; malformed packets cannot apply an earlier valid member. Runtime errors are not rolled back. code::ShaderServer.clearScheduled:: discards pending future work, while status exposes pending bytes and lifetime overload counters. Stop Patterns/streams before clearing if they would immediately enqueue more work.
+
+section:: Diagnostics and GPU recovery
+
+Set code::ShaderServer.default.showStats = true:: for the optional diagnostic panel; it is off by default and never enters feedback history. Status also exposes late-event count, an owned-texture byte estimate, overlay state, recovery count, and last compile result. Texture estimates exclude CPU image caches, swapchain/driver allocations, and other processes; GPU frame time is unavailable.
+
+Structured diagnostics and their log entries share a burst of 20 plus 20 per second. Status exposes code::suppressedDiagnostics:: so an error flood cannot silently disappear from monitoring. Critical GPU loss/fatal diagnostics bypass this limit; successful replies and commands remain outside it. Stop invalid traffic before relying on individual error replies. Short resource-churn and incoming-flood tests are described in the packaged stability guide; they do not replace long-session or native cross-platform testing.
+
+The renderer recreates a lost presentation surface and attempts one device restart on device loss. CPU snapshots restore last-valid shader source, controls/ramps, decoded static images, data buffers, bindings, and graph selection without resetting clocks or IDs. Feedback/intermediate history clears to black and code::recoveryAction:: receives a notification. A second device loss or failed restart exits with code 70; automatic process/scene reconstruction remains deferred. Missing/invalid image data uses a diagnostic placeholder and reports an error. Image decoding is limited to 4096 pixels per axis or the device limit if smaller.
+
+section:: Running these examples
+
+Each setup block below is independent and uses shaders included in the installed extension. Run one demo at a time, then its cleanup block before the next. Each creates a fresh ShaderServer, so a stale renderer path on ShaderServer.default does not affect it. The packaged renderer is discovered automatically; no placeholder paths or source checkout are needed.
+
+The audio demos boot the audio server if necessary and play a quiet looping example file. Cleanup frees their own audio resources but leaves the audio server and unrelated sounds running. Wait for setup to finish before cleanup. If an earlier example left a renderer open, close that window before starting here.
+
+section:: Typed controls
+
+Declare an optional flat uniform struct at group 0, binding 4. Naga reflects names, types, and GPU byte offsets. Supported types are float, int, uint, bool, Float32 vec2/vec3/vec4, and Float32 mat2/mat3/mat4. Matrices use flat column-major component arrays in SuperCollider. A logical bool uses u32 GPU storage plus a source annotation such as code::// @scshader bool enabled::. The reserved code::amount: float:: remains at binding 0, so existing shaders stay compatible. Custom fields start at zero; set identity matrices explicitly.
+
+Use code::set:: or code::setn:: for immediate values, code::setAt:: for timed values, and code::glide:: for renderer-side per-frame step, linear, or smoothstep interpolation. Integer/bool controls permit only step. code::get:: and code::getn:: query the current renderer value asynchronously; code::value:: returns the last language-side target. Large unsigned values require Float literals such as code::4294967295.0:: because sclang Integers are signed 32-bit. See link::Classes/Shader:: for validation and timeout behavior.
+
+code::
+(
+var source = ShaderDef.filenameSymbol.asString.dirname.dirname +/+ "shaders/typed_controls.wgsl";
+v = ShaderServer.new(\guideTyped);
+v.waitForBoot { |server|
+    d = ShaderDef(\typedExample, source);
+    x = Shader(d, [\amount, 0.8], server);
+    ~scShaderSetup = Routine({
+        var deadline = Main.elapsedTime + 5;
+        while({ x.isRunning.not and: { Main.elapsedTime < deadline } }, { 0.01.wait });
+        if(x.isRunning.not) { Error("Shader did not become ready; inspect x.lastError.").throw };
+        x.set(\gain, 1, \count, 12, \enabled, true, \seed, 7,
+            \color, [0.1, 0.3, 0.9], \tint, [1, 0.3, 0.1, 1],
+            \rotate, [1, 0, 0, 1], \transform, [1, 0, 0, 0, 1, 0, 0, 0, 1],
+            \projection, [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+        x.glide(\color, [0.9, 0.2, 0.5], 2, \smooth);
+    }).play(SystemClock);
+};
+)
+::
+
+Run this cleanup before starting another example; wait for the renderer window to close:
+
+code::
+(
+~scShaderSetup.tryPerform(\stop);
+x.tryPerform(\free); d.tryPerform(\free);
+v.free;
+)
+::
+
+The setup has a five-second shader readiness deadline. Source-only installations must build/install the renderer and shader fixtures before using these packaged examples.
+
+section:: Patterns
+
+Use code::\type, \shader:: with code::Pbind:: rather than a separate visual scheduler. The code::\shader:: event value may be a live Shader, ShaderDef, or registered ShaderDef name; code::\shaderID:: selects a known live resource; and code::\window:: selects its ShaderServer. Every reflected uniform can be an event key; pre-create custom-control Shaders so their reflected names are available.
+
+The event sends updates through code::Shader.setAt:: after code::\latency:: seconds. Omit it to use code::ShaderServer.latency::. The first event for a name not yet created retains known values until creation is acknowledged; pre-create the Shader if first-event timing matters. code::\dur::, code::\delta::, and code::\sustain:: retain their normal Event meanings, without implicit gate/release behavior.
+
+code::
+(
+var source = ShaderDef.filenameSymbol.asString.dirname.dirname +/+ "shaders/fullscreen.wgsl";
+v = ShaderServer.new(\guidePattern);
+v.waitForBoot { |server|
+    d = ShaderDef(\guidePulse, source);
+    x = Shader(d, [\amount, 0.2], server);
+    ~scShaderSetup = Routine({
+        var deadline = Main.elapsedTime + 5;
+        while({ x.isRunning.not and: { Main.elapsedTime < deadline } }, { 0.01.wait });
+        if(x.isRunning.not) { Error("Shader did not become ready; inspect x.lastError.").throw };
+        p = Pbind(
+            \type, \shader,
+            \shader, x,
+            \amount, Pseq([0.2, 0.5, 0.8], inf),
+            \dur, 1/4,
+            \latency, server.latency
+        ).play;
+    }).play(SystemClock);
+};
+)
+::
+
+Run this cleanup before starting another example; wait for the renderer window to close:
+
+code::
+(
+p.tryPerform(\stop);
+~scShaderSetup.tryPerform(\stop);
+v.clearScheduled; // discard future Pattern updates before freeing their target
+x.tryPerform(\free); d.tryPerform(\free);
+v.free;
+)
+::
+
+The event type is deliberately compact, so a separate code::Pshader:: wrapper is not needed at this stage. The cleanup stops the retained EventStreamPlayer before freeing the shader.
+
+section:: Textures and feedback
+
+link::Classes/ShaderTexture:: loads a static PNG, JPEG, or PNM image into the renderer. Bind it at the one current code::\source:: slot with code::Shader.setTexture::. Alternatively, code::Shader.feedback(\previous, 0.98):: samples the last completed offscreen frame. The renderer writes the next frame to the other of two targets and swaps only after presentation, so it never reads and writes one texture at once. Resizing clears and recreates those targets, intentionally resetting feedback history.
+
+section:: Visual buses and audio analysis
+
+link::Classes/ShaderBus:: is a language-owned visual-rate bus. Map a channel to any reflected float with code::x.map(\amount, bus)::, then feed it from a Pattern, GUI, MIDI responder, or Routine. Changes for one Shader are coalesced into one renderer bundle. Optional bus smoothing is language-side at 60 Hz; code::Shader.glide:: instead interpolates scalar/vector/matrix controls in the renderer each frame.
+
+link::Classes/ShaderAnalysis:: bridges ordinary audio-server analysis to those buses. It reads one mono audio bus in a tail-positioned analysis Synth and returns amplitude, pitch, pitch confidence, spectral centroid, spectral flatness, onset, or zero-crossing data by code::SendReply:: at a chosen 30/60/120-style rate. Construct it with an explicit input-bus index, then call code::start:: from a Routine because its generated SynthDef must synchronize before use. It does not poll code::scsynth:: every frame.
+
+code::
+(
+var source = ShaderDef.filenameSymbol.asString.dirname.dirname +/+ "shaders/fullscreen.wgsl";
+v = ShaderServer.new(\guideAnalysis);
+v.waitForBoot { |server|
+    d = ShaderDef(\guideAmplitude, source);
+    x = Shader(d, [\amount, 0.8], server);
+    s.waitForBoot {
+        ~scShaderSetup = Routine({
+            var deadline = Main.elapsedTime + 5;
+            while({ x.isRunning.not and: { Main.elapsedTime < deadline } }, { 0.01.wait });
+            if(x.isRunning.not) { Error("Shader did not become ready; inspect x.lastError.").throw };
+            ~scShaderSample = Buffer.readChannel(s, ExampleFiles.child, channels: [0]);
+            ~scShaderAudioBus = Bus.audio(s, 1);
+            SynthDef(\scShaderGuideSource, { |out = 0, bufnum = 0|
+                var signal = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum), loop: 1);
+                // signal = SoundIn.ar(0); // optional live input instead
+                signal = signal * Line.kr(0, 1, 0.1);
+                Out.ar(out, signal);
+                Out.ar(0, (signal * 0.12) ! 2);
+            }).add;
+            s.sync; // buffer and SynthDef must be ready before playback
+            ~scShaderAudio = Synth(\scShaderGuideSource,
+                [\out, ~scShaderAudioBus.index, \bufnum, ~scShaderSample.bufnum]);
+            ~scShaderAnalysis = ShaderAnalysis(s, ~scShaderAudioBus.index,
+                [\amplitude, \centroid], 30, 0.12);
+            ~scShaderAnalysis.start;
+            x.map(\amount, ~scShaderAnalysis[\amplitude]);
+        }).play(SystemClock);
+    };
+};
+)
+::
+
+Run this cleanup before starting another example; wait for the renderer window to close:
+
+code::
+(
+~scShaderSetup.tryPerform(\stop);
+~scShaderAnalysis.tryPerform(\free);
+~scShaderAnalysis.tryPerform(\at, \amplitude).tryPerform(\free);
+~scShaderAnalysis.tryPerform(\at, \centroid).tryPerform(\free);
+~scShaderAudio.tryPerform(\free);
+~scShaderAudioBus.tryPerform(\free);
+~scShaderSample.tryPerform(\free);
+v.clearScheduled; // discard already-scheduled bus updates before freeing x
+x.tryPerform(\free); d.tryPerform(\free);
+v.free;
+// Leave the audio server running; do not stop unrelated audio.
+)
+::
+
+section:: Float buffers, FFT, and waveform streams
+
+link::Classes/ShaderBuffer:: transfers moderate Float32 datasets from the language as compact OSC blobs, then represents them in the renderer as a one-row, non-filterable code::R32Float:: texture. The current fixed WGSL ABI calls it code::spectrum_buffer:: at group 0 binding 3. It is deliberately narrow: code::x.setBuffer(\spectrum, buffer):: is the only current name, and custom WGSL should read bins with code::textureLoad(spectrum_buffer, vec2<i32>(bin, 0), 0).r::. The built-in shader reads bin zero only as a subtle additive brightness cue. The original spectrum_bars.wgsl fixture below displays the first 128 FFT bins instead; its display height uses square-root scaling, while the streamed data remains raw magnitudes. The FFT starts with empty history and becomes visible after its first windows.
+
+link::Classes/ShaderFFTTexture:: and link::Classes/ShaderWaveformTexture:: own such a buffer and fill it from a mono audio bus at a controlled rate. The FFT stream returns raw linear magnitudes and is limited by its FFT-window hop rate; the waveform stream captures a recent finite window using delay-and-latch readers. Both create a tail-positioned code::scsynth:: Synth and must be started from a Routine. They use code::SendReply:: only between audio server and language, then blob transfers only between language and renderer; no per-frame bus polling or one-float-per-renderer-argument path is used.
+
+code::
+(
+var source = ShaderDef.filenameSymbol.asString.dirname.dirname +/+ "shaders/spectrum_bars.wgsl";
+v = ShaderServer.new(\guideFFT);
+v.waitForBoot { |server|
+    d = ShaderDef(\guideSpectrum, source);
+    x = Shader(d, [\amount, 0.8], server);
+    s.waitForBoot {
+        ~scShaderSetup = Routine({
+            var deadline = Main.elapsedTime + 5;
+            while({ x.isRunning.not and: { Main.elapsedTime < deadline } }, { 0.01.wait });
+            if(x.isRunning.not) { Error("Shader did not become ready; inspect x.lastError.").throw };
+            ~scShaderSample = Buffer.readChannel(s, ExampleFiles.child, channels: [0]);
+            ~scShaderAudioBus = Bus.audio(s, 1);
+            SynthDef(\scShaderGuideSource, { |out = 0, bufnum = 0|
+                var signal = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum), loop: 1);
+                // signal = SoundIn.ar(0); // optional live input instead
+                signal = signal * Line.kr(0, 1, 0.1);
+                Out.ar(out, signal);
+                Out.ar(0, (signal * 0.12) ! 2);
+            }).add;
+            s.sync; // buffer and SynthDef must be ready before playback
+            ~scShaderAudio = Synth(\scShaderGuideSource,
+                [\out, ~scShaderAudioBus.index, \bufnum, ~scShaderSample.bufnum]);
+            ~scShaderFFT = ShaderFFTTexture(s, ~scShaderAudioBus.index, 2048, 30, server);
+            ~scShaderFFT.start;
+            x.setTexture(\spectrum, ~scShaderFFT);
+        }).play(SystemClock);
+    };
+};
+)
+::
+
+Run this cleanup before starting another example; wait for the renderer window to close:
+
+code::
+(
+~scShaderSetup.tryPerform(\stop);
+x.tryPerform(\free);
+~scShaderFFT.tryPerform(\free);
+~scShaderAudio.tryPerform(\free);
+~scShaderAudioBus.tryPerform(\free);
+~scShaderSample.tryPerform(\free);
+d.tryPerform(\free); v.free;
+// Leave the audio server running; do not stop unrelated audio.
+)
+::
+
+section:: Multipass graphs
+
+link::Classes/ShaderGraph:: commits a validated connected linear chain of live Shaders. Each pass writes to a renderer-owned ping-pong target, and its completed target becomes the source of the next pass. Shader resources now retain independent pipelines and code::amount:: values, so one pass does not replace another just by being created. The first graph ABI is deliberately small: inputs are fixed code::\source:: textures, outputs are fixed code::\out:: targets, there can be no branches, and a feedback edge must target the terminal pass.
+
+code::
+(
+var source = ShaderDef.filenameSymbol.asString.dirname.dirname +/+ "shaders/fullscreen.wgsl";
+v = ShaderServer.new(\guideGraph);
+v.waitForBoot { |server|
+    d = ShaderDef(\guidePass, source);
+    a = Shader(d, [\amount, 0.35], server);
+    b = Shader(d, [\amount, 0.8], server);
+    ~scShaderSetup = Routine({
+        var deadline = Main.elapsedTime + 5;
+        while({ (a.isRunning.not or: { b.isRunning.not })
+            and: { Main.elapsedTime < deadline } }, { 0.01.wait });
+        if(a.isRunning.not or: { b.isRunning.not }) {
+            Error("Both graph shaders must become ready.").throw;
+        };
+        g = ShaderGraph(server);
+        g.add(a).connect(a, \out, b, \source);
+        g.commit;
+    }).play(SystemClock);
+};
+)
+::
+
+Run this cleanup before starting another example; wait for the renderer window to close:
+
+code::
+(
+~scShaderSetup.tryPerform(\stop);
+g.tryPerform(\free);
+a.tryPerform(\free); b.tryPerform(\free);
+d.tryPerform(\free); v.free;
+)
+::
+
+Call code::g.connectFeedback(b, 0.4):: only after the chain is connected to feed the prior terminal frame into the next frame's first pass. The renderer clears feedback targets on resize, so expect a short black-history warmup after startup and window changes. General DAGs, branches, texture-format conversion, and per-edge dimensions remain deliberately out of scope.
+
+section:: GLSL and Shadertoy compatibility
+
+WGSL is the native Tier-1 source language. link::Classes/ShaderDef:: may also use code::\glsl:: for a strict GLSL 4.50 fullscreen-fragment subset; wgpu passes that source to its Naga GLSL parser and pairs it with SCShader's built-in vertex shader. A supported GLSL fragment supplies code::main::, a location-zero output, a location-zero UV input, and the documented binding-zero code::SCShaderUniforms:: block. This is parser-based compatibility, not a regex conversion or universal desktop GLSL support.
+
+link::Classes/ShaderToy:: is the Tier-2 convenience form for a source that defines code::mainImage(out vec4, in vec2):: instead of code::main::. It supplies code::iResolution::, code::iTime::, code::iTimeDelta::, code::iFrame::, code::iMouse::, and UTC code::iDate::. All four code::iChannelN:: names currently alias SCShader's one code::\source:: texture; separate Shadertoy channels are not implemented. code::scPhase:: follows renderer time, code::scAmplitude:: follows code::amount::, and the other SC-specific names are zero. A compiled original corpus covers basic color/time, mouse/date, source sampling, bounded loops, derivatives, and common math, but it does not establish that arbitrary Shadertoy or legacy GLSL sources work.
+
+section:: Timing and scope
+
+An OSC bundle timestamp is mapped once from its normal OSC UTC/NTP time into the renderer's monotonic clock. Future events are kept in timestamp order, preserving packet order at a shared timestamp, and run before the next eligible frame. The controller's ping/pong samples estimate code::rendererTime = Main.elapsedTime + rendererClockOffset:: without assuming shared process epochs. The renderer applies events that are already due immediately; events more than 50 ms late additionally emit code::E_LATE_EVENT::. Timing markers report the renderer's application time, not GPU presentation or display scan-out, so SCShader does not claim sample-accurate visual timing.
+
+Video/camera textures, arbitrary storage buffers, independent multiple windows, general visual DAGs, and reflection outside the flat user-control block remain unsupported. Packaging scripts exist, but long-duration and native cross-platform verification remain release gates; this is still an experimental development version.
+
+code::
+(
+v = ShaderServer.new(\guideWindow);
+w = ShaderWindow.new(960, 540, "SCShader", v);
+w.inputEnabled_(true);
+w.mouseDownAction_({ |window, point, button| [point, button].postln });
+v.waitForBoot { |server|
+    server.status { |receiver, status| status.postln };
+};
+)
+::
+
+Run this cleanup before starting another example; wait for the renderer window to close:
+
+code::
+(
+w.free; v.free;
+)
+::
+
+Close the visual child with code::v.quit::. code::Cmd-.:: requests a clean quit from child renderers launched by code::ShaderServer::. It leaves untracked external processes alone.
+
+subsection:: See also
+
+link::Classes/ShaderServer::
+link::Classes/ShaderWindow::
+link::Classes/ShaderDef::
+link::Classes/ShaderToy::
+link::Classes/Shader::
+link::Classes/ShaderTexture::
+link::Classes/ShaderBuffer::
+link::Classes/ShaderFFTTexture::
+link::Classes/ShaderWaveformTexture::
+link::Classes/ShaderGraph::
+link::Classes/ShaderBus::
+link::Classes/ShaderAnalysis::

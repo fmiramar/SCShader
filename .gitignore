@@ -1,0 +1,10 @@
+/renderer/target/
+/build/
+/stage/
+/dist/
+*.log
+*.csv
+__pycache__/
+*.pyc
+.DS_Store
+._*
