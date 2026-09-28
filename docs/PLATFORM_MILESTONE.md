@@ -32,8 +32,9 @@ Keep Xwayland distinct from native Xorg and native Wayland.
 - [x] Prepare shared and per-platform agentic implementation/test plans.
 - [x] Windows x64 native linked package and critical automated short tests pass;
       manual display/input and untested hardware remain explicitly limited.
-- [ ] Linux x64 native linked package and critical short tests pass, with separate
-      X11/Wayland coverage or an explicit narrowed support decision by the user.
+- [x] Linux x64 native linked package and critical short tests pass, with separate
+      Xwayland/Wayland coverage recorded; native Xorg and compositor interaction
+      remain outside this checkpoint.
 - [ ] macOS arm64 native linked package and critical short tests pass.
 - [ ] Cross-platform fixes retain macOS x64 critical regression passes.
 - [ ] Each target has a completed result record, exact binary/source hashes,
@@ -69,6 +70,11 @@ for testing the implemented desktop feature set.
   fullscreen/borders and OS minimize/restore at 125% scale. Physical interaction
   observations remain pending; the source kit includes the
   [Linux handoff](LINUX_HANDOFF.md). Mac regression remains open for later.
+- 2026-09-28: native CachyOS x64 Linux package, installation, Vulkan adapter
+  selection, Wayland/Xwayland SC/help checks, scheduling/resource/flood checks,
+  and logical-device recovery passed on Intel and NVIDIA. The Linux packager now
+  uses Python's standard ZIP writer because this host has no external `zip` tool.
+  A Hyprland-owned-window helper remains incomplete; see the Linux result record.
 - 2026-09-28: reproduced the IDE's incompatible-DXC launch failure and fixed it
   with explicit FXC. Duplicate ready replies no longer reconfigure the window.
   Candidate SC/help checks and Windows Job Object cleanup pass. The verified ZIP

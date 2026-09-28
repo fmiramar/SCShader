@@ -41,6 +41,9 @@ overrides, Linux X11/Wayland selection, packaging, and short tests on another ma
 
 From the `SCShader` directory:
 
+For native GNU/Linux installation, GPU/display selection, and the tested runtime
+requirements, see the [Linux setup guide](docs/LINUX.md).
+
 For Windows installation and NVIDIA/Intel laptops, see the
 [Windows setup guide](docs/WINDOWS.md). The renderer accepts `--adapter NVIDIA`
 or `--adapter Intel` for explicit GPU selection; pass these through

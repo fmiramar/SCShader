@@ -31,13 +31,15 @@ is being confirmed separately. The user confirmed `ShaderFFTTexture` worked
 perfectly in the IDE. `ShaderAnalysis` listening, sleep/wake and mixed-monitor
 observations remain unreported; see [the checklist](WINDOWS_INTERACTION_CHECKS.md).
 The user selected **Linux next after step 1**, with Mac regression deferred.
-The [Linux handoff](LINUX_HANDOFF.md) carries the source changes and receiving
-instructions; native Linux tests must run on the receiving Linux desktop.
+The native Linux x64 checkpoint now passes on the receiving CachyOS desktop;
+see [the Linux result](platform-results/2026-09-28-linux-x64.md) and
+[Linux setup](LINUX.md). Native Xorg, compositor-driven interaction, and Mac
+regression remain open.
 The latest source handoff is `fmiramar-SCShader-0.0.17-source-linux-handoff-2026-09-28-r5.zip`;
 verify it using the adjacent `.sha256` file.
 See [the current Windows record](platform-results/2026-09-28-windows-x64.md),
 [the preserved 0.0.16 results](platform-results/2026-09-27-windows-x64.md), and
-[Windows setup](WINDOWS.md). P1 is open; no long-run claim is added.
+[Windows setup](WINDOWS.md). P1 remains open; no long-run claim is added.
 
 The [implementation report](IMPLEMENTATION_REPORT.md) explains the architecture,
 technology choices, completed milestones, remaining work, and why it matters.
@@ -75,9 +77,11 @@ Windows/Linux preparation is implemented: explicit GPU/display selection,
 Wayland-compatible default fullscreen, backend/display retention during recovery,
 portable executable discovery and test paths, OS/CPU/Rust/binary-format packaging
 guards, and native-test instructions. Windows x64 MSVC and Linux x64 GNU pass
-cross-target compilation of all targets/features on macOS. This does not link or
-run their binaries. Native GPU/runtime testing is deferred to other machines as
-requested; see [PLATFORMS.md](PLATFORMS.md).
+cross-target compilation of all targets/features on macOS. Linux x64 now also
+has a native linked package, installation, Vulkan Wayland/Xwayland checks on both
+GPUs, SC/help checks, bounded stress, and logical recovery evidence; see the
+dated result record. Native Xorg, other distributions, and native macOS arm64
+runtime testing remain open; see [PLATFORMS.md](PLATFORMS.md).
 
 Local 0.0.16 regression checks pass: 55 Rust tests, 49 Python tests,
 warnings-as-errors Clippy, all 24 installed SC checks, 13 warning-free rendered

@@ -51,7 +51,7 @@ checksum="$archive.sha256"
 rm -f "$archive" "$checksum"
 (
   cd "$project_dir/stage"
-  zip -q -r "$archive" "$base"
+  python3 -m zipfile --create "$archive" "$base"
 )
 (cd "$dist_dir" && sha256sum "$base.zip") > "$checksum"
 printf 'Created %s\n' "$archive"
