@@ -2,7 +2,10 @@
 
 SCShader **0.0.18** development candidate, resumed from the local 0.0.17
 checkpoint `22b170d`. This record qualifies static checks and a native build;
-it does not claim a new desktop/GPU pass. Source changes are uncommitted.
+it does not claim a new desktop/GPU pass. The first Linux release scope is
+CachyOS x86-64 GNU under Hyprland with Vulkan; Xwayland is an in-session
+compatibility path. Other distributions, compositors, native Xorg, arm64 and GL
+are deferred.
 
 ## Finding and correction
 

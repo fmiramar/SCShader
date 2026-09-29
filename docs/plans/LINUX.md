@@ -1,5 +1,9 @@
 # Linux agentic plan — x64 first, optional native arm64
 
+Release scope: CachyOS x86-64 GNU under Hyprland with Vulkan; Xwayland is an
+in-session compatibility path. Other distributions, compositors, native Xorg,
+arm64 and GL are deferred.
+
 Status: the 0.0.17 native CachyOS x64 package, Wayland/Xwayland Vulkan matrix,
 SC/help and short stress/recovery checks passed. The 0.0.18 synchronous resize
 correction needs native revalidation; see the

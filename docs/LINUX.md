@@ -1,6 +1,9 @@
 # Linux setup
 
-SCShader builds natively for GNU/Linux x64. Use the pinned Rust toolchain and
+The first Linux release targets CachyOS x86-64 GNU under Hyprland with Vulkan.
+Xwayland is covered only as a compatibility path inside that Hyprland session.
+Other distributions, compositors, native Xorg, arm64 and OpenGL are outside this
+release scope. SCShader builds natively for GNU/Linux x64. Use the pinned Rust toolchain and
 lockfile. See the [Linux result record](platform-results/2026-09-28-linux-x64.md)
 for the tested distribution, drivers, display paths, and remaining checks.
 

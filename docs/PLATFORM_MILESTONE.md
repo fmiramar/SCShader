@@ -3,7 +3,10 @@
 Decision recorded 2026-09-25 at the user's request. Baseline: development 0.0.16.
 This supersedes the older ordering that placed additional Mac-only stress work
 and notice cleanup before native platform qualification. It does not remove any
-final-release gates or claim that another OS has been tested.
+final-release gates or claim that another OS has been tested. The first Linux
+release scope is intentionally narrow: CachyOS x86-64 GNU with Hyprland and
+Vulkan. Other distributions, compositors, native Xorg, Linux arm64 and Linux
+GL remain outside that release.
 
 ## Objective and priority
 
@@ -16,7 +19,7 @@ properties on other operating systems or architectures.
 | Track | Starting evidence | Next required evidence | Priority |
 | --- | --- | --- | --- |
 | Windows x64 / D3D12 | Verified and installed 0.0.17; IDE/handshake fixes, SC/help, NVIDIA/Intel short modes, NVIDIA stress/recovery pass | Manual display/input coverage and other-platform regression; recorded limits remain | Automated short-test gate passed |
-| Linux x64 / Vulkan | 0.0.17 native package and Wayland/Xwayland short suites pass | Validate 0.0.18 synchronous resize fix, repeat affected critical suites, retain native Xorg/manual gaps | Critical for Linux use |
+| CachyOS x86-64 / Hyprland / Vulkan | 0.0.17 native package and Wayland/Xwayland short suites pass | Validate 0.0.18 synchronous resize fix and repeat affected critical suites in the narrowed CachyOS/Hyprland scope | Critical for Linux use |
 | macOS arm64 / Metal | Explicit native packager path exists | Native arm64 build outside Rosetta, SC integration, Apple GPU runtime | Critical for Apple Silicon support |
 | macOS x64 / Metal | Local 0.0.16 short suites and installed docs passed | Rerun affected checks after shared changes; retain memory workaround | Critical regression protection |
 | Linux arm64 / Vulkan | Packaging target exists, no native claim | Optional native arm64 follow-up using the Linux plan | Not a first x64 desktop gate |
@@ -32,9 +35,8 @@ Keep Xwayland distinct from native Xorg and native Wayland.
 - [x] Prepare shared and per-platform agentic implementation/test plans.
 - [x] Windows x64 native linked package and critical automated short tests pass;
       manual display/input and untested hardware remain explicitly limited.
-- [x] Linux x64 native linked package and critical short tests pass, with separate
-      Xwayland/Wayland coverage recorded for 0.0.17; native Xorg and compositor
-      interaction remain outside this checkpoint.
+- [x] CachyOS x86-64 / Hyprland native linked package and critical short tests pass,
+      with separate Xwayland/Wayland coverage recorded for 0.0.17.
 - [ ] Linux 0.0.18 resize correction passes native interaction and critical-suite
       regression; static checks do not inherit 0.0.17's runtime qualification.
 - [ ] macOS arm64 native linked package and critical short tests pass.

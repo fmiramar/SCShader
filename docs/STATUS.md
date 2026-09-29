@@ -2,6 +2,10 @@
 
 Updated 2026-09-28. Current development version: **0.0.18**. Not a final v0.1.0 release.
 
+Linux release scope: CachyOS x86-64 GNU under Hyprland with Vulkan. Xwayland is
+covered only as an in-session compatibility path; other distributions,
+compositors, native Xorg, arm64 and GL are deferred.
+
 Linux resume: code inspection found that the renderer discarded synchronous
 `winit` resize results, which Wayland may apply without a later resize event.
 0.0.18 applies that physical size through the existing surface/input path and
@@ -47,10 +51,10 @@ is being confirmed separately. The user confirmed `ShaderFFTTexture` worked
 perfectly in the IDE. `ShaderAnalysis` listening, sleep/wake and mixed-monitor
 observations remain unreported; see [the checklist](WINDOWS_INTERACTION_CHECKS.md).
 The user selected **Linux next after step 1**, with Mac regression deferred.
-The native Linux x64 checkpoint now passes on the receiving CachyOS desktop;
-see [the Linux result](platform-results/2026-09-28-linux-x64.md) and
-[Linux setup](LINUX.md). Native Xorg, compositor-driven interaction, and Mac
-regression remain open.
+The native Linux checkpoint is scoped to the receiving CachyOS desktop; see
+[the Linux result](platform-results/2026-09-28-linux-x64.md) and [Linux setup](LINUX.md).
+Compositor-driven interaction remains open for 0.0.18; native Xorg and other
+Linux distributions are outside this first-release scope. Mac regression remains open.
 The resumed source snapshot is
 `fmiramar-SCShader-0.0.18-source-linux-resume-2026-09-29-r3.zip`; verify its adjacent
 `.sha256` file. The original 0.0.17 r5 Windows-to-Linux transfer remains preserved.
