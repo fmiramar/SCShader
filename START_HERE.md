@@ -8,8 +8,11 @@ stress tests and final-release validation.
 Active platform: **Linux**, selected by the user after Windows interaction
 checks. The 0.0.17 native checkpoint passed its short suites. Resume at the
 [0.0.18 resize follow-up](docs/platform-results/2026-09-28-linux-resize.md) and
-[Linux interaction checks](docs/LINUX_INTERACTION_CHECKS.md): the candidate needs
-live GPU/SC validation. The [Linux handoff](docs/LINUX_HANDOFF.md) preserves the
+[current Linux checks](docs/platform-results/2026-09-29-linux-interactions.md):
+0.0.18 GPU interactions, short acceptance, SC/help, scheduling, stress, recovery
+and path suites pass for the selected CachyOS/Hyprland scope. Manual desktop
+observations and long release gates remain. The
+[Linux handoff](docs/LINUX_HANDOFF.md) preserves the
 earlier Windows change summary. Mac regression remains a later open track.
 
 ## What this transfer contains

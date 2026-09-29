@@ -40,6 +40,47 @@ def check_diagnostic_bound(count, elapsed):
             f"diagnostics are not bounded: {count} replies in {elapsed:.3f}s")
 
 
+def stable_window_baseline(probe, result, timeout=5, settle_seconds=0.5):
+    """Do not use a transient startup configure as a fixed-size memory baseline.
+
+    Resource churn/flood tests require a constant framebuffer. Resize behavior
+    is covered separately; later geometry changes fail instead of rebasing.
+    """
+    deadline = time.monotonic() + timeout
+    previous = None
+    stable_since = None
+    first_frame = None
+    samples = result["startup_window_samples"] = []
+    while time.monotonic() < deadline:
+        before = probe.metrics()
+        state = probe.status()
+        after = probe.metrics()
+        check_resources(state, (0, 0, 0))
+        dimensions = after[:5]
+        require(len(after) == 12 and min(dimensions) > 0
+                and all(math.isfinite(value) for value in dimensions), "invalid window metrics")
+        signature = (dimensions, state[13])
+        if before[:5] != dimensions:
+            previous = None
+        elif signature != previous:
+            previous = signature
+            stable_since = time.monotonic()
+            first_frame = state[1]
+            samples.append(dict(metrics=after, texture_bytes=state[13], frame=state[1]))
+        elif time.monotonic() - stable_since >= settle_seconds and state[1] > first_frame:
+            result.update(baseline_window_metrics=after, baseline_texture_bytes=state[13])
+            return after, state
+        time.sleep(0.05)
+    raise TimeoutError("window size/allocation did not settle with frame progress before stress")
+
+
+def check_window_unchanged(probe, baseline_metrics, result):
+    metrics = probe.metrics()
+    result["last_window_metrics"] = metrics
+    require(metrics[:5] == baseline_metrics[:5],
+            f"window dimensions changed during fixed-size stress: {baseline_metrics[:5]} -> {metrics[:5]}")
+
+
 class Probe:
     def __init__(self, owner):
         self.owner, self.client = owner, owner.client
@@ -84,6 +125,15 @@ class Probe:
                 return reply[1]
         raise TimeoutError("no status reply")
 
+    def metrics(self):
+        self.client.send(PREFIX + "window/metrics")
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            reply = self.receive(0.01)
+            if reply and reply[0] == PREFIX + "window/metrics.reply":
+                return reply[1]
+        raise TimeoutError("no window metrics reply")
+
     def frames(self, after):
         deadline = time.monotonic() + 5
         while time.monotonic() < deadline:
@@ -99,9 +149,8 @@ class Probe:
         return rss
 
 
-def resources(probe, args, result):
+def resources(probe, args, result, baseline_metrics, state):
     project = Path(__file__).resolve().parents[1]
-    state = probe.status()
     check_resources(state, (0, 0, 0))
     baseline_bytes, first_frame = state[13], state[1]
     samples = []
@@ -132,6 +181,7 @@ def resources(probe, args, result):
             probe.client.send_packet(osc_bundle(release))
             probe.barrier()
             state = probe.frames(live[1])
+            check_window_unchanged(probe, baseline_metrics, result)
             check_resources(state, (0, 0, 0), baseline_bytes)
             require(not probe.errors, f"resource churn diagnostics: {probe.errors}")
             rss = probe.memory()
@@ -146,8 +196,7 @@ def resources(probe, args, result):
     result.update(first_frame=first_frame, final_frame=state[1], final_texture_bytes=state[13])
 
 
-def flood(probe, args, result, mode):
-    first = probe.status()
+def flood(probe, args, result, mode, baseline_metrics, first):
     baseline_rss = probe.memory()
     if mode == "protocol_flood":
         packet = b"bad"  # rejected before the recursive OSC decoder
@@ -213,6 +262,7 @@ def flood(probe, args, result, mode):
     require(live_pongs >= 2 and live_statuses >= 2 and live_frame_progress >= 2 and max_health_gap <= 1,
             "renderer was not responsive while flood traffic was active")
     require(rss - baseline_rss <= 128 * 1024, "flood RSS growth exceeds 128 MiB")
+    check_window_unchanged(probe, baseline_metrics, result)
     check_resources(last, (0, 0, 0), first[13])
     expected = {"E_PROTOCOL"} if mode == "protocol_flood" else {"E_BAD_ARGUMENT", "E_RESOURCE_NOT_FOUND", "E_QUEUE_FULL"}
     if mode == "continuous":
@@ -273,10 +323,11 @@ def main():
                 with ManagedRenderer(args.renderer, args.port, args.output_dir / f"{mode}-renderer.log") as owner:
                     result.update(renderer_version=owner.ready_reply[1], backend=owner.ready_reply[2], device=owner.ready_reply[3])
                     probe = Probe(owner)
+                    baseline_metrics, baseline_state = stable_window_baseline(probe, result)
                     if mode == "resources":
-                        resources(probe, args, result)
+                        resources(probe, args, result, baseline_metrics, baseline_state)
                     else:
-                        flood(probe, args, result, mode)
+                        flood(probe, args, result, mode, baseline_metrics, baseline_state)
                 log_path = args.output_dir / f"{mode}-renderer.log"
                 result["renderer_log_bytes"] = log_path.stat().st_size
                 if mode in ("protocol_flood", "command_flood"):

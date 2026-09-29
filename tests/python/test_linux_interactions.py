@@ -1,5 +1,6 @@
 import copy
 import json
+import math
 from pathlib import Path
 import subprocess
 import sys
@@ -12,7 +13,7 @@ import check_linux_interactions as checks
 
 def window(**changes):
     result = dict(address="0x123abc", pid=123, title=checks.TITLE, mapped=True,
-                  hidden=False, floating=True, xwayland=False, size=[960, 540], fullscreen=0)
+                  hidden=False, floating=True, xwayland=False, size=[960, 540], fullscreen=0, monitor=0)
     result.update(changes)
     return result
 
@@ -168,6 +169,70 @@ class ResizeRegressionTests(TestCase):
             checks.check_texture_resize(metrics, original, metrics, state)
 
 
+class CoordinateTests(TestCase):
+    def test_xwayland_compositor_and_renderer_scaling_are_independent(self):
+        process = mock.Mock(pid=123)
+        process.poll.return_value = None
+        hyprctl = mock.Mock()
+        observations = {}
+        hyprctl.clients.return_value = [window(xwayland=True, size=[900, 500])]
+        native = checks.OwnedWindow(process, hyprctl, True, observations)
+        # Captured failure: Xft 150%, compositor 100%, 900x500 framebuffer.
+        metrics = [600, 333, 900, 500, 1.5, 0, 0, 0, 1, 1, 1, checks.TITLE]
+        hyprctl.call.side_effect = lambda command, *args, **kwargs: (
+            {"int": 1} if command == "getoption" else [{"id": 0, "scale": 1}])
+        self.assertTrue(native.size_matches(metrics, [900, 500]))
+        self.assertTrue(native.size_matches(metrics))
+        self.assertFalse(native.size_matches(metrics, [600, 333]))
+        self.assertFalse(native.size_matches([600, 333, 1440, 810, *metrics[4:]], [900, 500]))
+        self.assertEqual(observations["xwayland_geometry"]["compositor_to_pixels"], 1)
+
+        # A scaled monitor with force_zero_scaling changes compositor-to-pixel
+        # conversion; this is not the renderer's independent DPI ratio.
+        hyprctl.clients.return_value = [window(xwayland=True, size=[600, 333])]
+        hyprctl.call.side_effect = lambda command, *args, **kwargs: (
+            {"int": 1} if command == "getoption" else [{"id": 0, "scale": 1.5}])
+        self.assertTrue(native.size_matches(metrics, [600, 333]))
+        self.assertTrue(native.size_matches(metrics))
+        hyprctl.call.side_effect = None
+        hyprctl.call.return_value = {"int": 0}
+        self.assertFalse(native.size_matches(metrics))
+        hyprctl.clients.return_value = [window(xwayland=True, size=[900, 500])]
+        self.assertTrue(native.size_matches(metrics))
+
+    def test_bool_and_legacy_integer_options_produce_the_same_geometry(self):
+        process = mock.Mock(pid=123)
+        process.poll.return_value = None
+        hyprctl = mock.Mock()
+        hyprctl.clients.return_value = [window(xwayland=True, size=[600, 333])]
+        observations = {}
+        native = checks.OwnedWindow(process, hyprctl, True, observations)
+        for option in ({"bool": True}, {"int": 1}, {"bool": False}, {"int": 0}):
+            with self.subTest(option=option):
+                hyprctl.call.side_effect = lambda command, *args, **kwargs: (
+                    option if command == "getoption" else [{"id": 0, "scale": 1.5}])
+                enabled = bool(next(iter(option.values())))
+                pixels = [900, 500] if enabled else [600, 333]
+                metrics = [600, 333, *pixels, 1.5, 0, 0, 0, 1, 1, 1, checks.TITLE]
+                self.assertTrue(native.size_matches(metrics, [600, 333]))
+                self.assertEqual(observations["xwayland_geometry"]["force_zero_scaling"], enabled)
+                self.assertEqual(observations["xwayland_scaling_option"], option)
+
+    def test_unknown_xwayland_scaling_fails_explicitly(self):
+        process = mock.Mock(pid=123)
+        process.poll.return_value = None
+        hyprctl = mock.Mock()
+        hyprctl.clients.return_value = [window(xwayland=True)]
+        native = checks.OwnedWindow(process, hyprctl, True, {})
+        metrics, _ = ResizeRegressionTests().samples()
+        for option, monitors in (({}, []), ({"bool": "false"}, []), ({"int": 2}, []),
+                                 ({"int": 1}, []), ({"int": 1}, [{"id": 0, "scale": 0}])):
+            with self.subTest(option=option, monitors=monitors):
+                hyprctl.call.side_effect = [option, monitors]
+                with self.assertRaises(RuntimeError):
+                    native.size_matches(metrics)
+
+
 class ResizeDriverTests(TestCase):
     def test_refused_osc_resize_stays_failed_without_automatic_compositor_fallback(self):
         self.exercise_driver("osc", expected_pass=False)
@@ -175,24 +240,66 @@ class ResizeDriverTests(TestCase):
     def test_explicit_compositor_run_does_not_claim_osc_resize_coverage(self):
         self.exercise_driver("compositor", expected_pass=True)
 
-    def exercise_driver(self, driver, expected_pass):
-        # Model a compositor that accepts external geometry changes but keeps
-        # client resize requests constrained. No actual desktop or GPU is used.
+    def test_xwayland_hidpi_osc_and_compositor_resize_paths(self):
+        for driver in ("osc", "compositor"):
+            with self.subTest(driver=driver):
+                record = self.exercise_driver(driver, expected_pass=True, xwayland=True, accept_osc=True)
+                self.assertEqual(record["checks"]["compositor_resize_setup"]["metrics"][:5],
+                                 [600, 333, 900, 500, 1.5])
+                first = record["checks"]["resize_reload_1"]
+                self.assertEqual(first["compositor_size"], [960, 540] if driver == "osc" else [640, 360])
+
+    def test_xwayland_hidpi_still_rejects_refused_osc_requests(self):
+        self.exercise_driver("osc", expected_pass=False, xwayland=True)
+
+    def test_xwayland_metrics_cannot_hide_stale_compositor_geometry(self):
+        self.exercise_driver("osc", expected_pass=False, xwayland=True,
+                             accept_osc=True, stale_geometry=True)
+
+    def test_xwayland_scaled_resize_cannot_hide_stale_gpu_targets(self):
+        self.exercise_driver("osc", expected_pass=False, xwayland=True,
+                             accept_osc=True, stale_gpu=True)
+
+    def exercise_driver(self, driver, expected_pass, xwayland=False, accept_osc=False,
+                        stale_geometry=False, stale_gpu=False):
+        # Simulate protocol geometry separately from renderer DPI and resource
+        # sizes. No desktop/GPU is used; size_matches is the real owned check.
         geometry = [960, 540]
+        pixels = geometry.copy()
+        ratio = 1.5 if xwayland else 1
         flags = {"fullscreen": 0, "borderless": 1}
         frame = 0
         client, native = mock.Mock(), mock.Mock()
-        native.resize.side_effect = lambda width, height: geometry.__setitem__(slice(None), [width, height])
-        native.snapshot.side_effect = lambda: dict(size=geometry.copy(), fullscreen=2 * flags["fullscreen"])
+        native.xwayland = xwayland
+        native.hyprctl.call.side_effect = lambda command, *args, **kwargs: (
+            {"option": "xwayland:force_zero_scaling", "bool": True, "set": True}
+            if command == "getoption" else [{"id": 0, "scale": 1}])
+        native.observations = {}
+        native.size_matches.side_effect = lambda *args: checks.OwnedWindow.size_matches(native, *args)
+        native.snapshot.side_effect = lambda: dict(size=geometry.copy(), fullscreen=2 * flags["fullscreen"], monitor=0)
+
+        def resize(width, height):
+            geometry[:] = [width, height]
+            pixels[:] = geometry
+
+        native.resize.side_effect = resize
 
         def send(address, tags="", values=()):
             field = address.removeprefix(checks.PREFIX + "window/")
             if field in flags:
                 flags[field] = values[0]
+            elif field == "resize" and accept_osc:
+                pixels[:] = [math.floor(value * ratio + 0.5) for value in values]
+                if not stale_geometry:
+                    geometry[:] = pixels
 
         def expect(address, **kwargs):
             nonlocal frame
-            metrics, state = ResizeRegressionTests().samples(*geometry)
+            logical = [math.floor(value / ratio + 0.5) for value in pixels]
+            metrics, state = ResizeRegressionTests().samples(*logical, ratio)
+            metrics[2:4] = pixels
+            area = 900 * 500 if stale_gpu and record.get("stage") == "resize_reload_1" else pixels[0] * pixels[1]
+            state[13] = 8 + area * 16
             if address.endswith("window/metrics.reply"):
                 metrics[7:9] = [flags["fullscreen"], flags["borderless"]]
                 return metrics
@@ -220,12 +327,15 @@ class ResizeDriverTests(TestCase):
             if expected_pass:
                 checks.exercise(owner, native, fixture, "// fixture", record, driver)
                 self.assertIn("window_close", record["checks"])
-                self.assertEqual(native.resize.call_count, 5)
-                self.assertTrue(all(call.args[0] != checks.PREFIX + "window/resize"
-                                    for call in client.send.call_args_list))
+                self.assertEqual(native.resize.call_count, 5 if driver == "compositor" else 1)
+                osc_calls = [call for call in client.send.call_args_list
+                             if call.args[0] == checks.PREFIX + "window/resize"]
+                self.assertEqual(len(osc_calls), 0 if driver == "compositor" else 4)
             else:
-                with self.assertRaisesRegex(TimeoutError, "logical size 640x360"):
+                error = (RuntimeError, "GPU texture allocation") if stale_gpu else (TimeoutError, "logical size 640x360")
+                with self.assertRaisesRegex(*error):
                     checks.exercise(owner, native, fixture, "// fixture", record, driver)
                 native.resize.assert_called_once_with(900, 500)
                 self.assertNotIn("resize_reload_1", record["checks"])
-        self.assertFalse(record["osc_resize_completed"])
+        self.assertEqual(record["osc_resize_completed"], expected_pass and driver == "osc")
+        return record

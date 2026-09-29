@@ -1,13 +1,13 @@
-# Linux agentic plan — x64 first, optional native arm64
+# Linux agentic plan — CachyOS x86-64 / Hyprland
 
 Release scope: CachyOS x86-64 GNU under Hyprland with Vulkan; Xwayland is an
 in-session compatibility path. Other distributions, compositors, native Xorg,
 arm64 and GL are deferred.
 
-Status: the 0.0.17 native CachyOS x64 package, Wayland/Xwayland Vulkan matrix,
-SC/help and short stress/recovery checks passed. The 0.0.18 synchronous resize
-correction needs native revalidation; see the
-[resume record](../platform-results/2026-09-28-linux-resize.md). Follow [COMMON.md](COMMON.md).
+Status: the 0.0.18 native CachyOS x64 package, Wayland/Xwayland Vulkan matrix,
+SC/help, scheduling, stress, logical recovery and path checks pass. Manual
+desktop/audio observations and long release checks remain. See the
+[interaction result](../platform-results/2026-09-29-linux-interactions.md).
 This is the user's selected next platform after Windows interaction checks;
 read the [0.0.17 handoff](../LINUX_HANDOFF.md) for the carried changes.
 
@@ -59,10 +59,15 @@ the audio assertions or changing unrelated system services without approval.
 
 ## L3. Separate display/backend qualification
 
-Current resume point: run the [Hyprland interaction checks](../LINUX_INTERACTION_CHECKS.md)
-on the candidate in a native desktop with GPU/IPC access, then repeat the critical
-suites below. The 0.0.17 ten-second feedback modes did not reach their scheduled
-resize, so they cannot close this gate. Native Xorg remains a separate open track.
+The automated short gate is complete for the candidate in a native desktop with
+GPU/IPC access. Native Xorg is outside the approved Linux release scope. Use
+compositor-driven resizing for native Wayland and strict OSC resizing for
+Xwayland; keep their results separate.
+
+Keep the desktop's display environment for explicit `--window-system` runs.
+On the tested hybrid GPU host, unsetting `DISPLAY` hid NVIDIA from Wayland
+presentation-compatible adapters. The protocol CLI option forces the connection
+without changing driver discovery. Record actual GPU names in every result.
 
 Run these in sessions where the requested display protocol is actually available:
 

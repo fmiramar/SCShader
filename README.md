@@ -108,6 +108,11 @@ A lost GPU device permits one in-process restart using cached shaders, controls,
 
 ## Pattern control
 
+This demo uses 150 ms of scheduling lead time to allow for desktop/startup jitter.
+That delays the visual response; adjust `\latency` to suit your performance.
+The controller's 20 ms default can be insufficient during startup on the tested
+hybrid-GPU desktop. Late-event diagnostics remain enabled.
+
 ```supercollider
 (
 var source = ShaderDef.filenameSymbol.asString.dirname.dirname +/+ "shaders/fullscreen.wgsl";
@@ -124,7 +129,7 @@ v.waitForBoot { |server|
             \shader, x,
             \amount, Pseq([0.2, 0.5, 0.8], inf),
             \dur, 1/4,
-            \latency, server.latency
+            \latency, 0.15
         ).play;
     }).play(SystemClock);
 };

@@ -1,5 +1,44 @@
 # Verification
 
+## Linux interaction and scaling follow-up - 2026-09-29
+
+The exact production 0.0.18 renderer passed the full native Wayland compositor
+and Xwayland OSC interaction suites on both NVIDIA and Intel. Earlier Xwayland NVIDIA checks exposed a test
+coordinate mismatch: 900x500 framebuffer/compositor dimensions were compared
+against 600x333 renderer logical dimensions at 150% scaling. The corrected
+checker distinguishes these spaces and reads the compositor's Xwayland scaling
+configuration, accepting both boolean and legacy integer option responses.
+Renderer code and executable hash are unchanged.
+
+All 23 interaction harness tests pass, including scaled Xwayland OSC/compositor
+paths, refused requests, stale compositor geometry and stale GPU allocations.
+The complete Python suite discovers 88 tests: 84 pass and four native-Windows
+checks skip. Evidence: `linux-continue-20260929-vovfUJ/python-final.log` under
+`build/platform-tests/`. The native interaction matrix passes in
+`linux-finish-20260929-021852/native-20260929-060354/`. A later run at
+`linux-finish-20260929-021852/native-20260929-060950/` passes all 16 ten-second
+GPU/display/mode acceptance combinations and both 25-check installed SC suites.
+Preserving `DISPLAY` fixed NVIDIA discovery during explicitly selected Wayland
+acceptance. The updated guide and README use an explicit 150 ms Pattern lead time
+after an earlier 60.980 ms late event. The stabilized follow-up passes help/SCDoc
+on both displays, scheduling limits, stress, logical recovery and path checks;
+the candidate remains installed with 82 verified files.
+See the
+[detailed result](platform-results/2026-09-29-linux-interactions.md).
+
+Follow-up `native-tail-20260929-062528/` passes updated SCDoc and all 18 help
+demos/36 blocks on each display, plus short scheduling limits. Resource/flood
+stress initially failed its exact memory baseline comparison; startup window
+resizing was identified from the allocation sizes. The checker now waits for
+stable dimensions and records them, preserving exact leak detection and rejecting
+later size changes. The stabilized rerun
+`native-tail-20260929-063408/` passes 80 resource cycles, protocol/command/
+continuous floods, logical Vulkan recovery, and path checks from a directory with
+spaces and non-ASCII text. The full Python suite is 88 discovered: 84 pass and
+four native-Windows checks skip (`linux-continue-20260929-vovfUJ/python-stable-window.log`).
+The selected CachyOS/Hyprland Linux short gate is complete; manual desktop/audio
+observations and long release checks remain.
+
 ## Linux resize follow-up - 2026-09-28
 
 Development 0.0.18 handles winit's synchronous physical-size result and avoids
@@ -19,6 +58,12 @@ The installed 0.0.17 checkpoint is retained, and its prior passing suites do not
 qualify the changed executable. See the
 [resume result](platform-results/2026-09-28-linux-resize.md) and
 [interaction instructions](LINUX_INTERACTION_CHECKS.md).
+
+The saved 2026-09-29 checkpoint expanded the harness to 16 regression tests,
+including explicit resize-driver scope and refusal without fallback. The full
+Python suite discovered 78 tests: 74 passed, four native-Windows skips. At that
+checkpoint no full 0.0.18 hardware interaction or installed SC suite had passed;
+the later 2026-09-29 results are recorded above.
 
 ## Windows IDE corrections - 2026-09-28
 

@@ -42,6 +42,16 @@ Fullscreen must reach the compositor's actual fullscreen state, not just the
 renderer request flag. Decoration checks establish flag handling and continued
 rendering; inspect the actual border appearance manually.
 
+Sizes are compared in the display protocol's coordinate space. Native Wayland
+uses logical content dimensions. Xwayland uses framebuffer pixels, accounting
+for the owned window's monitor scale and `xwayland:force_zero_scaling`; winit's
+logical DPI ratio can differ from that monitor scale. The checker reads these
+settings without changing them, following Hyprland's
+[X11 size conversion](https://github.com/hyprwm/Hyprland/blob/v0.56.2/src/desktop/view/Window.cpp#L1552)
+and [clients JSON integer dimensions](https://github.com/hyprwm/Hyprland/blob/v0.56.2/src/debug/HyprCtl.cpp#L393).
+An OSC resize must still reach its requested renderer logical size and agree
+with compositor geometry. Saved metrics include logical and framebuffer sizes.
+
 The runner starts borderless to avoid confusing client-side decoration geometry
 with content dimensions. After making the window floating, it resizes that owned
 window through Hyprland once and waits for both compositor and renderer sizes,
@@ -76,9 +86,15 @@ proved compositor resizing, GPU allocation changes and frame progress, then
 confirmed that the first SCShader OSC resize remains at 900x500. Hyprland's
 Wayland configure state leaves the pinned winit request constrained in this
 session, so native Wayland is recorded with compositor-driven resizing; use the
-Xwayland path when SCShader-issued OSC resizing is required. The synchronous
-resize correction remains covered by the explicit compositor path and by the
-strict Xwayland OSC path.
+Xwayland path when SCShader-issued OSC resizing is required.
+
+On 2026-09-29 both NVIDIA and Intel passed the full native Wayland compositor
+and Xwayland OSC suites, including four resize/reload cycles, fullscreen,
+decoration flags and clean close. This does not qualify a synchronously accepted
+Wayland client resize. The earlier Xwayland checker coordinate mismatch at 150%
+renderer scaling and boolean/integer scaling-option parsing were corrected and
+covered by regression tests before the passing native rerun. Installed critical
+suites remain pending. See the [current result](platform-results/2026-09-29-linux-interactions.md).
 
 ## Manual IDE check and remaining coverage
 

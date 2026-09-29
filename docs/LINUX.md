@@ -81,6 +81,13 @@ fails explicitly. X11 inside the tested Hyprland session uses Xwayland; this is
 separate from a native Xorg session. Wayland window placement is controlled by
 the compositor, which may ignore global position requests.
 
+Keep the desktop's display environment when selecting a GPU. On the tested
+hybrid Intel/NVIDIA system, removing `DISPLAY` made NVIDIA unavailable for
+Wayland presentation, even though Intel remained available. Use the explicit
+`--window-system wayland` option to select Wayland while retaining `DISPLAY`.
+The passing native Wayland NVIDIA checks used that environment; no fallback to
+Intel was allowed. See the [interaction checkpoint](platform-results/2026-09-29-linux-interactions.md).
+
 ## Short verification
 
 For the 0.0.18 resize correction, start with the

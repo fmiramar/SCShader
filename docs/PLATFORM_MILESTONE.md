@@ -6,7 +6,8 @@ and notice cleanup before native platform qualification. It does not remove any
 final-release gates or claim that another OS has been tested. The first Linux
 release scope is intentionally narrow: CachyOS x86-64 GNU with Hyprland and
 Vulkan. Other distributions, compositors, native Xorg, Linux arm64 and Linux
-GL remain outside that release.
+GL remain outside that release. Windows x64 and macOS Apple Silicon/Intel remain
+release targets; this restriction applies only to Linux.
 
 ## Objective and priority
 
@@ -19,7 +20,7 @@ properties on other operating systems or architectures.
 | Track | Starting evidence | Next required evidence | Priority |
 | --- | --- | --- | --- |
 | Windows x64 / D3D12 | Verified and installed 0.0.17; IDE/handshake fixes, SC/help, NVIDIA/Intel short modes, NVIDIA stress/recovery pass | Manual display/input coverage and other-platform regression; recorded limits remain | Automated short-test gate passed |
-| CachyOS x86-64 / Hyprland / Vulkan | 0.0.17 native package and Wayland/Xwayland short suites pass | Validate 0.0.18 synchronous resize fix and repeat affected critical suites in the narrowed CachyOS/Hyprland scope | Critical for Linux use |
+| CachyOS x86-64 / Hyprland / Vulkan | 0.0.18 package, Wayland/Xwayland interactions, acceptance, SC/help, stress and recovery pass | Manual input/appearance/listening and long release gates | Short Linux gate passed |
 | macOS arm64 / Metal | Explicit native packager path exists | Native arm64 build outside Rosetta, SC integration, Apple GPU runtime | Critical for Apple Silicon support |
 | macOS x64 / Metal | Local 0.0.16 short suites and installed docs passed | Rerun affected checks after shared changes; retain memory workaround | Critical regression protection |
 | Linux arm64 / Vulkan | Packaging target exists, no native claim | Optional native arm64 follow-up using the Linux plan | Not a first x64 desktop gate |
@@ -36,9 +37,10 @@ Keep Xwayland distinct from native Xorg and native Wayland.
 - [x] Windows x64 native linked package and critical automated short tests pass;
       manual display/input and untested hardware remain explicitly limited.
 - [x] CachyOS x86-64 / Hyprland native linked package and critical short tests pass,
-      with separate Xwayland/Wayland coverage recorded for 0.0.17.
-- [ ] Linux 0.0.18 resize correction passes native interaction and critical-suite
-      regression; static checks do not inherit 0.0.17's runtime qualification.
+      with separate Wayland/Xwayland coverage recorded for 0.0.18.
+- [x] Linux 0.0.18 resize correction passes native interaction and critical-suite
+      regression in the selected CachyOS/Hyprland/Vulkan scope; manual and long
+      release gates remain separate.
 - [ ] macOS arm64 native linked package and critical short tests pass.
 - [ ] Cross-platform fixes retain macOS x64 critical regression passes.
 - [ ] Each target has a completed result record, exact binary/source hashes,
@@ -69,6 +71,19 @@ for testing the implemented desktop feature set.
 
 ## Session log
 
+- 2026-09-29: full 0.0.18 Wayland compositor and Xwayland OSC interactions pass
+  on NVIDIA and Intel after correcting checker coordinate/option parsing.
+  Python: 84 pass, four Windows skips. After the display-environment correction,
+  all 16 ten-second acceptance modes and both 25-check SC suites pass. The
+  explicit 150 ms Pattern lead time makes all 18 help demos pass on both displays.
+  The follow-up passes all help/SCDoc and scheduling checks. Stress exposed a
+  startup memory-baseline mismatch; the checker now waits for a stable window
+  and records geometry, with exact leak checks intact.
+  Python: 84 pass, four Windows skips. The stabilized 80-cycle resource/flood
+  stress, logical Vulkan recovery and path-with-spaces/non-ASCII checks then pass
+  on Intel; the candidate is installed with 82 verified files. Manual and long
+  release gates remain. See
+  the [current result](platform-results/2026-09-29-linux-interactions.md).
 - 2026-09-28 resume: fixed ignored synchronous winit resize results and unchanged-size
   target recreation; added a Hyprland runner with GPU allocation regression checks
   and failure-stage evidence. First native NVIDIA/Wayland run reached the first

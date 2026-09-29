@@ -1,23 +1,34 @@
 # Implementation checkpoint
 
-Updated 2026-09-28. Current development version: **0.0.18**. Not a final v0.1.0 release.
+Updated 2026-09-29. Current development version: **0.0.18**. Not a final v0.1.0 release.
 
 Linux release scope: CachyOS x86-64 GNU under Hyprland with Vulkan. Xwayland is
 covered only as an in-session compatibility path; other distributions,
-compositors, native Xorg, arm64 and GL are deferred.
+compositors, native Xorg, arm64 and GL are deferred. Windows x64 and macOS
+Apple Silicon/Intel remain in the project release plan.
 
 Linux resume: code inspection found that the renderer discarded synchronous
 `winit` resize results, which Wayland may apply without a later resize event.
 0.0.18 applies that physical size through the existing surface/input path and
 avoids recreating GPU targets for unchanged sizes. A Hyprland interaction runner
 records failure stages and checks GPU allocation changes as well as native window
-metrics. Static checks pass: 59 Rust tests; 71 Python tests and four Windows-only
-skips. A user-run native NVIDIA/Vulkan/Wayland interaction launched 0.0.18
-successfully and the updated runner verified compositor-driven resize, GPU
-allocation changes and frame progress. Hyprland then refused the first
-SCShader-issued OSC resize, so native Wayland is recorded with compositor-driven
-resizing; Xwayland remains the OSC resize path. The installed 0.0.17 checkpoint
-is retained. See the
+metrics. Static checks pass: 59 Rust tests; 84 Python tests and four Windows-only
+skips (88 discovered). Both NVIDIA and Intel now pass the full native Wayland
+compositor-resize and Xwayland OSC-resize interaction suites: four resize/reload
+cycles, GPU allocation changes, fullscreen, decoration flags and clean close.
+Earlier strict Wayland OSC requests were refused, so the accepted Wayland scope
+uses compositor-driven resizing. The Xwayland checker now handles logical DPI
+versus framebuffer dimensions and both Hyprland scaling-option response formats.
+After correcting the wrapper's display environment, all 16 short GPU acceptance
+combinations and both 25-check installed SC suites pass. After giving the Pattern
+demo an explicit 150 ms lead time, all 18 help demos and SCDoc pass on both
+displays. Short scheduling checks pass. The stabilized resource/flood rerun passes
+80 resource cycles, protocol/command/continuous floods with bounded diagnostics,
+and queue saturation. Logical Vulkan recovery and the path-with-spaces/non-ASCII
+SC checks also pass on Intel. The candidate package is installed with 82 verified
+files; manual desktop/input/audio observations and long-duration release gates
+remain separate.
+See the [current result](platform-results/2026-09-29-linux-interactions.md), the
 [resume record](platform-results/2026-09-28-linux-resize.md) and
 [interaction procedure](LINUX_INTERACTION_CHECKS.md). Earlier native passes below
 qualify their recorded 0.0.17 binary, not this changed candidate.
@@ -53,10 +64,12 @@ observations remain unreported; see [the checklist](WINDOWS_INTERACTION_CHECKS.m
 The user selected **Linux next after step 1**, with Mac regression deferred.
 The native Linux checkpoint is scoped to the receiving CachyOS desktop; see
 [the Linux result](platform-results/2026-09-28-linux-x64.md) and [Linux setup](LINUX.md).
-Compositor-driven interaction remains open for 0.0.18; native Xorg and other
-Linux distributions are outside this first-release scope. Mac regression remains open.
+The 0.0.18 CachyOS/Hyprland short qualification is complete; native Xorg and
+other Linux distributions are outside this first-release scope. Manual
+input/appearance/listening, one-hour validation and final release sign-off remain
+open. Mac regression remains open.
 The resumed source snapshot is
-`fmiramar-SCShader-0.0.18-source-linux-resume-2026-09-29-r3.zip`; verify its adjacent
+`fmiramar-SCShader-0.0.18-source-linux-resume-2026-09-29-r8.zip`; verify its adjacent
 `.sha256` file. The original 0.0.17 r5 Windows-to-Linux transfer remains preserved.
 See [the current Windows record](platform-results/2026-09-28-windows-x64.md),
 [the preserved 0.0.16 results](platform-results/2026-09-27-windows-x64.md), and
@@ -70,7 +83,8 @@ Prioritize Windows x64, Linux x64, and macOS Apple Silicon builds, installations
 short GPU/SC checks, and platform fixes; retain Intel Mac regression coverage.
 See [PLATFORM_MILESTONE.md](PLATFORM_MILESTONE.md) and its per-platform agentic plans.
 This ordering comes before further extended Mac-only stress work and final long
-tests. Native target results are still pending. [START_HERE.md](../START_HERE.md)
+tests. The selected Linux short target is now qualified; macOS native results
+remain pending. [START_HERE.md](../START_HERE.md)
 explains the portable source handoff; [the Git audit](HANDOFF_GIT_AUDIT.md) records
 that current work is not fully committed. Nothing is published by this handoff.
 

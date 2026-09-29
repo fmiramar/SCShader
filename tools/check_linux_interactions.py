@@ -108,6 +108,50 @@ class OwnedWindow:
         return until(lambda: self.snapshot().get("size") == [width, height],
                      f"compositor did not resize the owned window to {width}x{height}")
 
+    def size_matches(self, metrics, compositor_size=None):
+        """Compare content sizes in their protocol's coordinate space.
+
+        X11 metrics' logical size uses winit/Xft DPI, independently of Hyprland
+        output scaling. Hyprland configures X11 in pixels, scaled by the monitor
+        only with force_zero_scaling. Its clients JSON truncates logical sizes.
+        See the upstream realToReportSize/xwaylandSizeToReal references in docs.
+        """
+        window = self.snapshot()
+        size = window.get("size")
+        if compositor_size is not None and size != compositor_size:
+            return False
+        if not self.xwayland:
+            return metrics[:2] == size
+        option = self.hyprctl.call("getoption", "xwayland:force_zero_scaling", as_json=True)
+        self.observations["xwayland_scaling_option"] = option
+        if isinstance(option, dict) and type(option.get("bool")) is bool:
+            force_zero = option["bool"]
+        elif (isinstance(option, dict) and "bool" not in option
+              and type(option.get("int")) is int and option["int"] in (0, 1)):
+            force_zero = bool(option["int"])
+        else:
+            raise RuntimeError("could not read Xwayland force_zero_scaling")
+        scale = 1
+        if force_zero:
+            monitors = self.hyprctl.call("monitors", as_json=True)
+            if not isinstance(monitors, list) or any(not isinstance(item, dict) for item in monitors):
+                raise RuntimeError("hyprctl monitors did not return a monitor list")
+            matches = [item for item in monitors if item.get("id") == window.get("monitor")]
+            if len(matches) != 1:
+                raise RuntimeError("could not identify the owned window's monitor")
+            scale = matches[0].get("scale")
+            if not isinstance(scale, (int, float)) or not math.isfinite(scale) or scale <= 0:
+                raise RuntimeError("invalid compositor monitor scale")
+        self.observations["xwayland_geometry"] = dict(
+            monitor=window.get("monitor"), force_zero_scaling=force_zero,
+            compositor_to_pixels=scale)
+        if compositor_size is not None:
+            # An integer compositor request is rounded when configured to X11.
+            return metrics[2:4] == [math.floor(value * scale + 0.5) for value in compositor_size]
+        # An OSC request starts in renderer logical units. Compare the measured
+        # pixels converted back to Hyprland's truncated clients JSON geometry.
+        return size == [math.floor(value / scale) for value in metrics[2:4]]
+
 
 def check_texture_resize(previous_metrics, previous_status, metrics, status):
     """Catch a resized OS window whose GPU feedback/graph targets stayed stale.
@@ -178,7 +222,7 @@ def exercise(owner, native, fixture, source, record, resize_driver="osc"):
     record["stage"] = "compositor_resize_setup"
     previous_metrics, previous_state = metrics, state
     native.resize(900, 500)
-    metrics = metrics_where(lambda args: args[:2] == [900, 500],
+    metrics = metrics_where(lambda args: native.size_matches(args, [900, 500]),
                             "renderer did not follow Hyprland's floating-window resize")
     state = progressed(query("status")[1])
     check_texture_resize(previous_metrics, previous_state, metrics, state)
@@ -197,15 +241,19 @@ def exercise(owner, native, fixture, source, record, resize_driver="osc"):
         else:
             client.send(PREFIX + "window/resize", "ii", (width, height))
         client.expect(PREFIX + "shader/reloaded", predicate=lambda args: args == [701])
-        metrics = metrics_where(lambda args: args[:2] == [width, height],
-                                f"renderer did not report logical size {width}x{height}")
-        until(lambda: native.snapshot().get("size") == [width, height],
-              f"compositor did not report size {width}x{height}")
+        if resize_driver == "compositor":
+            metrics = metrics_where(lambda args: native.size_matches(args, [width, height]),
+                                    f"renderer did not follow compositor size {width}x{height}")
+        else:
+            metrics = metrics_where(lambda args: args[:2] == [width, height]
+                                    and native.size_matches(args),
+                                    f"renderer/compositor did not reach logical size {width}x{height}")
         # Wait for progress after size convergence, not just during the reload.
         state = progressed(query("status")[1])
         check_texture_resize(previous_metrics, previous_state, metrics, state)
         passed(name, dict(metrics=metrics, texture_bytes=state[13], frame=state[1],
-                          resize_driver=resize_driver))
+                          resize_driver=resize_driver, requested_size=[width, height],
+                          compositor_size=native.snapshot()["size"]))
 
     record["osc_resize_completed"] = resize_driver == "osc"
 

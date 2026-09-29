@@ -76,6 +76,8 @@ Use code::\type, \shader:: with code::Pbind:: rather than a separate visual sche
 
 The event sends updates through code::Shader.setAt:: after code::\latency:: seconds. Omit it to use code::ShaderServer.latency::. The first event for a name not yet created retains known values until creation is acknowledged; pre-create the Shader if first-event timing matters. code::\dur::, code::\delta::, and code::\sustain:: retain their normal Event meanings, without implicit gate/release behavior.
 
+This demo schedules updates 150 ms ahead to allow for desktop and startup jitter. That lead time delays the visual response; choose a latency appropriate to your performance. The controller's 20 ms default can be insufficient during startup on the tested hybrid-GPU desktop. Late-event diagnostics remain enabled.
+
 code::
 (
 var source = ShaderDef.filenameSymbol.asString.dirname.dirname +/+ "shaders/fullscreen.wgsl";
@@ -92,7 +94,7 @@ v.waitForBoot { |server|
             \shader, x,
             \amount, Pseq([0.2, 0.5, 0.8], inf),
             \dur, 1/4,
-            \latency, server.latency
+            \latency, 0.15
         ).play;
     }).play(SystemClock);
 };
