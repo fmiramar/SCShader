@@ -1,7 +1,7 @@
 (
     name: "SCShader",
     summary: "Process-separated GPU shader control for SuperCollider",
-    version: "0.0.17",
+    version: "0.0.18",
     dependencies: [],
     license: "GPL-3.0-or-later",
     copyright: "fmiramar and contributors",

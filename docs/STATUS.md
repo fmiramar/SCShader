@@ -1,6 +1,22 @@
 # Implementation checkpoint
 
-Updated 2026-09-28. Current development version: **0.0.17**. Not a final v0.1.0 release.
+Updated 2026-09-28. Current development version: **0.0.18**. Not a final v0.1.0 release.
+
+Linux resume: code inspection found that the renderer discarded synchronous
+`winit` resize results, which Wayland may apply without a later resize event.
+0.0.18 applies that physical size through the existing surface/input path and
+avoids recreating GPU targets for unchanged sizes. A Hyprland interaction runner
+records failure stages and checks GPU allocation changes as well as native window
+metrics. Static checks pass: 59 Rust tests; 71 Python tests and four Windows-only
+skips. A user-run native NVIDIA/Vulkan/Wayland interaction launched 0.0.18
+successfully and the updated runner verified compositor-driven resize, GPU
+allocation changes and frame progress. Hyprland then refused the first
+SCShader-issued OSC resize, so native Wayland is recorded with compositor-driven
+resizing; Xwayland remains the OSC resize path. The installed 0.0.17 checkpoint
+is retained. See the
+[resume record](platform-results/2026-09-28-linux-resize.md) and
+[interaction procedure](LINUX_INTERACTION_CHECKS.md). Earlier native passes below
+qualify their recorded 0.0.17 binary, not this changed candidate.
 
 Windows checkpoint (2026-09-28): development 0.0.17 fixes the reproduced IDE
 startup failure by selecting FXC explicitly, avoiding an incompatible DXC DLL
@@ -35,8 +51,9 @@ The native Linux x64 checkpoint now passes on the receiving CachyOS desktop;
 see [the Linux result](platform-results/2026-09-28-linux-x64.md) and
 [Linux setup](LINUX.md). Native Xorg, compositor-driven interaction, and Mac
 regression remain open.
-The latest source handoff is `fmiramar-SCShader-0.0.17-source-linux-handoff-2026-09-28-r5.zip`;
-verify it using the adjacent `.sha256` file.
+The resumed source snapshot is
+`fmiramar-SCShader-0.0.18-source-linux-resume-2026-09-29-r3.zip`; verify its adjacent
+`.sha256` file. The original 0.0.17 r5 Windows-to-Linux transfer remains preserved.
 See [the current Windows record](platform-results/2026-09-28-windows-x64.md),
 [the preserved 0.0.16 results](platform-results/2026-09-27-windows-x64.md), and
 [Windows setup](WINDOWS.md). P1 remains open; no long-run claim is added.

@@ -1,7 +1,9 @@
 # Linux agentic plan — x64 first, optional native arm64
 
-Status: x64 cross-target compilation passed on macOS; native linking, packaging,
-GPU/display and SC checks **not yet verified**. Follow [COMMON.md](COMMON.md).
+Status: the 0.0.17 native CachyOS x64 package, Wayland/Xwayland Vulkan matrix,
+SC/help and short stress/recovery checks passed. The 0.0.18 synchronous resize
+correction needs native revalidation; see the
+[resume record](../platform-results/2026-09-28-linux-resize.md). Follow [COMMON.md](COMMON.md).
 This is the user's selected next platform after Windows interaction checks;
 read the [0.0.17 handoff](../LINUX_HANDOFF.md) for the carried changes.
 
@@ -52,6 +54,11 @@ boot, record/configure the receiving SC audio environment rather than suppressin
 the audio assertions or changing unrelated system services without approval.
 
 ## L3. Separate display/backend qualification
+
+Current resume point: run the [Hyprland interaction checks](../LINUX_INTERACTION_CHECKS.md)
+on the candidate in a native desktop with GPU/IPC access, then repeat the critical
+suites below. The 0.0.17 ten-second feedback modes did not reach their scheduled
+resize, so they cannot close this gate. Native Xorg remains a separate open track.
 
 Run these in sessions where the requested display protocol is actually available:
 

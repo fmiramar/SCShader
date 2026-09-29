@@ -1,13 +1,16 @@
 # Continue SCShader on another computer
 
-Original handoff date: 2026-09-25. Current development version: **0.0.17**,
-including the Windows corrections of 2026-09-28. Not a final release.
+Original handoff date: 2026-09-25. Current development version: **0.0.18**,
+including the Linux resize correction of 2026-09-28. Not a final release.
 The next milestone is native platform compatibility, before further extended
 stress tests and final-release validation.
 
-Next receiving platform: **Linux**, selected by the user after Windows interaction
-checks. See [the Linux handoff](docs/LINUX_HANDOFF.md) for the Windows change summary
-and receiving-machine steps. Mac regression remains a later open track.
+Active platform: **Linux**, selected by the user after Windows interaction
+checks. The 0.0.17 native checkpoint passed its short suites. Resume at the
+[0.0.18 resize follow-up](docs/platform-results/2026-09-28-linux-resize.md) and
+[Linux interaction checks](docs/LINUX_INTERACTION_CHECKS.md): the candidate needs
+live GPU/SC validation. The [Linux handoff](docs/LINUX_HANDOFF.md) preserves the
+earlier Windows change summary. Mac regression remains a later open track.
 
 ## What this transfer contains
 

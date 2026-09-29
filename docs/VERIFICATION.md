@@ -1,5 +1,25 @@
 # Verification
 
+## Linux resize follow-up - 2026-09-28
+
+Development 0.0.18 handles winit's synchronous physical-size result and avoids
+clearing GPU targets on unchanged-size notifications. Formatting, locked/offline
+warnings-as-errors Clippy, and all 59 Rust tests pass. Python: 75 discovered,
+71 pass and four native-Windows skips, including 13 new interaction-harness
+tests. These test strict window ownership, IPC/error evidence and detection of
+OS metrics changing while GPU target allocations remain stale.
+
+The user's interactive desktop has native IPC and Vulkan device access. The first
+user-run 0.0.18 NVIDIA/Wayland check launched the release binary and drew frames,
+but timed out at its first client resize. The updated run verified compositor-driven
+resize, GPU allocation changes and frame progress, then confirmed the first
+SCShader OSC resize is refused in this Hyprland Wayland session. Native Wayland is
+recorded with compositor-driven resizing; Xwayland remains the OSC resize path.
+The installed 0.0.17 checkpoint is retained, and its prior passing suites do not
+qualify the changed executable. See the
+[resume result](platform-results/2026-09-28-linux-resize.md) and
+[interaction instructions](LINUX_INTERACTION_CHECKS.md).
+
 ## Windows IDE corrections - 2026-09-28
 
 The Linux source handoff inventory includes 152 source files plus its manifest.

@@ -80,6 +80,12 @@ the compositor, which may ignore global position requests.
 
 ## Short verification
 
+For the 0.0.18 resize correction, start with the
+[Linux interaction procedure](LINUX_INTERACTION_CHECKS.md). Its Hyprland runner
+checks the owned window and GPU allocation after each resize/reload and records
+the exact stage and observations on failure. It requires native GPU and compositor
+IPC access. The installed 0.0.17 build and its prior evidence remain separate.
+
 Follow the [Linux plan](plans/LINUX.md) and [shared checks](plans/COMMON.md), using
 the installed renderer. Keep live checks serial and use fresh evidence folders.
 For every acceptance command, explicitly pass `--seconds 10`: the runner's

@@ -1334,7 +1334,13 @@ impl Renderer {
     }
 
     pub fn resize(&mut self, size: PhysicalSize<u32>) {
-        if size.width == 0 || size.height == 0 {
+        // A synchronous size result can be followed by the same Resized event.
+        // Ignored requests also return the current size. Neither should clear
+        // feedback history or recreate targets that already have this size.
+        if size.width == 0
+            || size.height == 0
+            || (size.width == self.config.width && size.height == self.config.height)
+        {
             return;
         }
         self.config.width = size.width;

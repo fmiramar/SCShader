@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.18 - 2026-09-28
+
+- Handle the applied physical size returned immediately by winit resize requests, including Wayland requests that do not generate a later resize event. Resize the GPU surface/feedback/graph targets and notify SC through the existing event path.
+- Preserve targets and feedback history when an ignored request or duplicate event reports the same size.
+- Add a scoped Hyprland interaction runner with per-stage failure evidence, strict child/window ownership, separate Wayland/Xwayland records, and a check that GPU texture allocations follow actual framebuffer resizing.
+
+This is a development candidate. Static checks and packaging do not replace the pending native GPU/SC regression; the installed 0.0.17 checkpoint remains separate.
+
 ## 0.0.17 - 2026-09-28
 
 - Fixed Windows IDE startup: choose FXC explicitly for the supported D3D12 shader subset, avoiding incompatible DXC DLLs discovered in another application's working directory. Startup errors now reach the Windows SuperCollider Post pane.

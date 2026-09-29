@@ -1,5 +1,10 @@
 # Linux handoff after Windows 0.0.17
 
+Current continuation: the receiving Linux desktop completed the 0.0.17 native
+short suites. The [0.0.18 resize follow-up](platform-results/2026-09-28-linux-resize.md)
+is now the resume point. The receiving instructions below describe the original
+Windows-to-Linux transfer and are retained for provenance.
+
 The user selected native Linux testing as the next platform after Windows
 interaction checks. Windows `ShaderFFTTexture` was also confirmed working in the
 IDE. macOS regression and native Apple Silicon qualification

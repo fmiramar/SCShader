@@ -6,7 +6,7 @@ use std::{
 
 use winit::{
     application::ApplicationHandler,
-    dpi::{LogicalPosition, LogicalSize, PhysicalPosition},
+    dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
     event::{ElementState, KeyEvent, MouseButton, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow},
     keyboard::Key,
@@ -681,7 +681,12 @@ impl App {
             } => {
                 self.last_reply_target = Some(reply_to);
                 if let Some(window) = self.window.as_ref() {
-                    let _ = window.request_inner_size(LogicalSize::new(width, height));
+                    // Wayland can apply a client resize synchronously without
+                    // emitting Resized. Use the returned physical size (which
+                    // may also be the unchanged size if the compositor refuses).
+                    if let Some(size) = window.request_inner_size(LogicalSize::new(width, height)) {
+                        self.resize_window(size);
+                    }
                 } else {
                     self.send_error(ErrorReply::window(
                         reply_to,
@@ -891,6 +896,16 @@ impl App {
         ) {
             eprintln!("SCShader OSC reply error: {error}");
         }
+    }
+
+    fn resize_window(&mut self, size: PhysicalSize<u32>) {
+        if let Some(renderer) = self.renderer.as_mut() {
+            renderer.resize(size);
+        }
+        if let Some(reply_to) = self.last_reply_target {
+            self.send_window_metrics(reply_to);
+        }
+        self.send_resize_input();
     }
 
     fn send_window_metrics(&self, reply_to: ReplyTarget) {
@@ -1127,15 +1142,7 @@ impl ApplicationHandler for App {
 
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
-            WindowEvent::Resized(size) => {
-                if let Some(renderer) = self.renderer.as_mut() {
-                    renderer.resize(size);
-                }
-                if let Some(reply_to) = self.last_reply_target {
-                    self.send_window_metrics(reply_to);
-                }
-                self.send_resize_input();
-            }
+            WindowEvent::Resized(size) => self.resize_window(size),
             WindowEvent::ScaleFactorChanged { .. } => {
                 if let Some(reply_to) = self.last_reply_target {
                     self.send_window_metrics(reply_to);
