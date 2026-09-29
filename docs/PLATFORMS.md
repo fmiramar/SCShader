@@ -19,6 +19,19 @@ driver-reset qualification, or final-release acceptance.
 | Windows x64 | Direct3D 12 | `dx12`, `vulkan` | Native Windows |
 | Linux | Vulkan | `vulkan`, `gl` | `auto`, `x11`, `wayland` |
 
+## Recorded native hardware coverage
+
+| Platform and tested OS/session | Graphics path | Adapter families exercised | Result scope |
+| --- | --- | --- | --- |
+| Windows x64 | Direct3D 12 | NVIDIA discrete and Intel integrated | Short acceptance and native interaction checks; see the [Windows result](platform-results/2026-09-28-windows-x64.md). |
+| CachyOS Linux x86-64 under Hyprland | Vulkan on Wayland and Xwayland | NVIDIA discrete and Intel integrated | 0.0.18 native interaction, acceptance, and installed SuperCollider checks; see the [Linux result](platform-results/2026-09-29-linux-interactions.md). |
+| macOS Apple Silicon and Intel | Metal | Not yet tested | Native build and hardware qualification remain open. |
+
+The Windows and Linux results describe the recorded hybrid-graphics test system;
+they do not establish compatibility with every GPU model, driver, Linux
+distribution, or desktop session. Exact versions and per-run evidence are in the
+linked platform records.
+
 Automatic backend selection means the platform default above, not silent
 fallback to a different graphics API. An unsupported or unavailable requested
 backend fails clearly. Linux OpenGL is an explicit compatibility experiment;
