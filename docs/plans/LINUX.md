@@ -108,4 +108,6 @@ GNU x64 linked/installed package and Vulkan critical suites pass; X11/Wayland ha
 separate evidence or a user-approved narrowed support scope. Dependencies/minimum
 tested distribution and missing hardware are explicit. Optional GL and native
 arm64 do not silently inherit a pass. Return fixes/results for other-target
-regression; leave long tests and publication to their later authorized milestones.
+regression; leave long tests and final release publication to their later
+authorized milestones. Reviewed development commits may still be synced to public
+`main` under the standing multi-computer workflow in [START_HERE.md](../START_HERE.md).

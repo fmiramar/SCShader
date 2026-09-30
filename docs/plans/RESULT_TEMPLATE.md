@@ -59,4 +59,6 @@ overwrites fixed log filenames: preserve each run before rerunning it.
 
 Track complete / incomplete: TBD, with reasons and next concrete action.
 Precisely tested support scope: TBD. Do not extrapolate to all drivers/OS versions.
-Milestone and verification docs updated: TBD. Publication remains unauthorized.
+Milestone and verification docs updated: TBD. Reviewed development sync to public
+`main` is authorized; release tags, uploads, hosted workflow dispatches, and final
+release publication still require separate authorization.

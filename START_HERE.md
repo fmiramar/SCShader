@@ -1,9 +1,10 @@
 # Continue SCShader on another computer
 
-Original handoff date: 2026-09-25. Current development version: **0.0.18**,
-including the Linux resize correction of 2026-09-28. Not a final release.
-The next milestone is native platform compatibility, before further extended
-stress tests and final-release validation.
+Updated 2026-09-30. Current development version: **0.0.18**. This is not a final
+release. The canonical shared source is the public GitHub repository
+[`fmiramar/SCShader`](https://github.com/fmiramar/SCShader), with development
+work synced directly through `main`. Read-only cloning is public; authenticate
+separately on each computer before pushing.
 
 Active platform: **macOS Apple Silicon**, selected by the user on 2026-09-30.
 The native 0.0.18 package, four ten-second Metal modes, confirmed Retina resizing,
@@ -30,9 +31,10 @@ earlier Windows change summary. Intel Mac regression remains a separate open tra
 
 ## What this transfer contains
 
-The source archive includes the current working files, including uncommitted and
-untracked implementation, classes, shader assets, help, tests, packaging scripts,
-CI configuration, the pinned Rust toolchain/lockfile, and platform plans. Its layout:
+The Git repository contains the current source, tests, packaging scripts, plans,
+and project history. Clone it for normal work across computers. A source archive
+is an optional portable snapshot for cases where Git access is unavailable; it
+has no `.git` history and must not replace a newer checkout. The archive layout is:
 
 ```text
 SCShader-handoff/
@@ -45,67 +47,86 @@ SCShader-handoff/
 ```
 
 The original plan stays beside `SCShader/` so its relative links still work.
-The manifest hashes every transferred source file. No `.git` history, compiled
-renderer, Rust dependency cache, old test logs, or installed extension is included.
-This is not an offline SDK: initially obtain Rust, its pinned toolchain/dependencies,
-Python 3.11+, SuperCollider, and the receiving platform's build tools and drivers.
-Do not place this entire source tree in SuperCollider's Extensions directory.
+The archive manifest hashes transferred source files. It excludes `.git`, compiled
+renderers, Rust dependency caches, old test logs, and installed extensions. It is
+not an offline SDK: obtain Rust, the pinned dependencies, Python 3.11+,
+SuperCollider, and the receiving platform's build tools and drivers. Do not place
+the project checkout in SuperCollider's Extensions directory.
 
 ## First session
 
-1. Verify the ZIP against its adjacent `.sha256` file (`shasum -a 256` on macOS,
-   `sha256sum` on Linux, or `Get-FileHash -Algorithm SHA256` on Windows). Extract to
-   a fresh writable folder, not over an existing project or installed extension.
-2. Open the inner `SCShader/` directory as the agent/editor working directory.
-   Read [AGENTS.md](AGENTS.md), [STATUS.md](docs/STATUS.md), and the
+1. Clone the repository into a fresh writable project folder:
+
+   ```sh
+   git clone https://github.com/fmiramar/SCShader.git
+   cd SCShader
+   git switch main
+   git rev-parse --short HEAD
+   ```
+
+   The public repository can be cloned without authentication. Confirm the
+   reported commit is the current `origin/main` tip before testing.
+2. Read [AGENTS.md](AGENTS.md), [STATUS.md](docs/STATUS.md), and the
    [platform milestone](docs/PLATFORM_MILESTONE.md).
 3. Read the [shared execution plan](docs/plans/COMMON.md), then the matching plan:
    [Windows x64](docs/plans/WINDOWS_X64.md),
    [Linux x64 / optional arm64](docs/plans/LINUX.md),
    [macOS Apple Silicon](docs/plans/MACOS_ARM64.md), or
    [macOS Intel regression](docs/plans/MACOS_X64.md).
-4. Verify the archive's internal manifest from this directory (use `python` on
-   Windows): `python3 tools/package_source.py --verify /path/to/the-source.zip`.
-   This checks archive content; make changes only after preserving the original ZIP.
-5. Follow the selected plan: native preflight, build, package, install, SC/help
+4. Follow the selected plan: native preflight, build, package, install, SC/help
    checks, short GPU tests, and hardware-specific checks. Fix demonstrated issues
-   and record evidence. Do not start a long soak or publish anything automatically.
+   and record evidence. Do not start a long soak or create a release automatically.
+5. If you received a source ZIP instead, verify its adjacent checksum and internal
+   manifest (`python3 tools/package_source.py --verify <archive.zip>`; use `python`
+   on Windows), then extract it to a fresh folder. ZIP extraction is a fallback
+   source snapshot, not the normal multi-computer sync path.
 
 All plan commands run from the inner `SCShader/` directory. On Windows, verify
 each native command's exit code before moving on; PowerShell does not always stop
 after a failing external executable. Shell scripts can be invoked with `bash`
 even if the ZIP extractor did not restore executable bits.
 
-## Version control and returning changes
+## Version control across computers
 
-See the [Git audit](docs/HANDOFF_GIT_AUDIT.md) for history provenance. The
-originating Mac workspace had changes that were uncommitted/untracked at the time
-of its 2026-09-25 audit. This Windows source-kit extraction arrived without its
-`.git` history; its new local repository begins with the current source-kit state
-and cannot recreate the earlier edit sequence.
+Use this repository's `main` branch as the shared development line. Before each
+session in an existing checkout, run `git pull --ff-only origin main`; do not work
+from a stale copy or copy `.git` between machines. Before syncing, inspect
+`git status`, review the complete staged diff, and add only project source, tests,
+and documentation. Keep builds and raw test logs under ignored `build/`.
 
-`SCShader/` is the standalone repository root for the shared Windows/Linux folder.
-The source ZIP remains a portable snapshot and intentionally excludes `.git`;
-using the same dual-boot folder retains the local history. Set the user's approved
-author identity. Do not add a remote, copy another workspace's `.git`, push or tag.
-The `.github` workflow assumes this project root.
+Each computer needs its own GitHub CLI authentication to push. Public clone and
+fetch work without an account login. On a computer that will push, run:
 
-Return a scoped patch/commits against that baseline plus the platform result record,
-or another source handoff ZIP if no local repository was initialized. Include new
-files: plain `git diff` omits untracked files. Review/merge on return rather than
-overwriting newer work on another machine. Keep raw hardware logs in a separate
-reviewed evidence archive if needed; never include credentials or private paths
-in the publishable summary.
+```sh
+gh auth login --hostname github.com --git-protocol https --web
+git config user.name "Fellipe M. Martins"
+git config user.email "54965070+fmiramar@users.noreply.github.com"
+```
+
+The Git identity commands are local to this checkout. Then commit and push
+reviewed development changes to `main`. Resolve a non-fast-forward rejection by
+fetching and reviewing the other machine's commit before integrating; do not force
+push. Include a concise result record with exact source commit and renderer hash,
+but do not commit private paths, credentials, or raw machine logs.
+
+This standing workflow covers public development commits on `main`. Version tags,
+binary release uploads, manual hosted workflow dispatches, and final release
+publication remain separate actions requiring explicit authorization. A push to
+`main` may run the configured branch CI automatically. The `.github` workflow can
+publish when a version tag is pushed, so never create one as a sync shortcut.
 
 ## Prompt for the next agent
 
-> Continue SCShader from this source handoff (current version in VERSION). Read AGENTS.md, START_HERE.md,
+> Continue SCShader from the current `main` checkout (current version in VERSION). Read AGENTS.md, START_HERE.md,
 > docs/PLATFORM_MILESTONE.md, docs/plans/COMMON.md, and this computer's platform
 > plan. Native platform compatibility is the next priority. Inspect current Git
 > state, identify OS/architecture/backend, implement only reproducible missing
 > platform work, build/package/install locally, and run the documented short checks.
-> Record exact evidence and remaining blockers. Preserve existing changes; no
-> publication, remote writes, dependency upgrades, or long tests without approval.
+> Record exact evidence and remaining blockers. Preserve existing changes. Commit
+> and push reviewed source, test, and documentation changes to public `main` for
+> multi-computer sync. Do not create version tags, upload release assets, dispatch
+> hosted workflows, upgrade dependencies, or start long tests without separate
+> authorization/scheduling.
 
 For architecture and the remaining release work, read
 [IMPLEMENTATION_REPORT.md](docs/IMPLEMENTATION_REPORT.md). Historical log paths in

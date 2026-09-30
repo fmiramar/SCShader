@@ -53,4 +53,5 @@ recovery executable is under
 Affected checks and the critical native regression suite pass with a result record
 and hash matching the installed ordinary release binary. If a regression appears,
 retain negative evidence and fix it before integrating the platform change.
-Signing/notices and the user's final eight-hour run remain open. No publication.
+Signing/notices and the user's final eight-hour run remain open. No tagged release
+or binary distribution is authorized by this regression plan.

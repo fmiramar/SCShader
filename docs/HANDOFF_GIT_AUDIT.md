@@ -3,7 +3,9 @@
 > Historical note: this audit records the originating workspace as inspected on
 > 2026-09-25. It does not describe the later Windows source-kit extraction. The
 > current Windows project had no `.git` directory or parent Git repository when
-> received; that archive intentionally excludes Git history.
+> received; that archive intentionally excludes Git history. It also predates the
+> current multi-computer GitHub workflow. Follow [START_HERE.md](../START_HERE.md)
+> and [AGENTS.md](../AGENTS.md) for current clone, pull, commit, and push guidance.
 
 Audited 2026-09-25. This is a read-only audit, not a commit or publication.
 
@@ -53,7 +55,7 @@ does **not** provide historical commits, branches, installed binaries, or old lo
 No unrelated files were staged, committed, reverted, or packaged. No remotes were
 contacted, and no authentication, workflow dispatch, tag, push, or release was made.
 
-## Remaining Git work
+## Remaining Git work at the time of this audit
 
 If the user wants a local checkpoint commit, request/confirm that separately,
 inspect repository-root `git status --short`, review the SCShader diff and all new
@@ -62,7 +64,8 @@ Do not use `git add .` at the workspace root or commit build outputs. An approve
 local commit does not authorize pushing it. Other projects' missing commits and
 the unrelated gitlink metadata need their own scoped decisions.
 
-On a different computer, initialize a standalone repository only if requested,
-inside the extracted `SCShader/` directory. Preserve the source ZIP/checksum as the
-transfer baseline and keep the adjacent historical plan with the handoff. See
-[START_HERE.md](../START_HERE.md) for returning changes safely.
+At the time of this audit, a different computer needed a standalone repository
+inside the extracted `SCShader/` directory. The current workflow uses `git clone`
+from public `main`; see [START_HERE.md](../START_HERE.md) for current instructions.
+The source ZIP remains an optional snapshot and should retain its adjacent plan
+and checksum when used.

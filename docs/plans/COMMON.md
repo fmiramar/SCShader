@@ -9,13 +9,15 @@ SCShader project root. Run live GPU/audio suites serially in an interactive desk
 1. Read `AGENTS.md`, `START_HERE.md`, `docs/STATUS.md`,
    `docs/IMPLEMENTATION_REPORT.md`, `docs/PLATFORMS.md`, and `docs/RECOVERY.md`.
    Consult `protocol/protocol.md` before changing transport or status fields.
-2. Inspect local files and repository-root Git status. A source handoff has no
+2. Inspect local files and repository-root Git status. The normal multi-computer
+   workflow uses the standalone GitHub checkout; on an existing checkout, update
+   with `git pull --ff-only origin main` before work. A source ZIP fallback has no
    `.git`; do not mistake an enclosing unrelated repository for this project's
-   baseline. Keep the original archive and manifest intact. No publishing is allowed.
+   baseline. Keep the original archive and manifest intact.
 3. Copy [RESULT_TEMPLATE.md](RESULT_TEMPLATE.md) to a dated target result under
    `docs/platform-results/`. Record OS version, CPU/process architecture, GPU/driver,
    actual desktop session, SuperCollider version/architecture, Python, Rust host,
-   source archive checksum or approved local commit and dirty state. Avoid hostnames.
+   source archive checksum or Git commit and dirty state. Avoid hostnames.
 4. Verify native prerequisites in the platform plan. Missing hardware/display is
    **blocked/not run**, not a failure of a tested renderer and not a pass. Do not
    replace hardware qualification with headless or software rendering silently.
@@ -156,7 +158,10 @@ Record tested scope rather than advertising general vendor/OS compatibility.
 Inspect minimum runtime dependencies and development-package launch behavior on a
 machine without the Rust toolchain where available. Retain licensing/signing gaps
 as release blockers. CI build jobs are configured, not evidence of a past hosted
-run; this task does not authorize triggering hosted jobs or pushing tags.
+run. Routine source, test, and documentation commits may be pushed to the public
+`main` branch for multi-computer development sync. Hosted workflow dispatches,
+version tags, release uploads, and final release publication remain separate and
+require explicit authorization.
 
 ## 6. Handoff and stop condition
 
@@ -169,5 +174,7 @@ This track is complete when a native package installs, critical short checks pas
 platform-specific behavior is documented, and no unexplained critical failure
 remains. Hardware gaps require an explicit limitation/support decision; never mark
 them passed. Then hand off the source changes and result record for integration.
-One-hour scheduling, final notice/signing review, user-run eight-hour sign-off,
-and authorized publication remain separate later steps.
+Commit and push reviewed source changes and the result record to `main` so other
+computers can test the same checkpoint. One-hour scheduling, final notice/signing
+review, user-run eight-hour sign-off, and release publication remain separate
+later steps.

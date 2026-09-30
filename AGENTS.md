@@ -9,15 +9,29 @@ before implementing changes. The active milestone is
 
 - Preserve existing changes. Work only on SCShader and its adjacent original
   implementation plan; do not modify other projects in a larger workspace.
-- No publication is authorized: no push, release tag, upload, hosted workflow
-  dispatch, or GitHub authentication. Ask before changing that scope. The existing
-  workflow can publish on a version tag. A source ZIP is not a public release.
-- A Git audit is not permission to stage or commit. Before an authorized commit,
-  inspect repository-root status and stage only project files. Use the approved
-  author identity, never a computer name. Use `fmiramar` for local artifact prefixes.
-- Keep binaries, logs, build/stage/dist trees, caches, and test evidence out of
-  source commits. Never copy credentials, `.git`, or machine-specific settings
-  into a handoff. Archive current source, including untracked work, not just HEAD.
+- The user authorizes ongoing development sync to the public
+  `https://github.com/fmiramar/SCShader` repository by committing and pushing
+  reviewed source, tests, and documentation directly to `main`. This makes those
+  commits public. Do not ask again before routine pushes within this scope.
+  Pushes to `main` may run the repository's configured branch CI automatically.
+  Manual hosted workflow dispatches, release tags, binary release uploads, and
+  changing release/version metadata still need separate authorization. The
+  existing version-tag workflow can publish a release.
+- A Git audit is not permission to stage or commit. Before each sync commit,
+  inspect repository-root status and the staged diff; stage only intended project
+  source, tests, and documentation. Exclude binaries, logs, build/stage/dist trees,
+  caches, and raw test evidence. Use the user's approved author identity, never a
+  computer name. Use `fmiramar` for local artifact prefixes.
+- Each computer uses its own GitHub CLI login; never copy credentials or keychain
+  data between machines. Public clone/fetch needs no login. Authenticate locally
+  with `gh auth login --hostname github.com --git-protocol https --web` before
+  pushing. Pull `main` before starting work on an existing checkout and push
+  development updates to `origin main` after reviewing the exact commit.
+- Keep binaries, logs, build/stage/dist trees, caches, and raw test evidence out
+  of source commits. Never copy credentials, `.git`, or machine-specific settings
+  to another computer. The shared Git repository carries source history; use the
+  source ZIP only as an optional portable snapshot. Include reviewed source files
+  in commits, including newly created files.
 - Back up an existing installed SCShader extension before replacing it. Install
   verification builds in the receiving user's normal SuperCollider Extensions
   directory. Do not delete other extensions or leave duplicate SCShader classes.

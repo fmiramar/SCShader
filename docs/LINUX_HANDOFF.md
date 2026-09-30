@@ -71,8 +71,10 @@ ship only the ordinary production build. Record a fresh dated Linux result.
 Do not rerun Windows tests under emulation as Linux qualification. Windows binary
 hashes are provenance for those Windows results, not expected Linux hashes.
 One-hour validation requires scheduling; the user's eight-hour sign-off remains
-the last final-release step. No hosted CI, publication or GPU driver reset is
-authorized by this handoff.
+the last final-release step. The current project policy allows reviewed source,
+test, and documentation pushes to public `main` for cross-computer development.
+This historical handoff does not authorize hosted CI, release tags/uploads, or a
+GPU driver reset.
 
 ## Resume prompt
 
@@ -83,4 +85,4 @@ authorized by this handoff.
 > use the pinned toolchain/lockfile, build and install locally, and run the short
 > native SC/help/Vulkan checks. Diagnose failures without weakening assertions.
 > Keep Xorg, Xwayland and Wayland results distinct. Save exact hashes and evidence.
-> No long soak, dependency upgrade or publication without the required authorization.
+> No unscheduled long soak, dependency upgrade, hosted workflow, or release tag/upload.

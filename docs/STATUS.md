@@ -2,6 +2,13 @@
 
 Updated 2026-09-30. Current development version: **0.0.18**. Not a final v0.1.0 release.
 
+Multi-computer development uses the public GitHub repository's `main` branch.
+Reviewed source, test, and documentation commits are authorized for routine push
+to `origin/main`; each computer authenticates locally before pushing. The macOS
+follow-up is in development checkpoint `3e8f022` on `main`. Release tags, binary
+release uploads, hosted workflow dispatches, and final release publication still
+require separate authorization. See [START_HERE.md](../START_HERE.md).
+
 macOS interaction follow-up: all 19 native window/input stages and the user's
 physical mouse/key/focus/fullscreen/reload checks pass. A reported Escape concern
 was resolved by testing it while fullscreen. A genuine normal-close issue was
@@ -124,8 +131,9 @@ This ordering comes before further extended Mac-only stress work and final long
 tests. The selected Linux short target is now qualified; macOS Apple Silicon
 has a native build/runtime checkpoint with remaining gates above.
 [START_HERE.md](../START_HERE.md)
-explains the portable source handoff; [the Git audit](HANDOFF_GIT_AUDIT.md) records
-that current work is not fully committed. Nothing is published by this handoff.
+explains the GitHub clone/pull workflow and the optional portable source ZIP. The
+[Git audit](HANDOFF_GIT_AUDIT.md) is historical and describes the 2025 source-kit
+state; it does not describe the current GitHub checkout.
 
 Installed-example correction (2026-09-25): user reports exposed placeholder paths
 and prerequisite-only snippets that earlier checks missed. The guide, ten class

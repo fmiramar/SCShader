@@ -233,7 +233,7 @@ Run the configured hosted jobs from a clean standalone checkout. Confirm each in
 
 **Why:** local success can depend on an existing cache, installation, or toolchain. Native packaging must not accidentally label a host binary as another platform, omit resources, or require undocumented runtime libraries. Signing/notarization and checksums address different distribution concerns; a decision and clear instructions are needed.
 
-The workflows exist, but hosted runs and all native artifacts have not been verified here. Publication requires explicit authorization and the final sign-off. **Nothing has been published.** See [RELEASE.md](RELEASE.md).
+The workflows exist, but hosted runs and all native artifacts have not been verified here. The user authorizes development source, test, and documentation commits to the public `main` branch for multi-computer testing; those pushes may run the configured branch CI. This does not authorize manual workflow dispatch, version tags, release assets, or final release publication, which still need explicit authorization and sign-off. See [RELEASE.md](RELEASE.md).
 
 ## 7. Deferred capabilities, not prerequisites for the first release
 
@@ -252,7 +252,7 @@ Priority updated at the user's request on 2026-09-25; see the
 
 1. Build, install, test, and fix Windows x64, Linux x64, and macOS Apple Silicon natively; retain Intel Mac regression coverage. Use short checks first and record display/backend/hardware limitations.
 2. Complete remaining short resize/reload/resource-interaction tests, notice gaps, and distribution/signing review.
-3. Obtain authorization for hosted CI checks; this local handoff authorizes no remote writes, tags, or publication.
+3. Obtain separate authorization for hosted CI checks and release actions. Routine reviewed development commits may be pushed to public `main`; this does not authorize workflow dispatch, tags, or release publication.
 4. Freeze the candidate, package it, and schedule its exact-binary one-hour and short auxiliary checks with the user.
 5. Hand that exact final candidate to the user for the eight-hour sign-off.
 6. Publish only after explicit approval, with accurate supported-platform and limitation notes.

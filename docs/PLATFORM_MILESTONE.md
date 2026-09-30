@@ -65,14 +65,22 @@ result, not the existence of implementation code or a future test command.
    validation with the user; do not inherit the historical 0.0.14 result for 0.0.16.
 3. The user runs the eight-hour test on the completed final candidate as the last
    release validation step. It is not queued or launched by this milestone.
-4. Publish only with explicit authorization. This milestone authorizes no uploads,
-   version tags, hosted workflow dispatches, or account authentication.
+4. Sync reviewed development source, tests, and documentation to the public GitHub
+   `main` branch so the same candidate can be tested on other computers. This
+   standing authorization does not cover release tags, binary release uploads,
+   hosted workflow dispatches, or final release publication; those need explicit
+   authorization.
 
 Scene restoration, multiple windows, unrestricted graph DAGs, richer textures,
 video/camera, compute, and shared memory remain later scope, not prerequisites
 for testing the implemented desktop feature set.
 
 ## Session log
+
+- 2026-09-30: the user authorized recurring development sync to public GitHub
+  `main`. Commit `3e8f022` was pushed with the macOS follow-up source, tests, tools,
+  and documentation. This is a development checkpoint, not a tagged release or
+  release-asset upload. Handoff rules now describe clone/pull/push on each machine.
 
 - 2026-09-30 interaction follow-up: 19 native macOS window stages pass on Apple
   M5/Metal, including native state, Retina/GPU allocation changes, synthetic keys,

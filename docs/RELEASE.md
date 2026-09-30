@@ -71,8 +71,10 @@ checks; the eight-hour test is deferred to the user's final-release sign-off.
 Consult [VERIFICATION.md](VERIFICATION.md) for completed checks. No development
 result should be presented as a completed final-release sign-off.
 
-Nothing has been published. Native short results now exist for Windows, the
-selected Linux desktop, and macOS arm64; their exact scope is in the
+Development source checkpoints are synced to the public `main` branch so they can
+be tested across computers. No versioned release or release assets have been
+published. Native short results exist for Windows, the selected Linux desktop,
+and macOS arm64; their exact scope is in the
 [platform milestone](PLATFORM_MILESTONE.md). Intel regression and the gates below
 remain open before a general release claim.
 
