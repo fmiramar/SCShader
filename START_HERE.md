@@ -6,7 +6,17 @@ release. The canonical shared source is the public GitHub repository
 work synced directly through `main`. Read-only cloning is public; authenticate
 separately on each computer before pushing.
 
-Active platform: **macOS Apple Silicon**, selected by the user on 2026-09-30.
+Active platform: **Windows x64 desktop**, resumed by the user on 2026-09-30.
+The current 0.0.18 package passes short D3D12 checks on RTX 3060 and RX 580,
+21 native interaction stages per GPU across three displays, 26 isolated installed
+SC checks and 18 help demos. RX 580 stress/recovery and spaces/non-ASCII launch
+checks pass. The user confirms the installed window/input example passes across
+all three displays. All displays currently use 100% scale; listening and
+sleep/wake remain open. See the
+[desktop result](docs/platform-results/2026-09-30-windows-dual-gpu.md) and
+[Windows plan](docs/plans/WINDOWS_X64.md).
+
+Previous active platform: **macOS Apple Silicon**, selected on 2026-09-30.
 The native 0.0.18 package, four ten-second Metal modes, confirmed Retina resizing,
 scheduling/resource stress, logical recovery and installed SC/help checks pass
 on Apple M5. Evidence is recorded in the
@@ -19,7 +29,7 @@ SC checks; the renderer is unchanged. Resume the
 sleep/wake and unavailable hardware remain separate. The earlier agent sandbox
 blocker is resolved; local UDP and SuperCollider work directly in this session.
 
-Previous active platform: **Linux**. The 0.0.17 native checkpoint passed its
+Earlier active platform: **Linux**. The 0.0.17 native checkpoint passed its
 short suites. The
 [0.0.18 resize follow-up](docs/platform-results/2026-09-28-linux-resize.md) and
 [current Linux checks](docs/platform-results/2026-09-29-linux-interactions.md):

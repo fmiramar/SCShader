@@ -2,6 +2,20 @@
 
 Updated 2026-09-30. Current development version: **0.0.18**. Not a final v0.1.0 release.
 
+Windows desktop follow-up: RTX 3060 and RX 580 each pass four ten-second D3D12
+modes and 21 native window stages, including moves/fullscreen/restoration across
+three 1920x1080 displays. All currently use 100% scale. The pinned native package
+is installed with 83 matching files. All 59 Rust tests, strict Clippy, and 116
+Python tests pass. All 26 installed SC checks and 18 help demos pass in a dedicated
+class configuration; the normal IDE class context passes compile/lifecycle checks.
+An existing `adclib`/standalone-`Document` error is preserved separately.
+RX 580 resource/flood stress, exact-pixel logical recovery, default scheduling
+and spaces/non-ASCII package checks pass. The monitor harness now verifies native
+geometry/DPI and GPU allocation on each display. The user confirms physical
+window/input checks pass across all three displays. Listening, mixed DPI,
+sleep/wake and long release gates remain open. See the
+[desktop record](platform-results/2026-09-30-windows-dual-gpu.md).
+
 Multi-computer development uses the public GitHub repository's `main` branch.
 Reviewed source, test, and documentation commits are authorized for routine push
 to `origin/main`; each computer authenticates locally before pushing. The macOS

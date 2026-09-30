@@ -1,9 +1,12 @@
 # Windows x64 agentic plan
 
-Status: 0.0.17 fixes the reproduced IDE boot failure, is installed from a verified
-ZIP, and passes SC/help, NVIDIA/Intel short modes and NVIDIA stress/recovery.
-Manual display/hardware limits and remaining release gates are tracked in the
-[Windows result record](../platform-results/2026-09-28-windows-x64.md).
+Status: the 0.0.18 desktop package passes RTX 3060/RX 580 short D3D12 modes and
+three-display interactions, user window/input checks, isolated SC/help checks,
+and RX 580 stress/recovery. Listening, mixed DPI, sleep/wake and remaining release
+gates are tracked in the
+[desktop result](../platform-results/2026-09-30-windows-dual-gpu.md).
+The earlier 0.0.17 IDE fixes and NVIDIA/Intel laptop result are retained in the
+[earlier Windows record](../platform-results/2026-09-28-windows-x64.md).
 Follow [COMMON.md](COMMON.md) as the shared execution plan.
 
 ## W1. Establish a native MSVC environment
@@ -32,7 +35,7 @@ if ($LASTEXITCODE -ne 0) { throw "Native host check failed" }
 if ($LASTEXITCODE -ne 0) { throw "Packaging failed" }
 ```
 
-Review `dist/fmiramar-SCShader-0.0.17-windows-x64.zip` and its checksum (use the
+Review `dist/fmiramar-SCShader-0.0.18-windows-x64.zip` and its checksum (use the
 current VERSION if implementation changes it). Verify PE32+ AMD64, `--version`,
 `build-info.json`, and `dumpbin /dependents` from the developer environment. Record
 actual DLL imports and whether a redistributable is required; do not assume a

@@ -1,5 +1,36 @@
 # Verification
 
+## Windows desktop with two GPUs and three displays — 2026-09-30
+
+The 0.0.18 production renderer
+`b04ad1c4ed00589b5fc7deda79dcfb3ccdb8a9d58214e928437b7c5851e6e5ff`
+passes four explicitly ten-second D3D12 modes on both RTX 3060 and RX 580.
+Each GPU also passes 21 native window stages, including all three display moves,
+fullscreen coverage and return to windowed mode. Native DPI/client/framebuffer
+measurements and GPU allocation checks confirm the geometry changes. All three
+outputs are currently 1920x1080 at 100% scale, nominal 59 Hz; mixed DPI is not run.
+The user confirms the installed interaction example passes visible animation,
+mouse/key controls, three-display dragging, resizing, minimize/restore, reload
+status and cleanup. This manual session did not separately record its adapter.
+Audio listening/analysis/FFT observations and sleep/wake remain unreported.
+
+Formatting, strict Clippy and all 59 Rust tests pass. Eight new monitor/ownership
+regressions bring Python to 116 passing tests. The native package has 83 installed
+files with matching hashes and zero missing license texts across 123 audited
+packages; notice review remains separate. All 26 installed SC checks, 13 rendered
+SCDoc pages and 18 help demos/36 blocks pass using a dedicated class configuration.
+Normal IDE compile/lifecycle passes; an unrelated Quark's standalone `Document`
+error is preserved as negative evidence. Five SC checks also pass from a package
+path containing spaces and non-ASCII characters, launched from the SC directory.
+
+Default scheduling bounds pass. RX 580 resource/flood stress and feature-gated
+logical recovery pass, including exact pixels and second-loss exit 70. Continuous
+flood traffic did not saturate the incoming queue. The complete record, package
+and recovery hashes, measured stress figures, original policy/Quark failures and
+remaining manual/release gates are in the
+[desktop result](platform-results/2026-09-30-windows-dual-gpu.md).
+Raw evidence remains in `build/platform-tests/windows-dual-gpu-20260930/`.
+
 ## macOS native interaction and normal-close follow-up — 2026-09-30
 
 The native Apple M5/Metal interaction runner passes all 19 stages in

@@ -25,7 +25,7 @@ Do not include private paths, hostnames, usernames, tokens, or unreviewed raw lo
 | Python unit tests | not run | TBD |
 | Native linked package, header/hash/dependency inspection | not run | TBD |
 | Clean extension install, discovery, SC class compile | not run | TBD |
-| All 25 SC checks including SCDoc | not run | TBD |
+| All installed SC checks including SCDoc (currently 26) | not run | TBD |
 | 18 help/README demos + cleanups (36 blocks) | not run | TBD |
 | Explicit default backend, four 10-second modes | not run | TBD |
 | Additional backend / display session (separate rows per path) | not run | TBD |

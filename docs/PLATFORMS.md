@@ -23,12 +23,12 @@ driver-reset qualification, or final-release acceptance.
 
 | Platform and tested OS/session | Graphics path | Adapter families exercised | Result scope |
 | --- | --- | --- | --- |
-| Windows x64 | Direct3D 12 | NVIDIA discrete and Intel integrated | Short acceptance and native interaction checks; see the [Windows result](platform-results/2026-09-28-windows-x64.md). |
+| Windows x64 | Direct3D 12 | NVIDIA/AMD desktop discrete; earlier NVIDIA/Intel hybrid system | 0.0.18 RTX 3060/RX 580 short acceptance and interactions on three displays; see the [desktop result](platform-results/2026-09-30-windows-dual-gpu.md). Earlier Intel coverage remains in the [Windows result](platform-results/2026-09-28-windows-x64.md). |
 | CachyOS Linux x86-64 under Hyprland | Vulkan on Wayland and Xwayland | NVIDIA discrete and Intel integrated | 0.0.18 native interaction, acceptance, and installed SuperCollider checks; see the [Linux result](platform-results/2026-09-29-linux-interactions.md). |
 | macOS 26.6.2 Apple Silicon | Metal | Apple M5 | Native 0.0.18 package, short suites, 19 window/input stages and physical interaction pass; the SC normal-close correction passes 26 installed checks. See the [Apple Silicon result](platform-results/2026-09-30-macos-arm64.md) for remaining listening/display/distribution gates. |
 | macOS Intel | Metal | Historical Intel Mac baseline | Local 0.0.16 short suites passed; affected checks must be repeated for the current source. See the [Intel plan](plans/MACOS_X64.md). |
 
-The Windows and Linux results describe the recorded hybrid-graphics test system;
+The results describe their recorded desktop or hybrid-graphics test systems;
 they do not establish compatibility with every GPU model, driver, Linux
 distribution, or desktop session. Exact versions and per-run evidence are in the
 linked platform records.

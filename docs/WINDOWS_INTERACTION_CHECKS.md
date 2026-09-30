@@ -1,8 +1,17 @@
 # Windows interaction checks
 
-Use the installed 0.0.17 extension. The renderer runs independently of scsynth;
-the window check below does not need an audio server. Automated results and exact
-binary hashes are in the [Windows record](platform-results/2026-09-28-windows-x64.md).
+Use the installed development extension. The renderer runs independently of
+scsynth; the window check below does not need an audio server. The current 0.0.18
+RTX 3060/RX 580 and three-display result is in the
+[desktop record](platform-results/2026-09-30-windows-dual-gpu.md). Earlier laptop
+results and user observations are preserved in the
+[0.0.17 Windows record](platform-results/2026-09-28-windows-x64.md).
+
+On the current desktop, the user confirms `09_window_interaction.scd` passes
+visible animation, mouse movement/clicks, F/Escape, R/V, dragging across all three
+displays, resize, minimize/restore, positive reload count, nil error and cleanup.
+The selected adapter was not separately captured for that manual session.
+Listening and sleep/wake observations on this desktop remain unreported.
 
 ## Automated native window check
 
@@ -20,6 +29,31 @@ only its owned renderer. It verifies four resizes during watched shader reload,
 fullscreen entry/exit, border toggles, actual OS minimize/restore, live OSC replies
 while minimized, frame progress after restore, and exit 0 on window close.
 Generated shader edits are confined to an owned fixture, not installed assets.
+
+For a desktop with multiple displays, add `--all-monitors`. Select each actual
+adapter by a unique name substring; for example:
+
+```powershell
+python tools/check_windows_interactions.py --renderer "$Renderer" --adapter NVIDIA --all-monitors --output-dir build/platform-tests/monitors-nvidia-01
+if ($LASTEXITCODE -ne 0) { throw 'NVIDIA monitor check failed' }
+python tools/check_windows_interactions.py --renderer "$Renderer" --adapter Radeon --all-monitors --output-dir build/platform-tests/monitors-radeon-01
+if ($LASTEXITCODE -ne 0) { throw 'Radeon monitor check failed' }
+```
+
+This moves the owned window through every enumerated display, enters fullscreen
+on that display and returns to windowed mode. It compares OSC geometry with
+native client dimensions, DPI and monitor bounds, requires continuing frames,
+and checks that GPU texture allocation follows framebuffer size. The JSON records
+each native sample and the failing stage if a check fails. It marks mixed-DPI
+coverage only when different window DPIs were actually observed.
+
+Native measurements use Microsoft's
+[display enumeration](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-enumdisplaymonitors),
+[window DPI](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getdpiforwindow),
+and [thread DPI context](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setthreaddpiawarenesscontext)
+APIs. DPI awareness applies to the test observer; the test does not change desktop
+scale or refresh settings. The shared allocation regression check is exercised
+by both the Windows and Linux harnesses.
 
 Window ownership uses the child's live process handle/PID and exact test title.
 This avoids touching graphics-driver helper windows or other renderer sessions.
@@ -50,7 +84,7 @@ looping bundled sample; an audio server and working audio device are required.
 Automated audio checks already pass, but listening/viewing confirms the user's
 actual IDE audio configuration and visible response.
 
-The user confirmed that `ShaderFFTTexture` worked perfectly in the installed IDE:
+On the earlier Windows laptop, the user confirmed that `ShaderFFTTexture` worked perfectly in the installed IDE:
 audio played and the spectrum visualization behaved as expected. This is a user
 observation on the tested Windows audio setup; it does not qualify other audio
 devices or another operating system. `ShaderAnalysis` listening results remain
@@ -59,15 +93,18 @@ unreported.
 If used in the intended setup, test a monitor move with different display scale,
 and a normal sleep/wake cycle when convenient. Record unavailable/not-run cases
 instead of treating a laptop-only check as multi-monitor qualification. The
-automated script does not sleep the computer or change display settings.
+automated script does not sleep the computer or change display settings. The
+`--all-monitors` mode provides automated move/fullscreen evidence; physical
+appearance and input observations are recorded separately from automation.
 
 Record version, GPU, display scale, actions, observed errors and whether cleanup
-closed the owned renderer. The user reports the window/input actions worked and
-confirmed `ShaderFFTTexture` worked perfectly,
+closed the owned renderer. On the earlier laptop, the user reported the
+window/input actions worked and confirmed `ShaderFFTTexture` worked perfectly,
 but noticed no visual difference for R. That is expected for unchanged source;
 its reload-count acknowledgement was requested separately. Automated reload
-acknowledgements already pass. Listening/viewing the audio examples, sleep/wake
-and mixed-monitor observations remain unreported.
+acknowledgements already pass. That laptop's `ShaderAnalysis` listening,
+sleep/wake and mixed-monitor observations remained unreported. The current
+desktop's observations are recorded at the top of this page.
 
 The keyboard log's `autoRepeat, false` means an initial key press, not a failure.
 Only the letter R triggers reload; numeric 4 has no assigned action. The example

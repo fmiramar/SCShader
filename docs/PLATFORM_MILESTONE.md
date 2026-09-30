@@ -19,7 +19,7 @@ properties on other operating systems or architectures.
 
 | Track | Starting evidence | Next required evidence | Priority |
 | --- | --- | --- | --- |
-| Windows x64 / D3D12 | Verified and installed 0.0.17; IDE/handshake fixes, SC/help, NVIDIA/Intel short modes, NVIDIA stress/recovery pass | Manual display/input coverage and other-platform regression; recorded limits remain | Automated short-test gate passed |
+| Windows x64 / D3D12 | Installed 0.0.18 desktop package; RTX 3060/RX 580 short modes and three-display interactions, user window/input checks, isolated SC/help and RX 580 stress/recovery pass; earlier Intel result retained | Listening, mixed DPI/sleep-wake and other-platform regression | Short and interaction gates passed |
 | CachyOS x86-64 / Hyprland / Vulkan | 0.0.18 package, Wayland/Xwayland interactions, acceptance, SC/help, stress and recovery pass | Manual input/appearance/listening and long release gates | Short Linux gate passed |
 | macOS arm64 / Metal | Native 0.0.18 Apple M5 short suites plus 19 native interaction stages and user input confirmation pass; SC normal-close correction passes 26 installed checks | Listening/sleep-wake observations and Intel/shared-platform regression | Short and interaction gates passed |
 | macOS x64 / Metal | Local 0.0.16 short suites and installed docs passed | Rerun affected checks after shared changes; retain memory workaround | Critical regression protection |
@@ -76,6 +76,16 @@ video/camera, compute, and shared memory remain later scope, not prerequisites
 for testing the implemented desktop feature set.
 
 ## Session log
+
+- 2026-09-30 Windows desktop: native 0.0.18 short checks pass on RTX 3060 and
+  RX 580. The extended Windows harness passes 21 stages per GPU across three
+  displays, with independent native geometry/DPI and GPU allocation evidence.
+  All 59 Rust tests and 116 Python tests pass; 26 isolated installed SC checks,
+  18 help demos, RX 580 stress/recovery and package path checks pass. Default
+  standalone SC configuration has an unrelated Quark `Document` error; normal
+  IDE compile/lifecycle checks pass. The user confirms window/input checks across
+  all three displays; listening, sleep/wake and release gates remain open. See
+  [the result](platform-results/2026-09-30-windows-dual-gpu.md).
 
 - 2026-09-30: the user authorized recurring development sync to public GitHub
   `main`. Commit `3e8f022` was pushed with the macOS follow-up source, tests, tools,
