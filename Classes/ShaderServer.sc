@@ -657,7 +657,9 @@ ShaderServer : Object {
     processExited { |exitCode, processID|
         if(processID != pid) { ^this };
         pid = nil;
-        if(quitting) {
+        // Native close and window/close exit normally after a completed boot.
+        // A child exiting 0 before its handshake must still report E_BOOT.
+        if(quitting or: { (exitCode == 0) and: { isRunning } }) {
             this.finishQuit;
         } {
             this.stopResponders;

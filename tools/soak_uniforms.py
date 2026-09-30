@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import csv
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import json
 import hashlib
@@ -105,6 +105,56 @@ class MemoryHealth:
             self.baseline = rss if self.baseline is None else self.baseline
             if rss - self.baseline > self.growth_kib:
                 raise RuntimeError(f"RSS growth exceeded bound: {(rss - self.baseline) / 1024:.1f} MiB")
+
+
+def feedback_resize_interval(duration: float) -> float:
+    """Exercise resizing in short checks; retain the 30-second long-soak cadence."""
+    return min(30.0, duration / 4.0)
+
+
+@dataclass
+class FeedbackResize:
+    metrics: list
+    requests: int = 0
+    pending: tuple[int, int] | None = None
+    requested_at: float = 0.0
+    observations: list = field(default_factory=list)
+
+    @staticmethod
+    def validate_metrics(metrics):
+        if (len(metrics) != 12
+                or any(not isinstance(v, (int, float)) or not math.isfinite(v) for v in metrics[:11])
+                or not isinstance(metrics[11], str)
+                or min(metrics[:5]) <= 0
+                or any(abs(metrics[i] * metrics[4] - metrics[i + 2]) > 1 for i in (0, 1))):
+            raise RuntimeError("invalid logical/framebuffer resize metrics")
+
+    def __post_init__(self):
+        self.validate_metrics(self.metrics)
+
+    def request(self, now):
+        if self.pending is not None:
+            raise RuntimeError("previous feedback resize is still pending")
+        self.pending = (960, 540) if self.metrics[:2] == [1280, 720] else (1280, 720)
+        self.requested_at = now
+        self.requests += 1
+        return self.pending
+
+    def reply(self, metrics, now):
+        self.validate_metrics(metrics)
+        if self.pending is not None and metrics[:2] == list(self.pending):
+            self.observations.append(dict(requested=list(self.pending), metrics=list(metrics),
+                                          latency_seconds=now - self.requested_at))
+            self.metrics = list(metrics)
+            self.pending = None
+
+    def check(self, now):
+        if self.pending is not None and now - self.requested_at > 5:
+            raise RuntimeError(f"feedback resize to {self.pending} was not confirmed by window metrics")
+
+    def complete(self):
+        if not self.observations or self.pending is not None or len(self.observations) != self.requests:
+            raise RuntimeError("feedback run has missing or unconfirmed resizes")
 
 
 def process_rss_kib(pid: int) -> int | None:
@@ -221,8 +271,11 @@ def run(args, duration, result):
             resource = 10101
             client.send("/scshader/v1/shader/create", "iss", (resource, str(reload_path), "wgsl"))
             client.expect("/scshader/v1/shader/created", predicate=lambda values: values == [resource])
+        resize = None
         if args.mode == "feedback":
             client.send("/scshader/v1/shader/feedback", "isf", (resource, "previous", 0.92))
+            client.send("/scshader/v1/window/metrics")
+            resize = FeedbackResize(client.expect("/scshader/v1/window/metrics.reply"))
 
         writer = None
         output = stack.enter_context(args.csv.open("x", newline="", encoding="utf-8")) if args.csv else None
@@ -237,7 +290,9 @@ def run(args, duration, result):
         health = Health(start)
         memory = MemoryHealth(args.max_rss_mib * 1024, args.max_rss_growth_mib * 1024, args.memory_warmup)
         next_update = next_ping = next_sample = start
-        next_action = start + (1.0 if args.mode == "reload" else 30.0)
+        resize_interval = feedback_resize_interval(duration)
+        next_action = start + (1.0 if args.mode == "reload" else resize_interval)
+        next_resize_probe = start
         reload_pending = None
         actions = updates = reloads = 0
         rss = None
@@ -282,6 +337,8 @@ def run(args, duration, result):
                     if reply is None:
                         break
                     health.reply(*reply, now)
+                    if resize is not None and reply[0] == "/scshader/v1/window/metrics.reply":
+                        resize.reply(reply[1], now)
                     if args.overlay and reply[0] == "/scshader/v1/status.reply" and (len(reply[1]) < 15 or reply[1][14] != 1):
                         raise RuntimeError("diagnostic overlay state was lost during the soak")
                     if reply[0] == "/scshader/v1/shader/reloaded" and reply[1] == [resource]:
@@ -292,17 +349,20 @@ def run(args, duration, result):
                 health.check(now)
                 if reload_pending is not None and now - reload_pending > 5:
                     raise RuntimeError("watched shader reload did not complete")
+                if resize is not None:
+                    resize.check(now)
+                    if resize.pending is not None and now >= next_resize_probe:
+                        client.send("/scshader/v1/window/metrics")
+                        next_resize_probe = now + 0.1
                 if now >= next_action:
                     if args.mode == "reload" and reload_pending is None:
                         actions += 1
                         reload_path.write_text(original + f"\n// soak edit {actions}\n")
                         reload_pending = now
                         next_action = now + 1.0
-                    elif args.mode == "feedback":
-                        actions += 1
-                        size = (1280, 720) if actions % 2 else (960, 540)
-                        client.send("/scshader/v1/window/resize", "ii", size)
-                        next_action = now + 30.0
+                    elif resize is not None and resize.pending is None:
+                        client.send("/scshader/v1/window/resize", "ii", resize.request(now))
+                        next_action = now + resize_interval
                 if now >= next_sample:
                     sample(now)
                     next_sample = now + 10.0
@@ -311,6 +371,8 @@ def run(args, duration, result):
             health.complete(now, duration)
             if args.mode == "reload" and duration >= 2 and not reloads:
                 raise RuntimeError("no completed hot reloads")
+            if resize is not None:
+                resize.complete()
             if args.mode == "traffic" and updates < duration * args.rate * 0.99:
                 raise RuntimeError("traffic rate fell below 99% of requested rate")
             sample(now)
@@ -319,7 +381,10 @@ def run(args, duration, result):
         finally:
             result.update(elapsed_seconds=time.monotonic() - start, updates=updates, pongs=health.pongs,
                           status_samples=health.statuses, first_frame=health.first_frame, last_frame=health.frame,
-                          reloads=reloads, resize_actions=actions if args.mode == "feedback" else 0,
+                          reloads=reloads, resize_actions=resize.requests if resize else 0,
+                          resize_confirmations=len(resize.observations) if resize else 0,
+                          resize_observations=resize.observations if resize else [],
+                          resize_interval_seconds=resize_interval if resize else None,
                           rss_initial_kib=memory.initial, rss_peak_kib=memory.peak or None,
                           rss_final_kib=memory.latest, rss_baseline_kib=memory.baseline,
                           rss_monitoring=pid is not None)

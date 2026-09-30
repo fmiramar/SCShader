@@ -1,8 +1,15 @@
 # macOS Apple Silicon agentic plan
 
-Status: native arm64 package path exists; an Apple Silicon build/runtime result
-has **not** been established. Intel Metal passes do not qualify Apple GPUs.
-Follow [COMMON.md](COMMON.md).
+Status (2026-09-30): native 0.0.18 build/package and four ten-second Apple M5/Metal
+modes, confirmed Retina resizing, scheduling/resource stress, logical recovery
+and SC/help checks pass. Evidence and remaining gates are in the
+[Apple Silicon result](../platform-results/2026-09-30-macos-arm64.md).
+The native interaction follow-up passes all 19 stages and user mouse/key/focus
+checks. A corrected SC normal-close warning passes all 26 installed checks.
+Follow the [interaction procedure](../MACOS_INTERACTION_CHECKS.md) for remaining
+listening/sleep-wake observations. External display coverage is unavailable here.
+The earlier agent sandbox restriction is resolved. Follow [COMMON.md](COMMON.md).
+Intel regression remains separate.
 
 ## A1. Prove native execution, not Rosetta
 
@@ -51,6 +58,17 @@ Run COMMON scheduling/resource stress and the isolated `gpu-test-hooks` build.
 Recovery binary: `build/recovery-target/aarch64-apple-darwin/debug/scshader-renderer`.
 Record logical-device recovery separately from natural physical/driver failures.
 
+For this checkpoint, `bash tools/check_macos_remaining.sh` runs the follow-up
+short scheduling, resource stress, corrected feedback/resize, and isolated
+logical-recovery checks serially against the installed production binary and the
+recovery binary above. It requires a native desktop execution context that permits
+loopback UDP. It creates a fresh evidence directory, captures both recovery logs,
+checks executable hashes before/after, and stops at the first failure. A failure
+in its UDP preflight is an environment blocker, not an Apple GPU result. Full
+display/input and long-duration qualification remain separate. The runner passed
+on 2026-09-30 with evidence in the linked result record; do not overwrite earlier
+failed preflight evidence.
+
 Investigate in order:
 
 1. Native AppKit event-loop/lifecycle, discovery/launch/reboot, .app sclang paths,
@@ -65,6 +83,14 @@ Investigate in order:
 5. Download quarantine/Gatekeeper behavior on a transferred development package.
    Record unsigned/not-notarized status honestly. Do not strip quarantine,
    disable protections, or claim distribution signing was completed automatically.
+
+Short native window/input checks now use `tools/check_macos_interactions.py`
+against the installed ordinary binary. It requires existing Accessibility access
+and saves owned-window state, executable/source hashes and failure stages. See
+the [procedure and manual observations](../MACOS_INTERACTION_CHECKS.md).
+The current local binary is ad-hoc signed and passes signature integrity checks,
+but `spctl --assess` rejects it. It has no quarantine attribute, so a genuine
+download/transfer launch still needs separate evidence; see [RELEASE.md](../RELEASE.md).
 
 ## A4. Exit gate
 

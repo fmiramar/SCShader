@@ -47,6 +47,11 @@ def validate_result(result: dict, mode: str, seconds: float, renderer_hash: str,
         raise RuntimeError(f"{mode}: missing, mismatched, failed, or incomplete evidence")
     if adapter and adapter.strip().lower() not in result.get("device", "").lower():
         raise RuntimeError(f"{mode}: renderer did not report the requested adapter")
+    if mode == "feedback":
+        requested, confirmed = result.get("resize_actions"), result.get("resize_confirmations")
+        if (type(requested) is not int or requested < 1 or type(confirmed) is not int
+                or confirmed != requested):
+            raise RuntimeError("feedback: missing or unconfirmed resize evidence")
 
 
 def stop_child(process):

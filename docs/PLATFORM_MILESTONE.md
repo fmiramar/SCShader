@@ -21,7 +21,7 @@ properties on other operating systems or architectures.
 | --- | --- | --- | --- |
 | Windows x64 / D3D12 | Verified and installed 0.0.17; IDE/handshake fixes, SC/help, NVIDIA/Intel short modes, NVIDIA stress/recovery pass | Manual display/input coverage and other-platform regression; recorded limits remain | Automated short-test gate passed |
 | CachyOS x86-64 / Hyprland / Vulkan | 0.0.18 package, Wayland/Xwayland interactions, acceptance, SC/help, stress and recovery pass | Manual input/appearance/listening and long release gates | Short Linux gate passed |
-| macOS arm64 / Metal | Explicit native packager path exists | Native arm64 build outside Rosetta, SC integration, Apple GPU runtime | Critical for Apple Silicon support |
+| macOS arm64 / Metal | Native 0.0.18 Apple M5 short suites plus 19 native interaction stages and user input confirmation pass; SC normal-close correction passes 26 installed checks | Listening/sleep-wake observations and Intel/shared-platform regression | Short and interaction gates passed |
 | macOS x64 / Metal | Local 0.0.16 short suites and installed docs passed | Rerun affected checks after shared changes; retain memory workaround | Critical regression protection |
 | Linux arm64 / Vulkan | Packaging target exists, no native claim | Optional native arm64 follow-up using the Linux plan | Not a first x64 desktop gate |
 | Windows Vulkan / Linux GL | Explicit alternate selection implemented | Separate native results, limits, or clear experimental label | Optional compatibility paths |
@@ -41,12 +41,15 @@ Keep Xwayland distinct from native Xorg and native Wayland.
 - [x] Linux 0.0.18 resize correction passes native interaction and critical-suite
       regression in the selected CachyOS/Hyprland/Vulkan scope; manual and long
       release gates remain separate.
-- [ ] macOS arm64 native linked package and critical short tests pass.
+- [x] macOS arm64 native linked package and critical short tests pass;
+      additional display/input/lifecycle and untested hardware remain limited.
 - [ ] Cross-platform fixes retain macOS x64 critical regression passes.
 - [ ] Each target has a completed result record, exact binary/source hashes,
       runtime dependency findings, and limitations; no unexplained critical failure.
-- [ ] Notice/signing gaps and untested hardware are explicitly handed to the
+- [x] Notice/signing gaps and untested hardware are explicitly handed to the
       final-release milestone, without representing development packages as cleared.
+      See the [distribution handoff](RELEASE.md#remaining-distribution-gates--2026-09-30);
+      notice clearance and signing remain open.
 
 Plans: [shared procedure](plans/COMMON.md), [Windows](plans/WINDOWS_X64.md),
 [Linux](plans/LINUX.md), [Apple Silicon](plans/MACOS_ARM64.md),
@@ -71,6 +74,29 @@ for testing the implemented desktop feature set.
 
 ## Session log
 
+- 2026-09-30 interaction follow-up: 19 native macOS window stages pass on Apple
+  M5/Metal, including native state, Retina/GPU allocation changes, synthetic keys,
+  resize/focus events and native close. The user confirms physical input and
+  Escape from fullscreen. Normal native close exposed a misleading SC `E_BOOT`
+  warning; the focused correction and restart/early-exit regressions pass.
+  Python: 104 pass, four Windows skips. The strict notice recheck still finds ten
+  missing texts, and Gatekeeper assessment rejects the ad-hoc binary. Explicit
+  release handoff is recorded; no signing, long run or publication is claimed.
+
+- 2026-09-30: native Apple Silicon 0.0.18 build/package and recovery-hook build
+  pass with pinned Rust 1.97.1. Rust formatting, strict Clippy, 59 Rust tests,
+  and 91 Python tests (four Windows skips) pass. All 82 installed files match
+  the package. User-run evidence confirms four ten-second Apple M5/Metal modes,
+  18 help demos and all 25 installed SC checks. The SC suite was rerun with
+  complete console evidence after the session sandbox restriction was lifted.
+  Found and fixed a test gap: ten-second feedback runs previously performed no
+  resizes. The harness now requires confirmed size changes and valid framebuffer
+  scaling; the native ten-second rerun confirms three resizes at 2x Retina scale.
+  Scheduling, 80 resource cycles, short floods and exact-pixel logical recovery
+  pass with complete evidence. Continuous traffic did not fill the incoming
+  queue. Local UDP and SC launch now work directly in the agent environment.
+  See the [macOS result](platform-results/2026-09-30-macos-arm64.md). Additional
+  display/input/lifecycle checks, Intel regression and long release gates remain.
 - 2026-09-29: full 0.0.18 Wayland compositor and Xwayland OSC interactions pass
   on NVIDIA and Intel after correcting checker coordinate/option parsing.
   Python: 84 pass, four Windows skips. After the display-environment correction,

@@ -2,6 +2,17 @@
 
 ## 0.0.18 - 2026-09-28
 
+2026-09-30 macOS follow-up:
+
+- Treat a renderer's normal window close after a successful handshake as a clean
+  stop in `ShaderServer`; exit 0 before a handshake still fails boot. A regression
+  covers shader invalidation, restarting after close, and early-exit rejection.
+- Add native macOS window checks for fullscreen, resize/reload and GPU allocations,
+  decorations, keyboard/resize/focus events, minimize/restore/front and native close.
+  This follow-up changes classes and verification tools; the renderer is unchanged.
+- Exclude Finder/AppleDouble files and resource metadata from macOS development
+  archives while preserving the original source files.
+
 - Handle the applied physical size returned immediately by winit resize requests, including Wayland requests that do not generate a later resize event. Resize the GPU surface/feedback/graph targets and notify SC through the existing event path.
 - Preserve targets and feedback history when an ignored request or duplicate event reports the same size.
 - Add a scoped Hyprland interaction runner with per-stage failure evidence, strict child/window ownership, separate Wayland/Xwayland records, and a check that GPU texture allocations follow actual framebuffer resizing.

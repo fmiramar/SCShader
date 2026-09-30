@@ -39,6 +39,16 @@ class AcceptanceTests(unittest.TestCase):
     def test_exact_completed_candidate_is_accepted(self):
         validate_result(self.result(), "traffic", 28800, "expected")
 
+    def test_feedback_requires_completed_resizes_even_in_short_runs(self):
+        result = self.result()
+        result.update(mode="feedback", requested_seconds=10, elapsed_seconds=10.01)
+        for counts in ({}, {"resize_actions": 0}, {"resize_actions": 3, "resize_confirmations": 0},
+                       {"resize_actions": 3, "resize_confirmations": 2}):
+            with self.assertRaisesRegex(RuntimeError, "resize evidence"):
+                validate_result(dict(result, **counts), "feedback", 10, "expected")
+        result.update(resize_actions=3, resize_confirmations=3)
+        validate_result(result, "feedback", 10, "expected")
+
     def test_short_different_failed_and_unmonitored_results_do_not_pass(self):
         for key, value in [("passed", False), ("mode", "reload"), ("renderer_sha256", "changed"),
                            ("requested_seconds", 60), ("elapsed_seconds", 60),

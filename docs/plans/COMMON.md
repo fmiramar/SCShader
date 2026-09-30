@@ -71,7 +71,7 @@ python tools/check_help_examples.py --extension "$Extension" --sclang "$Sclang" 
 if ($LASTEXITCODE -ne 0) { throw "Help examples failed" }
 ```
 
-The SC suite currently covers 25 checks including compile, handshake, lifecycle/reboot,
+The SC suite currently covers 26 checks including compile, handshake, lifecycle/reboot,
 process exit, platform validation, typing, scheduling, Patterns, images/feedback,
 graphs, analysis, streamed textures, examples, and SCDoc. The separate help runner
 executes 18 help/README demos and their cleanups (36 blocks) from fresh sessions,

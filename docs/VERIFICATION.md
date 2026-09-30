@@ -1,5 +1,81 @@
 # Verification
 
+## macOS native interaction and normal-close follow-up — 2026-09-30
+
+The native Apple M5/Metal interaction runner passes all 19 stages in
+`build/platform-tests/macos-arm64-interactions-final/`: resize/reload with native
+geometry and GPU allocation checks, Retina mapping, fullscreen/decorations,
+synthetic F/Escape delivery, resize/focus events, stats, minimize, restore/front,
+and native close with exit 0. The production hash remains
+`8409c5457b5694d344cf249850e7bbb43ca04d620e35bdd9c99891f111980f21`.
+Thirteen ownership/evidence regressions bring Python to 108 discovered,
+104 passed and four Windows-only skips (`macos-followup-python-final.log`).
+
+The user confirms physical mouse, keyboard, focus, fullscreen, reload and stats
+behavior. Escape was tested explicitly after F entered fullscreen and passed.
+The posted log exposed a real normal-close warning: the old SC class treated
+exit 0 after ready as `E_BOOT`. The new `window_close_smoke` fails against the
+previous install (`macos-window-close-before/`), then passes with the correction.
+It checks shader invalidation, restart and continued rejection of exit 0 before
+handshake. Focused candidate checks and all 26 installed checks pass, including
+13 warning-free SCDoc pages. Complete console evidence is in
+`build/platform-tests/macos-window-close-installed-sc.console.log`.
+
+The initial interaction runs `-01` and `-03` retain harness failure evidence:
+temporary AppKit window disappearance during fullscreen, and a restore operation
+that did not itself activate the app. The corrected checks retain ownership and
+explicitly exercise window-front before requiring focus gain. No renderer change
+or backend fallback was needed. The first package audit also found two staged
+Finder metadata files; the macOS packager now excludes those and resource metadata.
+
+The locked arm64 notice audit still fails with ten missing texts. The ad-hoc
+binary's signature integrity passes, while Gatekeeper assessment rejects it;
+the local executable has no quarantine attribute. No transferred-package result
+or distribution clearance is claimed. Listening/sleep-wake observations and
+external/Intel hardware, signing/notices and long-duration gates remain separate.
+See [the result](platform-results/2026-09-30-macos-arm64.md) for package and backup
+identities and [the procedure](MACOS_INTERACTION_CHECKS.md) for remaining checks.
+
+## macOS Apple Silicon build and short-runtime checkpoint — 2026-09-30
+
+The pinned Rust 1.97.1 toolchain and locked dependencies are available. Formatting,
+warnings-as-errors Clippy, all 59 Rust tests, and 91 Python tests (95 discovered,
+four Windows-only skips) pass. The native `aarch64-apple-darwin` 0.0.18 production
+package and separate recovery-hook build succeed. The executable is arm64, links
+Apple system libraries only, and declares macOS 11.0 in its build load command.
+The package audit still lacks ten third-party license texts. The 82-file package
+is installed in the normal Extensions folder; all 82 file hashes match the ZIP.
+
+User-run logs confirm four ten-second Metal modes on Apple M5 and 18 help demos
+(36 blocks). After the session sandbox was lifted, all 25 installed SC checks
+were rerun directly with harness exit 0 and complete PASS console evidence in
+`build/platform-tests/macos-arm64-sc-02.console.log`. SCDoc rendered 13 pages with
+zero warnings/errors. Scheduling bounds, 80 resource cycles and short floods pass.
+Continuous traffic offered 511,744 commands without filling the incoming queue;
+do not label that result saturation coverage. The isolated recovery harness now
+passes all exact-pixel/resource/control/schedule assertions and confirms the
+expected second-loss exit 70, with both console and renderer logs saved.
+
+The short feedback test previously scheduled its first resize at 30 seconds,
+so its ten-second pass contained zero resizes. The corrected harness uses a
+2.5-second cadence for a ten-second run, confirms each requested logical size
+through window metrics, checks framebuffer/scale consistency, and rejects missing
+confirmations. Seven regression tests cover the changed behavior, including a
+simulated timed loop and ignored resize requests. The corrected native Metal
+run confirms three resizes at 2x Retina scale, alternating 1280x720/2560x1440
+and 960x540/1920x1080 logical/framebuffer sizes. Existing long-soak cadence
+remains 30 seconds.
+
+The earlier agent environment denied local UDP and CPU feature reads; this is
+resolved after enabling full session access. UDP bind/send/receive, NEON feature
+query and `sclang -v` now pass. Native execution reports `sysctl.proc_translated=0`.
+Negative evidence is retained. The
+[remaining-check runner](../tools/check_macos_remaining.sh) completed successfully
+under `build/platform-tests/macos-arm64-remaining-lpdK9W/`, with unchanged
+production/recovery executable hashes. Additional display/input/lifecycle,
+Intel regression and long-duration gates remain open. See the
+[macOS result](platform-results/2026-09-30-macos-arm64.md) for hashes and limits.
+
 ## Linux interaction and scaling follow-up - 2026-09-29
 
 The exact production 0.0.18 renderer passed the full native Wayland compositor

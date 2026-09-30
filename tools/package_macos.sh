@@ -48,9 +48,26 @@ esac
 python3 "$project_dir/tools/license_inventory.py" --target "$notice_target" \
   --output-dir "$extension_root/dependency-audit" ${notice_flag:+"$notice_flag"}
 
+# Finder/AppleDouble files may exist in a working source directory. Remove only
+# staged metadata; preserve the user's original files and extended attributes.
+python3 - "$stage_root" <<'PY'
+import os
+from pathlib import Path
+import shutil
+import sys
+
+for directory, dirs, files in os.walk(sys.argv[1], topdown=False):
+    for name in files:
+        if name == ".DS_Store" or name.startswith("._"):
+            (Path(directory) / name).unlink()
+    for name in dirs:
+        if name == "__MACOSX":
+            shutil.rmtree(Path(directory) / name)
+PY
+
 archive="$dist_dir/$base.zip"
 checksum="$archive.sha256"
 rm -f "$archive" "$checksum"
-ditto -c -k --sequesterRsrc --keepParent "$stage_root" "$archive"
+ditto -c -k --norsrc --noextattr --noacl --keepParent "$stage_root" "$archive"
 (cd "$dist_dir" && shasum -a 256 "$base.zip") > "$checksum"
 printf 'Created %s\n' "$archive"

@@ -60,7 +60,7 @@ pass is not a completed distribution review; see [NOTICE_AUDIT.md](NOTICE_AUDIT.
 3. Build an archive with the platform script and verify its checksum and contents.
 4. Smoke-test the executable from the staged archive on its target architecture.
 5. Record platform results in `docs/VERIFICATION.md`; do not describe a CI cross-build as a GPU/runtime verification.
-6. For macOS distribution, assess codesigning and notarization before publishing outside GitHub release assets.
+6. For macOS distribution, assess codesigning and notarization before general distribution, including GitHub release assets.
 7. After implementation, packaging, licenses, and other checks are complete, hand the final candidate to the user for the eight-hour sign-off as the last validation step. Do not launch it automatically during development.
 8. Tag only after the user's final sign-off, the intended architecture artifacts/checksums, and explicit publication authorization.
 
@@ -71,7 +71,33 @@ checks; the eight-hour test is deferred to the user's final-release sign-off.
 Consult [VERIFICATION.md](VERIFICATION.md) for completed checks. No development
 result should be presented as a completed final-release sign-off.
 
-Nothing has been published. CI configuration exists for the remaining targets,
-but Linux, Windows, macOS arm64, codesigning/notarization, complete dependency
-notices, broader hardware qualification, and the user's final eight-hour sign-off
-still need evidence before a general release claim.
+Nothing has been published. Native short results now exist for Windows, the
+selected Linux desktop, and macOS arm64; their exact scope is in the
+[platform milestone](PLATFORM_MILESTONE.md). Intel regression and the gates below
+remain open before a general release claim.
+
+## Remaining distribution gates — 2026-09-30
+
+- **Blocked notice clearance:** the current arm64 strict audit still finds ten
+  missing full texts. See [NOTICE_AUDIT.md](NOTICE_AUDIT.md) for the exact versions
+  and upstream review. Other targets' text-presence passes are not legal clearance.
+- **Signing decision required:** the installed arm64 renderer has a linker-made
+  ad-hoc signature, with no Developer ID authority or TeamIdentifier. Its
+  `codesign --verify --strict` check passes; `spctl --assess --type execute`
+  rejects it (exit 3). Evidence is in
+  `build/platform-tests/macos-arm64-distribution-01/audit.json`.
+- **Not run, transferred-package behavior:** the local installed executable has
+  no `com.apple.quarantine` attribute. Local execution therefore does not qualify
+  launch after a browser/download transfer. Assess that exact distribution
+  package through the intended transfer and SuperCollider launch path; do not
+  strip quarantine or disable Gatekeeper to obtain a pass. No notarization
+  submission, signing-identity change or account authentication was performed.
+- **Unavailable hardware:** native Intel Mac regression, external/mixed-DPI
+  displays and other Apple GPU generations require separate hardware. Windows
+  and Linux shared-class/harness changes also need their native regression.
+- **Not run, final durations and CI:** schedule the exact candidate's one-hour
+  validation with the user after the remaining fixes stabilize. The user owns
+  the final eight-hour sign-off. Hosted CI and publication need explicit approval.
+
+These are handoff items for the final-release milestone, not cleared release
+requirements. Development packages remain labeled accordingly.

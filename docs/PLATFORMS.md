@@ -25,7 +25,8 @@ driver-reset qualification, or final-release acceptance.
 | --- | --- | --- | --- |
 | Windows x64 | Direct3D 12 | NVIDIA discrete and Intel integrated | Short acceptance and native interaction checks; see the [Windows result](platform-results/2026-09-28-windows-x64.md). |
 | CachyOS Linux x86-64 under Hyprland | Vulkan on Wayland and Xwayland | NVIDIA discrete and Intel integrated | 0.0.18 native interaction, acceptance, and installed SuperCollider checks; see the [Linux result](platform-results/2026-09-29-linux-interactions.md). |
-| macOS Apple Silicon and Intel | Metal | Not yet tested | Native build and hardware qualification remain open. |
+| macOS 26.6.2 Apple Silicon | Metal | Apple M5 | Native 0.0.18 package, short suites, 19 window/input stages and physical interaction pass; the SC normal-close correction passes 26 installed checks. See the [Apple Silicon result](platform-results/2026-09-30-macos-arm64.md) for remaining listening/display/distribution gates. |
+| macOS Intel | Metal | Historical Intel Mac baseline | Local 0.0.16 short suites passed; affected checks must be repeated for the current source. See the [Intel plan](plans/MACOS_X64.md). |
 
 The Windows and Linux results describe the recorded hybrid-graphics test system;
 they do not establish compatibility with every GPU model, driver, Linux

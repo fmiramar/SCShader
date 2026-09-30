@@ -1,6 +1,44 @@
 # Implementation checkpoint
 
-Updated 2026-09-29. Current development version: **0.0.18**. Not a final v0.1.0 release.
+Updated 2026-09-30. Current development version: **0.0.18**. Not a final v0.1.0 release.
+
+macOS interaction follow-up: all 19 native window/input stages and the user's
+physical mouse/key/focus/fullscreen/reload checks pass. A reported Escape concern
+was resolved by testing it while fullscreen. A genuine normal-close issue was
+reproduced and fixed: `ShaderServer` now accepts exit 0 after a successful boot,
+while still rejecting early exits. All 26 installed SC checks and 104 Python
+tests (108 discovered, four Windows skips) pass. The renderer hash is unchanged.
+The macOS packager now excludes Finder/resource metadata after two `.DS_Store`
+files were found in a development archive. Analysis/FFT listening and sleep/wake
+remain pending; the user has only the built-in display. Intel/shared-platform
+regression remains open. The strict notice recheck still finds ten missing texts;
+the local ad-hoc binary verifies but fails Gatekeeper assessment. See the
+[interaction procedure](MACOS_INTERACTION_CHECKS.md),
+[Apple Silicon record](platform-results/2026-09-30-macos-arm64.md) and
+[distribution handoff](RELEASE.md#remaining-distribution-gates--2026-09-30).
+
+Deferred runtime observation: while switching between SCIDE and the renderer GUI
+during the first `ShaderAnalysis` example, the user saw repeated `E_LATE_EVENT`
+warnings, roughly 0.8–1.02 seconds late and applied immediately. No crash was
+reported. Preserve and reproduce this before treating analysis interaction as
+clean. The user reports that `ShaderFFTTexture` ran smoothly and showed only
+normal renderer-ready messages; see the ignored evidence record under
+`build/platform-tests/macos-arm64-analysis-late-events-20260930/`.
+
+macOS Apple Silicon resumed 2026-09-30: the pinned Rust 1.97.1 toolchain,
+locked dependencies, native arm64 production package, and recovery-hook build
+are ready. Rust formatting, strict Clippy, 59 Rust tests, and 91 Python tests
+(95 discovered, four Windows-only skips) pass. All 82 installed files match the
+package. Four ten-second Metal modes on Apple M5 and all 18 help demos pass.
+With the agent sandbox restriction lifted, all 25 installed SC checks were rerun
+successfully with complete console evidence. Scheduling, 80 resource cycles,
+short floods and logical-device recovery with exact GPU pixels also pass.
+The old feedback mode performed zero resizes in ten seconds; the corrected
+harness now confirms three actual resizes at 2x Retina scale. Continuous traffic
+did not saturate the incoming queue; this is load evidence. Local UDP, CPU feature
+queries and `sclang` now work here. Additional native display/input/lifecycle
+coverage, Intel regression and long-release gates remain open.
+See the [Apple Silicon result](platform-results/2026-09-30-macos-arm64.md).
 
 Linux release scope: CachyOS x86-64 GNU under Hyprland with Vulkan. Xwayland is
 covered only as an in-session compatibility path; other distributions,
@@ -83,8 +121,9 @@ Prioritize Windows x64, Linux x64, and macOS Apple Silicon builds, installations
 short GPU/SC checks, and platform fixes; retain Intel Mac regression coverage.
 See [PLATFORM_MILESTONE.md](PLATFORM_MILESTONE.md) and its per-platform agentic plans.
 This ordering comes before further extended Mac-only stress work and final long
-tests. The selected Linux short target is now qualified; macOS native results
-remain pending. [START_HERE.md](../START_HERE.md)
+tests. The selected Linux short target is now qualified; macOS Apple Silicon
+has a native build/runtime checkpoint with remaining gates above.
+[START_HERE.md](../START_HERE.md)
 explains the portable source handoff; [the Git audit](HANDOFF_GIT_AUDIT.md) records
 that current work is not fully committed. Nothing is published by this handoff.
 

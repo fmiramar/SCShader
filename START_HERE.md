@@ -5,15 +5,28 @@ including the Linux resize correction of 2026-09-28. Not a final release.
 The next milestone is native platform compatibility, before further extended
 stress tests and final-release validation.
 
-Active platform: **Linux**, selected by the user after Windows interaction
-checks. The 0.0.17 native checkpoint passed its short suites. Resume at the
+Active platform: **macOS Apple Silicon**, selected by the user on 2026-09-30.
+The native 0.0.18 package, four ten-second Metal modes, confirmed Retina resizing,
+scheduling/resource stress, logical recovery and installed SC/help checks pass
+on Apple M5. Evidence is recorded in the
+[Apple Silicon result](docs/platform-results/2026-09-30-macos-arm64.md).
+The later follow-up passes 19 native window/input stages and user interaction
+checks. A corrected normal-close warning in `ShaderServer` passes all 26 installed
+SC checks; the renderer is unchanged. Resume the
+[Apple Silicon plan](docs/plans/MACOS_ARM64.md) and
+[interaction checklist](docs/MACOS_INTERACTION_CHECKS.md): analysis/FFT listening,
+sleep/wake and unavailable hardware remain separate. The earlier agent sandbox
+blocker is resolved; local UDP and SuperCollider work directly in this session.
+
+Previous active platform: **Linux**. The 0.0.17 native checkpoint passed its
+short suites. The
 [0.0.18 resize follow-up](docs/platform-results/2026-09-28-linux-resize.md) and
 [current Linux checks](docs/platform-results/2026-09-29-linux-interactions.md):
 0.0.18 GPU interactions, short acceptance, SC/help, scheduling, stress, recovery
 and path suites pass for the selected CachyOS/Hyprland scope. Manual desktop
 observations and long release gates remain. The
 [Linux handoff](docs/LINUX_HANDOFF.md) preserves the
-earlier Windows change summary. Mac regression remains a later open track.
+earlier Windows change summary. Intel Mac regression remains a separate open track.
 
 ## What this transfer contains
 

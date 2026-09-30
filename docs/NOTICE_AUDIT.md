@@ -67,4 +67,27 @@ attribution, and any notice obligations before final release.
 
 Ten unit tests cover text preservation, missing/context-only reporting, package
 filtering, out-of-root rejection, pin/hash/declaration validation, and the checked-in
-collection. The combined Python suite has 24 tests; no GPU or credentials are needed.
+collection. Those audit tests need no GPU or credentials.
+
+## Apple Silicon recheck — 2026-09-30, development 0.0.18
+
+The pinned-toolchain audit of the current locked arm64 graph still reports 132
+packages and the same ten missing texts. `--require-texts` exits 1 as intended.
+Evidence is under `build/license-audit/macos-arm64-review-20260930/`, including
+`inventory.json`, `notices-audit.txt` and an anonymous upstream-tree review.
+
+The gaps are `block2 0.6.2`, `dispatch 0.2.0`, `dispatch2 0.3.1`, `objc2 0.6.4`,
+`objc2-encode 4.1.0`, and `objc2-core-foundation`, `objc2-core-graphics`,
+`objc2-io-surface`, `objc2-metal`, `objc2-quartz-core` at `0.3.2`.
+The four pinned objc2 repository trees contain the existing licensing discussion
+but no additional full license files. The
+[pinned dispatch tree](https://github.com/SSheldon/rust-dispatch/tree/82d6c7a5b75dc0c71c3f46f87bb6c16a476f7748)
+contains no notice file; the upstream issue has no comment supplying one.
+The [objc2 licensing discussion](https://github.com/madsmtm/objc2/blob/8852b424193ca41602281b3d7540d7c8ed51e49a/LICENSE.md)
+still links to terms rather than providing the complete texts and attributions.
+
+No substitute notices or dependency upgrades were introduced. Closing this gate
+requires establishing the applicable complete texts and attribution for these
+exact versions, then reviewing the license choices and Apple SDK-derived material.
+Contacting maintainers would need separate authorization to send messages.
+This review remains blocked for distribution clearance, not for local development.
