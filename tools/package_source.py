@@ -20,7 +20,7 @@ PLAN = "SC_Shader_Interface_Agentic_Implementation_Plan.md"
 MANIFEST = f"{ROOT}/HANDOFF_MANIFEST.json"
 FILES = (
     ".gitignore", "AGENTS.md", "START_HERE.md", "README.md", "CHANGELOG.md",
-    "LICENSE", "VERSION", "SCShader.quark", "rust-toolchain.toml",
+    "LICENSE", "COPYING", ".gitattributes", "VERSION", "SCShader.quark", "rust-toolchain.toml",
     "renderer/Cargo.toml", "renderer/Cargo.lock",
 )
 DIRECTORIES = (
@@ -37,7 +37,7 @@ SOURCE_SUFFIXES = {
 }
 
 
-def collect_source(project: Path, plan: Path) -> dict[str, Path]:
+def collect_source(project: Path, plan: Path | None) -> dict[str, Path]:
     entries = {}
 
     def add(path: Path, name: str):
@@ -64,7 +64,8 @@ def collect_source(project: Path, plan: Path) -> dict[str, Path]:
                 if path.suffix not in SOURCE_SUFFIXES:
                     raise ValueError(f"Unreviewed source file type: {relative_path}")
                 add(path, f"{ROOT}/SCShader/{relative_path}")
-    add(plan, f"{ROOT}/{PLAN}")
+    if plan is not None:
+        add(plan, f"{ROOT}/{PLAN}")
     return dict(sorted(entries.items()))
 
 
@@ -115,7 +116,9 @@ def create_archive(project: Path, plan: Path, output: Path, base_commit: str | N
     return manifest
 
 
-def verify_archive(path: Path):
+def verify_archive(path: Path, root: str = ROOT,
+                   kind: str = "source-development-handoff", manifest_name: str = "HANDOFF_MANIFEST.json"):
+    manifest_path = f"{root}/{manifest_name}"
     with zipfile.ZipFile(path) as archive:
         names = archive.namelist()
         if len(set(names)) != len(names):
@@ -125,21 +128,21 @@ def verify_archive(path: Path):
             # before that normalization (and before NUL truncation).
             name = info.orig_filename
             parts = PurePosixPath(name).parts
-            if (not parts or parts[0] != ROOT or ".." in parts or "\\" in name
+            if (not parts or parts[0] != root or ".." in parts or "\\" in name
                     or ":" in name or "\0" in name or name != PurePosixPath(name).as_posix()):
                 raise ValueError("Unsafe ZIP member path")
             if not stat.S_ISREG(info.external_attr >> 16):
                 raise ValueError("Non-regular ZIP member")
         if archive.testzip() is not None:
             raise ValueError("ZIP CRC check failed")
-        if MANIFEST not in names:
+        if manifest_path not in names:
             raise ValueError("Missing handoff manifest")
-        manifest = json.loads(archive.read(MANIFEST))
-        if manifest["schema_version"] != 1 or manifest["kind"] != "source-development-handoff":
+        manifest = json.loads(archive.read(manifest_path))
+        if manifest["schema_version"] != 1 or manifest["kind"] != kind:
             raise ValueError("Unsupported handoff manifest")
         records = manifest["files"]
         expected = {record["path"] for record in records}
-        if len(expected) != len(records) or MANIFEST in expected or set(names) != expected | {MANIFEST}:
+        if len(expected) != len(records) or manifest_path in expected or set(names) != expected | {manifest_path}:
             raise ValueError("ZIP inventory does not match manifest")
         for record in records:
             data = archive.read(record["path"])

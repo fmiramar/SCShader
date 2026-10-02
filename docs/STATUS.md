@@ -1,6 +1,20 @@
 # Implementation checkpoint
 
-Updated 2026-09-30. Current development version: **0.0.18**. Not a final v0.1.0 release.
+Updated 2026-10-02. Current development version: **0.0.18**. Not a final v0.1.0 release.
+
+Distribution follow-up: notice assembly now has explicit license choices,
+hash-pinned provenance/recovery records and zero missing texts for all packaging
+targets. Packages include full GPL text, dependency/Rust standard-library notices
+and a matching vendored source archive linked by binary/source hashes. See
+[NOTICE_REVIEW.md](NOTICE_REVIEW.md) for dispatch and Apple SDK provenance caveats;
+this is not legal certification. At the user's request, runtime provisioning/
+clean-machine and signing/notarization qualification are deferred to a later stable
+release; current users install the exact documented prerequisites themselves.
+No runtime code, dependency pins or version metadata changed in this follow-up.
+Verification: all five notice-review gates, Windows paired ZIP checks and an
+offline vendored-source rebuild pass. Python: 125 tests discovered, 124 pass and
+one sandbox privilege skip on the final rerun; all 125 passed before sandboxing.
+See [VERIFICATION.md](VERIFICATION.md) for exact artifact hashes and limitations.
 
 Windows desktop follow-up: RTX 3060 and RX 580 each pass four ten-second D3D12
 modes and 21 native window stages, including moves/fullscreen/restoration across
@@ -32,7 +46,7 @@ tests (108 discovered, four Windows skips) pass. The renderer hash is unchanged.
 The macOS packager now excludes Finder/resource metadata after two `.DS_Store`
 files were found in a development archive. Analysis/FFT listening and sleep/wake
 remain pending; the user has only the built-in display. Intel/shared-platform
-regression remains open. The strict notice recheck still finds ten missing texts;
+regression remains open. That September 30 strict recheck found ten missing texts;
 the local ad-hoc binary verifies but fails Gatekeeper assessment. See the
 [interaction procedure](MACOS_INTERACTION_CHECKS.md),
 [Apple Silicon record](platform-results/2026-09-30-macos-arm64.md) and
@@ -268,12 +282,11 @@ No new one-hour or eight-hour test is automatically launched for this milestone.
   0.0.14 one-hour result qualifies only the exact binary recorded above.
 - Build/run the native Linux, Windows, and macOS arm64 packages and hosted CI;
   check multi-monitor/HiDPI and display-rate timing on available hardware.
-- Generate and review complete third-party license notices from the locked
-  dependency graph, and decide signing/notarization before general distribution.
-  The offline [notice audit](NOTICE_AUDIT.md) now validates pinned upstream
-  supplements and is included in development packages. macOS text gaps fell from
-  22 to ten; Linux/Windows x64 have none, but no target claims completed review.
-  Tagged package builds fail while required notice texts remain missing.
+- Keep notice/source delivery tied to the exact locked graph and binary, with
+  the provenance limitations in [NOTICE_REVIEW.md](NOTICE_REVIEW.md). All current
+  packaging targets pass the reviewed notice-assembly gate; graph/text changes
+  require renewed review. Runtime provisioning/clean-machine qualification and
+  signing/notarization are deferred to stable under the user's October 1 decision.
 - Only after the acceptance gates: prepare the v0.1.0 tag/release with explicit
   publication authorization. No public release has been made in this session.
 

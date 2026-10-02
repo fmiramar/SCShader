@@ -1,9 +1,25 @@
 # Dependency-notice audit
 
+## Current implementation — 2026-10-01
+
+The 0.0.18 notice-assembly review and provenance decisions are documented in
+[NOTICE_REVIEW.md](NOTICE_REVIEW.md). All five packaging-target metadata audits
+have zero missing texts/declarations: Windows x64 123 packages; Linux x64/arm64
+152 each; macOS x64/arm64 132 each. This is offline notice validation, not native
+hardware qualification. The old ten-missing result below is retained as history.
+Two additional false passes (`objc2-foundation`'s `copying.rs` files) were fixed.
+
+Run the ordinary command below to inspect an unreviewed inventory. Add
+`--distribution` to validate against `licenses/review.json` and emit
+`THIRD_PARTY_NOTICES.txt` as well. Packaging always uses this mode, rejecting
+stale lockfile/target/notice digests. A template is never inferred automatically
+from arbitrary SPDX metadata: dispatch's declaration-backed recovery is a single
+explicit, version/VCS-pinned decision, disclosed in the review and output.
+
 `tools/license_inventory.py` produces a deterministic, target-specific inventory
 from `cargo metadata --locked --offline`. It preserves notice text and its hash,
 records declared licenses/repositories and packaged VCS revisions, and identifies
-missing text without substituting a generic SPDX template. Python 3.11 or newer
+missing text without automatically substituting generic SPDX templates. Python 3.11 or newer
 is required. Build or fetch dependencies for the target before auditing; the tool
 itself does not fetch from the network or modify the lockfile.
 
@@ -18,11 +34,14 @@ conservatively includes build-time and procedural-macro dependencies as well as
 runtime dependencies. Optional notice-file paths cannot escape their crate root.
 
 `licenses/upstream-notices.json` supplements omissions in crate archives with
-14 exact upstream files for 23 pinned package versions. Text is stored as JSON
+19 pinned source files for 26 package versions. Text is stored as JSON
 strings to preserve the original bytes, including absent final newlines. Each
 source carries an immutable commit URL and SHA-256; package version, packaged VCS
 commit, and SPDX declaration must match. Hash changes, mutable URLs, duplicate
-entries, and revision/declaration mismatches fail the audit. No network request
+entries, and revision/declaration mismatches fail the audit. Schema 2 permits
+explicit per-source recovery reviews with a reason and immutable evidence;
+it never silently substitutes a newer version. Embedded header excerpts are
+checked against both source-file and excerpt hashes. No network request
 is made when generating or packaging the inventory.
 
 Upstream files that only discuss licensing or link to external license terms
@@ -30,12 +49,12 @@ are retained as **context only**; they do not fill a missing-license-text entry.
 
 `--require-texts` exits nonzero when declarations/text are missing **after writing
 the audit**. Even a zero exit is only a file-presence check, not an SPDX-expression
-evaluation or proof of complete obligations. Both outputs remain marked
+evaluation or proof of complete obligations. Without `--distribution`, both outputs remain marked
 **unreviewed**. Do not install them as final third-party notices without reviewing
 license alternatives/conjunctions, embedded third-party material, copyright
 statements, and the distribution's actual target/features.
 
-## Current result — 0.0.14
+## Historical result — 0.0.14
 
 The locked target graphs were audited offline on 2026-09-24; these are metadata
 checks, not native builds or runtime verification of the other platforms.

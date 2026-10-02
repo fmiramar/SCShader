@@ -32,6 +32,9 @@ Structured errors and their log entries share a burst of 20 plus 20 per second; 
 
 ## Build and run
 
+For development-package prerequisites, matching source downloads and deferred
+stable-release signing/runtime work, see [release packaging](docs/RELEASE.md).
+
 Install [rustup](https://rustup.rs/) once. The checked-in `rust-toolchain.toml` selects Rust 1.97.1 plus `rustfmt` and Clippy.
 
 Windows/Linux implementation and cross-target checks are in place; native GPU

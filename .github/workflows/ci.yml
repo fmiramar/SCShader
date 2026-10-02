@@ -65,15 +65,15 @@ jobs:
           - os: macos-15-intel
             platform: macos
             architecture: x64
-            command: ./tools/package_macos.sh x64
+            command: bash ./tools/package_macos.sh x64
           - os: macos-15
             platform: macos
             architecture: arm64
-            command: ./tools/package_macos.sh arm64
+            command: bash ./tools/package_macos.sh arm64
           - os: ubuntu-24.04
             platform: linux
             architecture: x64
-            command: ./tools/package_linux.sh x64
+            command: bash ./tools/package_linux.sh x64
           - os: windows-2025
             platform: windows
             architecture: x64

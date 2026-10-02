@@ -1,5 +1,60 @@
 # Verification
 
+## Notice and corresponding-source packaging — 2026-10-02
+
+Development 0.0.18, starting at `2c790b1`; renderer, SC classes, dependency pins and
+version metadata are unchanged. Implementation/review began October 1 and the
+final package checks resumed October 2. Runtime provisioning and signing work
+are explicitly deferred to a later stable release, not marked passed.
+
+- **Pass:** all five locked/offline `--distribution --require-texts` notice gates:
+  Windows x64 123 packages; Linux x64/arm64 152 each; macOS x64/arm64 132 each;
+  zero missing texts/declarations. These are metadata checks, not native builds.
+- **Pass:** 125 Python tests before sandboxing; the final managed-sandbox rerun
+  discovers 125, passes 124 and skips only `test_symlink_rejected` because symlink
+  creation needs privileges. No failures/errors. Added nine regressions cover
+  source-code false positives, explicit recovery provenance, embedded excerpts,
+  stale review rejection, complete source packaging, offline vendor configuration,
+  source drift, archive tampering and overwrite protection.
+- **Pass:** native Windows packaging with Rust/Cargo 1.97.1, MSVC 14.44,
+  SDK 10.0.26100.0 and Python 3.14.0. Final inspection prefix:
+  `fmiramar-license-check02`. The source ZIP has 16,160 files and 281 vendored
+  crates, including all locked target dependencies. Source manifest, ZIP checksums,
+  full GPL text, Rust standard-library notices and source/binary/lock linkage pass.
+- **Pass:** extract the first inspection source ZIP, resolve all 124 Windows
+  packages (renderer included) from its vendor directory using an initially empty
+  `CARGO_HOME`, then `cargo build --release --locked --offline` with a fresh target
+  directory and native MSVC. The resulting renderer reports 0.0.18. Compiler/SDK
+  were already installed; this tests offline Cargo sources, not clean-machine
+  runtime provisioning. Rebuilt hash differs from the original; no byte-identical
+  build claim is made. Runtime/vendor sources are unchanged in the final ZIP.
+- **Pass:** both shell packagers pass `bash -n`; `git diff --check` is clean.
+  CI now invokes them through `bash`, fixing the previous Unix package-job
+  permission-denied failure. Branch CI will validate the committed revision;
+  local results do not imply hosted jobs or native macOS/Linux builds passed.
+- **Negative evidence retained:** an initial filename whitelist omitted valid
+  notices (`NOTICES.md`, `COPYING.LIB`, version-suffixed Apache files). Comparing
+  against the original inventory caught this; the final scanner retains every
+  original notice except the four `copying.rs` false positives. The first ZIP
+  is retained as inspection evidence, not the final notice package.
+- **Not rerun:** GPU/audio/SC interaction suites and long-duration tests, since
+  no runtime source changed. No installed extension was replaced, release tagged,
+  binary uploaded, signing identity changed or upstream message sent.
+
+| Artifact | SHA-256 |
+| --- | --- |
+| Final inspection binary ZIP | `1e44fdc5e005b83c95f87a6be1ca036eeae896cca8bd12eb8b39133043156711` |
+| Final inspection corresponding-source ZIP | `d8208d6f3af33b32c851568c0b677cce1c8e94f56e83e70fca5a9ebcd1b33886` |
+| Packaged production renderer (unchanged) | `b04ad1c4ed00589b5fc7deda79dcfb3ccdb8a9d58214e928437b7c5851e6e5ff` |
+| Offline rebuilt renderer | `70e066b8ca1674b8e5e77e7d8b68225390d3f9d2ab6e667b7e367962cd954d06` |
+| Cargo.lock (unchanged) | `99477baa12a417c9c2aee715b1bc27cb59bb40035f7b4855480ef07e5fe762f7` |
+
+Local/ignored evidence is under `build/license-review-20261001/`,
+`build/license-review-20261002/`, `stage/` and `dist/`. The inspection source
+snapshot precedes this final verification documentation. See
+[NOTICE_REVIEW.md](NOTICE_REVIEW.md) for declaration-backed dispatch recovery and
+the preserved Apple SDK context; passing these checks is not legal certification.
+
 ## Windows desktop with two GPUs and three displays — 2026-09-30
 
 The 0.0.18 production renderer

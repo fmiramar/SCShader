@@ -11,6 +11,14 @@ release targets; this restriction applies only to Linux.
 
 ## Objective and priority
 
+2026-10-01 distribution decision: implement notice/source delivery now; defer
+runtime provisioning/clean-machine qualification and signing/notarization/download
+trust to a later stable release. Current development users install the documented
+prerequisites themselves. Notice assembly/source packaging is implemented; see
+[NOTICE_REVIEW.md](NOTICE_REVIEW.md) for the explicit provenance limitations and
+[RELEASE.md](RELEASE.md) for the requirements. These deferred tracks are not passes
+and do not change native regression or final-duration gates.
+
 Build, install, exercise, and fix the existing SCShader implementation on Windows
 x64, Linux x64, and macOS Apple Silicon, while retaining the Intel Mac regression
 baseline. Find backend, lifecycle, path, packaging, display, and driver differences
@@ -49,7 +57,8 @@ Keep Xwayland distinct from native Xorg and native Wayland.
 - [x] Notice/signing gaps and untested hardware are explicitly handed to the
       final-release milestone, without representing development packages as cleared.
       See the [distribution handoff](RELEASE.md#remaining-distribution-gates--2026-09-30);
-      notice clearance and signing remain open.
+      notice assembly/source delivery is implemented with disclosed provenance
+      caveats; runtime provisioning and signing qualification are deferred to stable.
 
 Plans: [shared procedure](plans/COMMON.md), [Windows](plans/WINDOWS_X64.md),
 [Linux](plans/LINUX.md), [Apple Silicon](plans/MACOS_ARM64.md),
@@ -59,8 +68,9 @@ result, not the existence of implementation code or a future test command.
 
 ## Work after P1
 
-1. Finish remaining short interaction/stress coverage, dependency notice review,
-   distribution/signing decisions, and authorized clean-checkout CI checks.
+1. Finish remaining short interaction/stress coverage and authorized clean-checkout
+   CI checks. Preserve the October 1 notice/source policy and explicit stable-release
+   deferral of runtime provisioning and signing qualification.
 2. Freeze a candidate per supported platform. Schedule its exact-binary one-hour
    validation with the user; do not inherit the historical 0.0.14 result for 0.0.16.
 3. The user runs the eight-hour test on the completed final candidate as the last

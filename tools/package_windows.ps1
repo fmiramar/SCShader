@@ -29,7 +29,8 @@ $DistDir = Join-Path $ProjectDir "dist"
 
 $Archive = Join-Path $DistDir "$Base.zip"
 $Checksum = "$Archive.sha256"
-foreach ($Existing in @($StageRoot, $Archive, $Checksum)) {
+$SourceArchive = Join-Path $DistDir "$Base-corresponding-source.zip"
+foreach ($Existing in @($StageRoot, $Archive, $Checksum, $SourceArchive, "$SourceArchive.sha256")) {
     if (Test-Path -LiteralPath $Existing) {
         throw "Output already exists: $Existing. Preserve/move it before rebuilding this package."
     }
@@ -47,7 +48,7 @@ Copy-Item -Recurse (Join-Path $ProjectDir "renderer/shaders") (Join-Path $Extens
 foreach ($Directory in @("docs", "protocol", "examples")) {
     Copy-Item -Recurse (Join-Path $ProjectDir $Directory) $ExtensionRoot
 }
-Copy-Item (Join-Path $ProjectDir "README.md"), (Join-Path $ProjectDir "START_HERE.md"), (Join-Path $ProjectDir "AGENTS.md"), (Join-Path $ProjectDir "LICENSE"), (Join-Path $ProjectDir "CHANGELOG.md"), (Join-Path $ProjectDir "VERSION"), (Join-Path $ProjectDir "SCShader.quark") $ExtensionRoot
+Copy-Item (Join-Path $ProjectDir "README.md"), (Join-Path $ProjectDir "START_HERE.md"), (Join-Path $ProjectDir "AGENTS.md"), (Join-Path $ProjectDir "LICENSE"), (Join-Path $ProjectDir "COPYING"), (Join-Path $ProjectDir "CHANGELOG.md"), (Join-Path $ProjectDir "VERSION"), (Join-Path $ProjectDir "SCShader.quark") $ExtensionRoot
 Copy-Item $RendererBinary (Join-Path $ExtensionRoot "renderer/scshader-renderer.exe")
 $NoticeArgs = @()
 if ($env:SCSHADER_REQUIRE_NOTICE_TEXTS -eq "1") {
@@ -55,8 +56,14 @@ if ($env:SCSHADER_REQUIRE_NOTICE_TEXTS -eq "1") {
 } elseif ($env:SCSHADER_REQUIRE_NOTICE_TEXTS -and $env:SCSHADER_REQUIRE_NOTICE_TEXTS -ne "0") {
     throw "SCSHADER_REQUIRE_NOTICE_TEXTS must be 0 or 1"
 }
-& $Python (Join-Path $ProjectDir "tools/license_inventory.py") --target x86_64-pc-windows-msvc --output-dir (Join-Path $ExtensionRoot "dependency-audit") @NoticeArgs
+& $Python (Join-Path $ProjectDir "tools/license_inventory.py") --target $Target --output-dir (Join-Path $ExtensionRoot "dependency-audit") --distribution @NoticeArgs
 if ($LASTEXITCODE -ne 0) { throw "Dependency notice audit failed" }
+
+# Fetch every locked target before vendoring the complete corresponding source.
+cargo fetch --manifest-path (Join-Path $ProjectDir "renderer/Cargo.toml") --locked
+if ($LASTEXITCODE -ne 0) { throw "Locked source fetch failed" }
+& $Python (Join-Path $ProjectDir "tools/package_corresponding_source.py") --target $Target --binary $RendererBinary --extension $ExtensionRoot --output (Join-Path $DistDir "$Base-corresponding-source.zip")
+if ($LASTEXITCODE -ne 0) { throw "Corresponding-source packaging failed" }
 
 # AppleDouble files from a macOS source transfer are metadata, not documentation.
 Get-ChildItem -LiteralPath $StageRoot -Recurse -File -Force |

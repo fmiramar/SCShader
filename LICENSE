@@ -8,5 +8,5 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 SPDX-License-Identifier: GPL-3.0-or-later
-License text: https://www.gnu.org/licenses/gpl-3.0.txt
-
+Full license text: COPYING (also https://www.gnu.org/licenses/gpl-3.0.txt).
+Dependency notices and matching source: see docs/NOTICE_REVIEW.md and docs/RELEASE.md.

@@ -1,6 +1,6 @@
 {
-  "schema_version": 1,
-  "description": "Exact upstream texts omitted from crate archives. Context-only files do not satisfy the text-presence gate. This collection is not a completed distribution review.",
+  "schema_version": 2,
+  "description": "Pinned notice texts and explicitly documented recovery decisions. Exact package versions, VCS revisions, declarations, source hashes and provenance are validated offline. A text-presence pass is not legal certification.",
   "sources": [
     {
       "url": "https://raw.githubusercontent.com/madsmtm/objc2/b4167b582b2f75f9a1be75495c41b765344fd03c/LICENSE.md",
@@ -99,6 +99,41 @@
       "sha256": "c8167fdeeed46d3f244d3f85c5bf998ce889343691c32be2c61a8bc4b5c08333",
       "kind": "license-text",
       "text": "MIT License\n\nCopyright (c) 2020 Philip Degarmo and other contributors\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE."
+    },
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-MIT.txt",
+      "commit": "ee9a7ada2131f5944b8750428e265c15632f2a19",
+      "sha256": "f6a2e783669a0dd7a2c3b8a4f76db40ae49033e66e1bdc30f3aa25fe5577b070",
+      "kind": "license-text",
+      "text": "Copyright 2026 Mads Marquart\n\nPermission is hereby granted, free of charge, to any\nperson obtaining a copy of this software and associated\ndocumentation files (the \"Software\"), to deal in the\nSoftware without restriction, including without\nlimitation the rights to use, copy, modify, merge,\npublish, distribute, sublicense, and/or sell copies of\nthe Software, and to permit persons to whom the Software\nis furnished to do so, subject to the following\nconditions:\n\nThe above copyright notice and this permission notice\nshall be included in all copies or substantial portions\nof the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF\nANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED\nTO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A\nPARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT\nSHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY\nCLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION\nOF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR\nIN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER\nDEALINGS IN THE SOFTWARE.\n"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-ZLIB.txt",
+      "commit": "ee9a7ada2131f5944b8750428e265c15632f2a19",
+      "sha256": "fced3e7fedc235fa83ed0108b0df74d86b435d06436356f46917a903cbadd80a",
+      "kind": "license-text",
+      "text": "Copyright 2026 Mads Marquart\n\nThis software is provided 'as-is', without any express or implied warranty. In no event will the authors be held liable for any damages arising from the use of this software.\n\nPermission is granted to anyone to use this software for any purpose, including commercial applications, and to alter it and redistribute it freely, subject to the following restrictions:\n\n1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.\n\n2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.\n\n3. This notice may not be removed or altered from any source distribution.\n"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/SSheldon/rust-dispatch/82d6c7a5b75dc0c71c3f46f87bb6c16a476f7748/Cargo.toml",
+      "commit": "82d6c7a5b75dc0c71c3f46f87bb6c16a476f7748",
+      "sha256": "05c60b829931ef7f1f130735843c11f5cf9cc69546eca5fc941d014781c68e31",
+      "kind": "licensing-context",
+      "text": "[package]\nname = \"dispatch\"\nversion = \"0.2.0\"\nauthors = [\"Steven Sheldon\"]\nedition = \"2018\"\n\ndescription = \"Rust wrapper for Apple's Grand Central Dispatch.\"\nkeywords = [\"gcd\", \"objective-c\", \"osx\", \"ios\"]\nreadme = \"README.md\"\nrepository = \"http://github.com/SSheldon/rust-dispatch\"\ndocumentation = \"http://ssheldon.github.io/rust-objc/dispatch/\"\nlicense = \"MIT\"\n\nexclude = [\n  \".gitignore\",\n  \".travis.yml\",\n  \"travis_install.sh\",\n  \"travis_test.sh\",\n  \"tests-ios/**\",\n]\n"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/spdx/license-list-data/31ba1a50e5397e00a304dbadc76531740e89ee48/text/MIT.txt",
+      "commit": "31ba1a50e5397e00a304dbadc76531740e89ee48",
+      "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5",
+      "kind": "license-text",
+      "text": "MIT License\n\nCopyright (c) <year> <copyright holders>\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software and\nassociated documentation files (the \"Software\"), to deal in the Software without restriction, including\nwithout limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the\nfollowing conditions:\n\nThe above copyright notice and this permission notice shall be included in all copies or substantial\nportions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT\nLIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO\nEVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER\nIN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE\nUSE OR OTHER DEALINGS IN THE SOFTWARE.\n"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google/angle/7403dd2cd3764fe96660fe09892e764e9ae1dbca/LICENSE",
+      "commit": "7403dd2cd3764fe96660fe09892e764e9ae1dbca",
+      "sha256": "bf4da21bd20bcfb5b60b7ecc67fa864a79be049e21d6178076887f178dd6c71a",
+      "kind": "license-text",
+      "text": "// Copyright 2018 The ANGLE Project Authors.\n// All rights reserved.\n//\n// Redistribution and use in source and binary forms, with or without\n// modification, are permitted provided that the following conditions\n// are met:\n//\n//     Redistributions of source code must retain the above copyright\n//     notice, this list of conditions and the following disclaimer.\n//\n//     Redistributions in binary form must reproduce the above\n//     copyright notice, this list of conditions and the following\n//     disclaimer in the documentation and/or other materials provided\n//     with the distribution.\n//\n//     Neither the name of TransGaming Inc., Google Inc., 3DLabs Inc.\n//     Ltd., nor the names of their contributors may be used to endorse\n//     or promote products derived from this software without specific\n//     prior written permission.\n//\n// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS\n// \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT\n// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS\n// FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE\n// COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,\n// INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,\n// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;\n// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER\n// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT\n// LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN\n// ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE\n// POSSIBILITY OF SUCH DAMAGE.\n"
     }
   ],
   "packages": [
@@ -117,8 +152,36 @@
       "vcs_commit": "b4167b582b2f75f9a1be75495c41b765344fd03c",
       "license": "MIT",
       "sources": [
-        "https://raw.githubusercontent.com/madsmtm/objc2/b4167b582b2f75f9a1be75495c41b765344fd03c/LICENSE.md"
-      ]
+        "https://raw.githubusercontent.com/madsmtm/objc2/b4167b582b2f75f9a1be75495c41b765344fd03c/LICENSE.md",
+        "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-MIT.txt"
+      ],
+      "source_reviews": {
+        "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-MIT.txt": {
+          "reason": "The pinned revision declares these terms but links externally instead of including full text. Upstream's later license-text correction supplies the missing text without changing the license choice. Preserve its attribution verbatim; it is a later upstream correction, not a file from the pinned release. SCShader selects MIT for MIT-only crates and Zlib for the tri-licensed crates.",
+          "evidence": [
+            "https://github.com/madsmtm/objc2/blob/b4167b582b2f75f9a1be75495c41b765344fd03c/LICENSE.md",
+            "https://github.com/madsmtm/objc2/commit/ee9a7ada2131f5944b8750428e265c15632f2a19"
+          ]
+        }
+      }
+    },
+    {
+      "name": "dispatch",
+      "version": "0.2.0",
+      "license": "MIT",
+      "vcs_commit": "82d6c7a5b75dc0c71c3f46f87bb6c16a476f7748",
+      "sources": [
+        "https://raw.githubusercontent.com/SSheldon/rust-dispatch/82d6c7a5b75dc0c71c3f46f87bb6c16a476f7748/Cargo.toml",
+        "https://raw.githubusercontent.com/spdx/license-list-data/31ba1a50e5397e00a304dbadc76531740e89ee48/text/MIT.txt"
+      ],
+      "source_reviews": {
+        "https://raw.githubusercontent.com/spdx/license-list-data/31ba1a50e5397e00a304dbadc76531740e89ee48/text/MIT.txt": {
+          "reason": "The exact published dispatch 0.2.0 manifest declares MIT and credits author Steven Sheldon, but upstream supplies no license file. Preserve that manifest and the canonical MIT terms verbatim. The canonical copyright placeholders are a template, NOT an upstream copyright notice or an inferred year. This is declaration-backed recovery, not author confirmation.",
+          "evidence": [
+            "https://github.com/SSheldon/rust-dispatch/blob/82d6c7a5b75dc0c71c3f46f87bb6c16a476f7748/Cargo.toml"
+          ]
+        }
+      }
     },
     {
       "name": "dispatch2",
@@ -126,8 +189,18 @@
       "vcs_commit": "8852b424193ca41602281b3d7540d7c8ed51e49a",
       "license": "Zlib OR Apache-2.0 OR MIT",
       "sources": [
-        "https://raw.githubusercontent.com/madsmtm/objc2/8852b424193ca41602281b3d7540d7c8ed51e49a/LICENSE.md"
-      ]
+        "https://raw.githubusercontent.com/madsmtm/objc2/8852b424193ca41602281b3d7540d7c8ed51e49a/LICENSE.md",
+        "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-ZLIB.txt"
+      ],
+      "source_reviews": {
+        "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-ZLIB.txt": {
+          "reason": "The pinned revision declares these terms but links externally instead of including full text. Upstream's later license-text correction supplies the missing text without changing the license choice. Preserve its attribution verbatim; it is a later upstream correction, not a file from the pinned release. SCShader selects MIT for MIT-only crates and Zlib for the tri-licensed crates.",
+          "evidence": [
+            "https://github.com/madsmtm/objc2/blob/8852b424193ca41602281b3d7540d7c8ed51e49a/LICENSE.md",
+            "https://github.com/madsmtm/objc2/commit/ee9a7ada2131f5944b8750428e265c15632f2a19"
+          ]
+        }
+      }
     },
     {
       "name": "gl_generator",
@@ -144,7 +217,109 @@
       "vcs_commit": "f150967b1c44ae888e6676f93f639ebc82771bdc",
       "license": "Apache-2.0",
       "sources": [
-        "https://raw.githubusercontent.com/brendanzab/gl-rs/f150967b1c44ae888e6676f93f639ebc82771bdc/LICENSE"
+        "https://raw.githubusercontent.com/brendanzab/gl-rs/f150967b1c44ae888e6676f93f639ebc82771bdc/LICENSE",
+        "https://raw.githubusercontent.com/google/angle/7403dd2cd3764fe96660fe09892e764e9ae1dbca/LICENSE"
+      ],
+      "source_reviews": {
+        "https://raw.githubusercontent.com/google/angle/7403dd2cd3764fe96660fe09892e764e9ae1dbca/LICENSE": {
+          "reason": "The pinned gl-rs tree records api_angle as submodule 7403dd2cd3764fe96660fe09892e764e9ae1dbca. Include that exact ANGLE BSD notice for its embedded XML registry material, in addition to the crate's Apache-2.0 notice.",
+          "evidence": [
+            "https://github.com/rust-windowing/gl-rs/commit/f150967b1c44ae888e6676f93f639ebc82771bdc"
+          ]
+        }
+      },
+      "file_excerpts": [
+        {
+          "path": "api/xml/gl.xml",
+          "sha256": "1ee6115b416820b8633d67bdc2c430426e59042c4a98cc4bc16f65a3414da3fa",
+          "end_line": 25,
+          "file_sha256": "7dae830ddacefd2af92aef2b438ff89f90fb5496f596dec8282b212eb4fc51e3",
+          "start_line": 1
+        },
+        {
+          "path": "api/xml/glx.xml",
+          "sha256": "07bbf34b34d181b6f905e700b1f337088ab132c258b363f941858bda22d3bfa8",
+          "end_line": 25,
+          "file_sha256": "338cee03c97e78aa167dd667407ab973f4bc656c58cf9002aa54fa78b2f9ff32",
+          "start_line": 1
+        },
+        {
+          "path": "api/xml/wgl.xml",
+          "sha256": "4fced5ca2c7ce33f25aae97cbf410417a5a9d22b3f47154e05e68cc910665fc9",
+          "end_line": 27,
+          "file_sha256": "41e0a2182217b099b1628757956cb103cea9660e830f4d2f9fa07bf3a3679feb",
+          "start_line": 1
+        },
+        {
+          "path": "api_egl/api/egl.xml",
+          "sha256": "7f68df9e9bfc209471c02713e3bacbce3772552b72e0b2f5326fa9ae1c53a288",
+          "end_line": 24,
+          "file_sha256": "523fc17745545daca85c5b107b4a4c1a23dd3de39f70e499c77249e3dd6569ec",
+          "start_line": 1
+        },
+        {
+          "path": "api_angle/scripts/egl.xml",
+          "sha256": "7f68df9e9bfc209471c02713e3bacbce3772552b72e0b2f5326fa9ae1c53a288",
+          "end_line": 24,
+          "file_sha256": "523fc17745545daca85c5b107b4a4c1a23dd3de39f70e499c77249e3dd6569ec",
+          "start_line": 1
+        },
+        {
+          "path": "api_angle/scripts/gl.xml",
+          "sha256": "1ee6115b416820b8633d67bdc2c430426e59042c4a98cc4bc16f65a3414da3fa",
+          "end_line": 25,
+          "file_sha256": "baac3f2e27b4949773f4ee2e6ed8e43a2ae96a428b9d73ae9d1e9c0c404cae1f",
+          "start_line": 1
+        },
+        {
+          "path": "api_angle/scripts/wgl.xml",
+          "sha256": "4fced5ca2c7ce33f25aae97cbf410417a5a9d22b3f47154e05e68cc910665fc9",
+          "end_line": 27,
+          "file_sha256": "41e0a2182217b099b1628757956cb103cea9660e830f4d2f9fa07bf3a3679feb",
+          "start_line": 1
+        },
+        {
+          "path": "api_angle/scripts/egl_angle_ext.xml",
+          "sha256": "196d143f5e0c8bbe21963a489e9bc0fa936367469e3a75bb4334f20b4c0069b6",
+          "end_line": 10,
+          "file_sha256": "98c60fa9fe46f50dd4e101c2262b4293adeeae48a18c39ad63dc085e639b6096",
+          "start_line": 1
+        },
+        {
+          "path": "api_angle/scripts/gl_angle_ext.xml",
+          "sha256": "861be38249f0b0c76fb6b482ef5a07f4eb378390fbc5b987a2cd380e3c0abe09",
+          "end_line": 10,
+          "file_sha256": "dcf1ca2ce9536bd2ea6cab6e93ce0a37821793a9ed12f280f005a3459e2905e8",
+          "start_line": 1
+        },
+        {
+          "path": "api_webgl/specs/latest/1.0/webgl.idl",
+          "sha256": "5edb419e1b27bf509cc8707039c7ed058e2b204b45f79d7d6add2cd517889961",
+          "end_line": 25,
+          "file_sha256": "9bd8707845fb68ff349f95b320582160423ee4cdf47294cbd980933b3b25dae9",
+          "start_line": 1
+        },
+        {
+          "path": "api_webgl/specs/latest/2.0/webgl2.idl",
+          "sha256": "5edb419e1b27bf509cc8707039c7ed058e2b204b45f79d7d6add2cd517889961",
+          "end_line": 25,
+          "file_sha256": "4e9ba68c298e76e85f312f86d474975da4ce656e35c2ad4a8c706437d50253a1",
+          "start_line": 1
+        },
+        {
+          "path": "src/lib.rs",
+          "sha256": "7eb15307bafc2e83b48490a5a4f1024f860d00c98b173fb5b8fa11e4e6692a31",
+          "end_line": 13,
+          "file_sha256": "befbc0e187097e6c9da1ecbd79e0e1af462b6f6466108247745f6aa38abe0673",
+          "start_line": 1
+        },
+        {
+          "path": "build.rs",
+          "sha256": "7eb15307bafc2e83b48490a5a4f1024f860d00c98b173fb5b8fa11e4e6692a31",
+          "end_line": 13,
+          "file_sha256": "88b55daa5f6f0c90e1ab906c08b74834671316bdadc88d7cc25adfa19fc57e62",
+          "start_line": 1
+        }
       ]
     },
     {
@@ -171,8 +346,18 @@
       "vcs_commit": "8852b424193ca41602281b3d7540d7c8ed51e49a",
       "license": "MIT",
       "sources": [
-        "https://raw.githubusercontent.com/madsmtm/objc2/8852b424193ca41602281b3d7540d7c8ed51e49a/LICENSE.md"
-      ]
+        "https://raw.githubusercontent.com/madsmtm/objc2/8852b424193ca41602281b3d7540d7c8ed51e49a/LICENSE.md",
+        "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-MIT.txt"
+      ],
+      "source_reviews": {
+        "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-MIT.txt": {
+          "reason": "The pinned revision declares these terms but links externally instead of including full text. Upstream's later license-text correction supplies the missing text without changing the license choice. Preserve its attribution verbatim; it is a later upstream correction, not a file from the pinned release. SCShader selects MIT for MIT-only crates and Zlib for the tri-licensed crates.",
+          "evidence": [
+            "https://github.com/madsmtm/objc2/blob/8852b424193ca41602281b3d7540d7c8ed51e49a/LICENSE.md",
+            "https://github.com/madsmtm/objc2/commit/ee9a7ada2131f5944b8750428e265c15632f2a19"
+          ]
+        }
+      }
     },
     {
       "name": "objc2-app-kit",
@@ -198,8 +383,18 @@
       "vcs_commit": "7b1abfd750a2cacaea71d6a56ecfb83cb7de560b",
       "license": "Zlib OR Apache-2.0 OR MIT",
       "sources": [
-        "https://raw.githubusercontent.com/madsmtm/objc2/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md"
-      ]
+        "https://raw.githubusercontent.com/madsmtm/objc2/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
+        "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-ZLIB.txt"
+      ],
+      "source_reviews": {
+        "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-ZLIB.txt": {
+          "reason": "The pinned revision declares these terms but links externally instead of including full text. Upstream's later license-text correction supplies the missing text without changing the license choice. Preserve its attribution verbatim; it is a later upstream correction, not a file from the pinned release. SCShader selects MIT for MIT-only crates and Zlib for the tri-licensed crates.",
+          "evidence": [
+            "https://github.com/madsmtm/objc2/blob/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
+            "https://github.com/madsmtm/objc2/commit/ee9a7ada2131f5944b8750428e265c15632f2a19"
+          ]
+        }
+      }
     },
     {
       "name": "objc2-core-graphics",
@@ -207,8 +402,18 @@
       "vcs_commit": "7b1abfd750a2cacaea71d6a56ecfb83cb7de560b",
       "license": "Zlib OR Apache-2.0 OR MIT",
       "sources": [
-        "https://raw.githubusercontent.com/madsmtm/objc2/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md"
-      ]
+        "https://raw.githubusercontent.com/madsmtm/objc2/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
+        "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-ZLIB.txt"
+      ],
+      "source_reviews": {
+        "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-ZLIB.txt": {
+          "reason": "The pinned revision declares these terms but links externally instead of including full text. Upstream's later license-text correction supplies the missing text without changing the license choice. Preserve its attribution verbatim; it is a later upstream correction, not a file from the pinned release. SCShader selects MIT for MIT-only crates and Zlib for the tri-licensed crates.",
+          "evidence": [
+            "https://github.com/madsmtm/objc2/blob/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
+            "https://github.com/madsmtm/objc2/commit/ee9a7ada2131f5944b8750428e265c15632f2a19"
+          ]
+        }
+      }
     },
     {
       "name": "objc2-core-image",
@@ -225,8 +430,46 @@
       "vcs_commit": "8d214f5477365ffcbcbb7de058c86ed9a518efb7",
       "license": "MIT",
       "sources": [
-        "https://raw.githubusercontent.com/madsmtm/objc2/8d214f5477365ffcbcbb7de058c86ed9a518efb7/LICENSE.md"
+        "https://raw.githubusercontent.com/madsmtm/objc2/8d214f5477365ffcbcbb7de058c86ed9a518efb7/LICENSE.md",
+        "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-MIT.txt"
+      ],
+      "source_reviews": {
+        "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-MIT.txt": {
+          "reason": "The pinned revision declares these terms but links externally instead of including full text. Upstream's later license-text correction supplies the missing text without changing the license choice. Preserve its attribution verbatim; it is a later upstream correction, not a file from the pinned release. SCShader selects MIT for MIT-only crates and Zlib for the tri-licensed crates.",
+          "evidence": [
+            "https://github.com/madsmtm/objc2/blob/8d214f5477365ffcbcbb7de058c86ed9a518efb7/LICENSE.md",
+            "https://github.com/madsmtm/objc2/commit/ee9a7ada2131f5944b8750428e265c15632f2a19"
+          ]
+        }
+      }
+    },
+    {
+      "name": "objc2-foundation",
+      "version": "0.2.2",
+      "license": "MIT",
+      "vcs_commit": "e282618be4c3a3b9542957e0c8540e9588472ce8",
+      "sources": [
+        "https://raw.githubusercontent.com/madsmtm/objc2/e282618be4c3a3b9542957e0c8540e9588472ce8/LICENSE.txt"
       ]
+    },
+    {
+      "name": "objc2-foundation",
+      "version": "0.3.2",
+      "license": "MIT",
+      "vcs_commit": "7b1abfd750a2cacaea71d6a56ecfb83cb7de560b",
+      "sources": [
+        "https://raw.githubusercontent.com/madsmtm/objc2/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
+        "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-MIT.txt"
+      ],
+      "source_reviews": {
+        "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-MIT.txt": {
+          "reason": "The pinned revision declares these terms but links externally instead of including full text. Upstream's later license-text correction supplies the missing text without changing the license choice. Preserve its attribution verbatim; it is a later upstream correction, not a file from the pinned release. SCShader selects MIT for MIT-only crates and Zlib for the tri-licensed crates.",
+          "evidence": [
+            "https://github.com/madsmtm/objc2/blob/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
+            "https://github.com/madsmtm/objc2/commit/ee9a7ada2131f5944b8750428e265c15632f2a19"
+          ]
+        }
+      }
     },
     {
       "name": "objc2-io-surface",
@@ -234,8 +477,18 @@
       "vcs_commit": "7b1abfd750a2cacaea71d6a56ecfb83cb7de560b",
       "license": "Zlib OR Apache-2.0 OR MIT",
       "sources": [
-        "https://raw.githubusercontent.com/madsmtm/objc2/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md"
-      ]
+        "https://raw.githubusercontent.com/madsmtm/objc2/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
+        "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-ZLIB.txt"
+      ],
+      "source_reviews": {
+        "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-ZLIB.txt": {
+          "reason": "The pinned revision declares these terms but links externally instead of including full text. Upstream's later license-text correction supplies the missing text without changing the license choice. Preserve its attribution verbatim; it is a later upstream correction, not a file from the pinned release. SCShader selects MIT for MIT-only crates and Zlib for the tri-licensed crates.",
+          "evidence": [
+            "https://github.com/madsmtm/objc2/blob/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
+            "https://github.com/madsmtm/objc2/commit/ee9a7ada2131f5944b8750428e265c15632f2a19"
+          ]
+        }
+      }
     },
     {
       "name": "objc2-metal",
@@ -252,8 +505,18 @@
       "vcs_commit": "7b1abfd750a2cacaea71d6a56ecfb83cb7de560b",
       "license": "Zlib OR Apache-2.0 OR MIT",
       "sources": [
-        "https://raw.githubusercontent.com/madsmtm/objc2/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md"
-      ]
+        "https://raw.githubusercontent.com/madsmtm/objc2/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
+        "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-ZLIB.txt"
+      ],
+      "source_reviews": {
+        "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-ZLIB.txt": {
+          "reason": "The pinned revision declares these terms but links externally instead of including full text. Upstream's later license-text correction supplies the missing text without changing the license choice. Preserve its attribution verbatim; it is a later upstream correction, not a file from the pinned release. SCShader selects MIT for MIT-only crates and Zlib for the tri-licensed crates.",
+          "evidence": [
+            "https://github.com/madsmtm/objc2/blob/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
+            "https://github.com/madsmtm/objc2/commit/ee9a7ada2131f5944b8750428e265c15632f2a19"
+          ]
+        }
+      }
     },
     {
       "name": "objc2-quartz-core",
@@ -270,8 +533,18 @@
       "vcs_commit": "7b1abfd750a2cacaea71d6a56ecfb83cb7de560b",
       "license": "Zlib OR Apache-2.0 OR MIT",
       "sources": [
-        "https://raw.githubusercontent.com/madsmtm/objc2/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md"
-      ]
+        "https://raw.githubusercontent.com/madsmtm/objc2/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
+        "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-ZLIB.txt"
+      ],
+      "source_reviews": {
+        "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-ZLIB.txt": {
+          "reason": "The pinned revision declares these terms but links externally instead of including full text. Upstream's later license-text correction supplies the missing text without changing the license choice. Preserve its attribution verbatim; it is a later upstream correction, not a file from the pinned release. SCShader selects MIT for MIT-only crates and Zlib for the tri-licensed crates.",
+          "evidence": [
+            "https://github.com/madsmtm/objc2/blob/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
+            "https://github.com/madsmtm/objc2/commit/ee9a7ada2131f5944b8750428e265c15632f2a19"
+          ]
+        }
+      }
     },
     {
       "name": "profiling",

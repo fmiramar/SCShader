@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
-from license_inventory import inventory, notice_text, validate_supplements
+from license_inventory import apply_distribution_review, inventory, is_notice_file, notice_text, validate_supplements
 
 
 class InventoryTests(unittest.TestCase):
@@ -131,6 +131,76 @@ class InventoryTests(unittest.TestCase):
     def test_checked_in_supplement_hashes(self):
         path = Path(__file__).resolve().parents[2] / "licenses/upstream-notices.json"
         self.assertTrue(validate_supplements(json.loads(path.read_text(encoding="utf-8"))))
+
+    def test_source_code_is_not_a_license(self):
+        for name in ("copying.rs", "license.py", "LICENSES.json", "notice.js"):
+            self.assertFalse(is_notice_file(Path(name)), name)
+        for name in ("LICENSE", "LICENSE.MIT", "LICENSE.APACHE", "LICENSE-ZLIB", "COPYING.txt", "NOTICE.md",
+                     "NOTICES.md", "license-apache-2.0", "COPYING.LIB", "LICENSE-Apache-2.0_WITH_LLVM-exception"):
+            self.assertTrue(is_notice_file(Path(name)), name)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "copying.rs").write_text("// not a license")
+            self.assertEqual(inventory(self.fixture(root), "target", b"lock")["missing_texts"], ["example@1.2.3"])
+
+    def test_cross_revision_source_requires_explicit_pinned_review(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            document = self.supplement(root)
+            package = document["packages"][0]
+            package["vcs_commit"] = "b" * 40
+            (root / ".cargo_vcs_info.json").write_text(json.dumps({"git": {"sha1": "b" * 40}}))
+            with self.assertRaisesRegex(ValueError, "revision mismatch"):
+                inventory(self.fixture(root), "target", b"lock", document)
+            document["schema_version"] = 2
+            package["source_reviews"] = {package["sources"][0]: dict(
+                reason="Upstream later added the omitted text", evidence=[
+                    "https://github.com/example/project/commit/" + "a" * 40])}
+            report = inventory(self.fixture(root), "target", b"lock", document)
+            self.assertFalse(report["missing_texts"])
+            self.assertIn("later added", notice_text(report))
+            package["source_reviews"][package["sources"][0]]["evidence"] = ["https://github.com/example/project/blob/main/LICENSE"]
+            with self.assertRaisesRegex(ValueError, "immutable evidence"):
+                inventory(self.fixture(root), "target", b"lock", document)
+
+    def test_embedded_excerpt_is_bound_to_file_bytes_and_range(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            document = self.supplement(root)
+            data = b"// Embedded notice\n// Terms\ncode\n"
+            (root / "source.rs").write_bytes(data)
+            excerpt = dict(path="source.rs", start_line=1, end_line=2,
+                           file_sha256=hashlib.sha256(data).hexdigest(),
+                           sha256=hashlib.sha256(b"// Embedded notice\n// Terms\n").hexdigest())
+            document["packages"][0]["file_excerpts"] = [excerpt]
+            report = inventory(self.fixture(root), "target", b"lock", document)
+            self.assertIn("// Embedded notice\n// Terms\n", notice_text(report))
+            excerpt["end_line"] = 3
+            with self.assertRaisesRegex(ValueError, "text hash"):
+                inventory(self.fixture(root), "target", b"lock", document)
+            excerpt["path"] = "../outside"
+            with self.assertRaisesRegex(ValueError, "escapes"):
+                inventory(self.fixture(root), "target", b"lock", document)
+
+    def test_distribution_review_rejects_drift_and_unknown_target(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report = inventory(self.fixture(root), "target", b"lock", self.supplement(root))
+            review = dict(schema_version=1, cargo_lock_sha256=report["cargo_lock_sha256"],
+                          target_notice_sha256={"target": hashlib.sha256(json.dumps(
+                              report["packages"], sort_keys=True, ensure_ascii=False).encode()).hexdigest()},
+                          license_choices={"MIT": "MIT"})
+            for field in ("target", "cargo_lock_sha256", "packages"):
+                changed = copy.deepcopy(report)
+                if field == "packages":
+                    changed[field][0]["notices"][0]["text"] = "changed"
+                else:
+                    changed[field] = "changed"
+                with self.assertRaisesRegex(ValueError, "stale"):
+                    apply_distribution_review(changed, review)
+            apply_distribution_review(report, review)
+            self.assertIn("SCShader third-party notices", notice_text(report))
+            self.assertNotIn("NOT REVIEWED", notice_text(report))
 
 
 if __name__ == "__main__":
