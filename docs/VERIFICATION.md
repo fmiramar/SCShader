@@ -22,6 +22,20 @@ the sender's high-rate catch-up cap without changing the cap at 1,000 Hz, the
 99% rate requirement or renderer-drop failure checks. See the
 [Windows soak record](platform-results/2026-10-03-windows-soak.md).
 
+### Intel UHD 630 and NVIDIA GTX 1050 Ti Max-Q laptop follow-up — 2026-10-03
+
+Both adapters passed the four-mode, ten-second D3D12 preflight. On the same
+development renderer, the Intel eight-hour traffic attempt ran 20,199.89 seconds
+before the harness aborted after a 311.996 ms sender-lag spike. It sent 20,199,532
+updates, advanced 1,212,005 frames, recorded zero queue drops and peaked at
+333,020 KiB RSS. The NVIDIA attempt aborted after 15.781 seconds when sender lag
+reached 436.999 ms; it sent 13,652 updates and recorded zero queue drops. Neither
+run qualifies as an eight-hour check. The renderer reported the intended adapter
+in each run; no queue overflow, device loss, or other renderer diagnostic was
+recorded beyond the harness's intentional malformed-packet probe. The sender-lag
+guard and exact outcomes are in the
+[laptop soak record](platform-results/2026-10-03-windows-uhd630-gtx1050ti-soaks.md).
+
 ## Notice and corresponding-source packaging — 2026-10-02
 
 Development 0.0.18, starting at `2c790b1`; renderer, SC classes, dependency pins and

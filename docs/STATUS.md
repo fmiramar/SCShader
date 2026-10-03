@@ -2,6 +2,15 @@
 
 Updated 2026-10-03. Current development version: **0.0.18**. Not a final v0.1.0 release.
 
+Windows hybrid-GPU soak follow-up (2026-10-03): the user's Intel UHD 630 and
+NVIDIA GTX 1050 Ti Max-Q each passed four ten-second D3D12 preflight modes. The
+eight-hour traffic attempts then failed on the harness's 250 ms sender-lag guard:
+Intel after 20,199.89 seconds (maximum lag 311.996 ms), NVIDIA after 15.781 seconds
+(436.999 ms). Neither qualifies as an eight-hour check. Renderer frames continued,
+sampled queue drops remained zero, and RSS stayed within limits before each abort;
+the sender scheduling cause remains unresolved. See the
+[laptop soak record](platform-results/2026-10-03-windows-uhd630-gtx1050ti-soaks.md).
+
 Windows soak investigation (2026-10-03): three earlier RTX 3060 / D3D12
 eight-hour runs failed after 15–19 minutes on incoming-queue overflow. Optional
 timing tracing reproduced a 256 ms command-service gap while the sender stayed

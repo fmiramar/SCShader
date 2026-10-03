@@ -99,6 +99,18 @@ for testing the implemented desktop feature set.
   failed after 107 seconds on `E_QUEUE_FULL`, while RX 580/DX12 passed 28,800 seconds
   with 28.8 million updates and no drops. The RTX long-run failure remains open;
   see the [Windows record](platform-results/2026-10-03-windows-soak.md).
+- 2026-10-03 Windows hybrid-GPU follow-up: the user requested eight-hour D3D12
+  traffic runs on Intel UHD 630 and NVIDIA GTX 1050 Ti Max-Q with development
+  renderer `0.0.18` (source `a15b6be`, SHA-256
+  `df4d0eff7dee8490482902800ee60df6329539aba2892fde3c05015ad11dacea`). Both
+  four-mode short preflights pass. The Intel run fails after 20,199.89 seconds
+  on 311.996 ms sender lag; the NVIDIA run fails after 15.781 seconds on
+  436.999 ms sender lag. Neither qualifies for eight hours. The sampled incoming
+  queue-drop count stays zero and renderer frames progress until each harness
+  abort; the sender scheduling cause remains unresolved. Raw JSON, CSV and logs
+  remain under ignored local `build/eight-hour-sequence-20261003-135026/` and are
+  not part of this commit. See the
+  [laptop soak record](platform-results/2026-10-03-windows-uhd630-gtx1050ti-soaks.md).
 
 - 2026-09-30 Windows desktop: native 0.0.18 short checks pass on RTX 3060 and
   RX 580. The extended Windows harness passes 21 stages per GPU across three
