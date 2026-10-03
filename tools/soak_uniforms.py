@@ -26,6 +26,13 @@ from process_memory import windows_rss_kib
 MAX_CATCH_UP_SECONDS = 0.016
 
 
+# CPython 3.12 on Windows implements monotonic() with GetTickCount64:
+# its ~15.6 ms resolution turns 1 kHz traffic into batches of 15/16 updates.
+# perf_counter() is monotonic and uses QueryPerformanceCounter on Windows.
+def soak_clock() -> float:
+    return time.perf_counter()
+
+
 def due_traffic_updates(next_update: float, now: float, rate: float) -> tuple[int, int, float]:
     """Return a bounded send count, stale ticks to skip, and next scheduled tick."""
     if next_update > now:
@@ -305,7 +312,9 @@ def run(args, duration, result):
                              "scheduled_commands", "scheduled_payload_bytes", "rejected_scheduled",
                              "dropped_continuous", "reloads", "rss_kib"])
             output.flush()
-        start = time.monotonic()
+        start = soak_clock()
+        result["sender_clock"] = dict(name="perf_counter", **vars(time.get_clock_info("perf_counter")))
+        result["python_version"] = platform.python_version()
         result.update(started_utc=datetime.now(timezone.utc).isoformat(), pid=pid, elapsed_seconds=0.0)
         health = Health(start)
         memory = MemoryHealth(args.max_rss_mib * 1024, args.max_rss_growth_mib * 1024, args.memory_warmup)
@@ -337,8 +346,8 @@ def run(args, duration, result):
                   f"reloads={reloads} rss_kib={rss}", flush=True)
 
         try:
-            while time.monotonic() - start < duration:
-                now = time.monotonic()
+            while soak_clock() - start < duration:
+                now = soak_clock()
                 if owned and owned.process.poll() is not None:
                     raise RuntimeError(f"renderer exited with {owned.process.returncode}")
                 if args.mode == "traffic":
@@ -393,7 +402,7 @@ def run(args, duration, result):
                     sample(now)
                     next_sample = now + 10.0
                 time.sleep(0.001)
-            now = time.monotonic()
+            now = soak_clock()
             health.complete(now, duration)
             if args.mode == "reload" and duration >= 2 and not reloads:
                 raise RuntimeError("no completed hot reloads")
@@ -405,7 +414,7 @@ def run(args, duration, result):
             if args.quit and not owned:
                 client.send("/scshader/v1/quit")
         finally:
-            result.update(elapsed_seconds=time.monotonic() - start, updates=updates,
+            result.update(elapsed_seconds=soak_clock() - start, updates=updates,
                           skipped_updates=skipped_updates, max_update_burst=max_burst, pongs=health.pongs,
                           max_sender_lag_ms=max_sender_lag_ms,
                           status_samples=health.statuses, first_frame=health.first_frame, last_frame=health.frame,

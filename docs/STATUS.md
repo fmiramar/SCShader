@@ -2,6 +2,15 @@
 
 Updated 2026-10-03. Current development version: **0.0.18**. Not a final v0.1.0 release.
 
+Desktop/laptop comparison (2026-10-03): the RTX failure is a renderer queue-service
+gap; both laptop failures tripped the sender-lag guard. Python 3.12's coarse Windows
+monotonic clock was confirmed to batch 1 kHz traffic into bursts of 16. Switching
+the soak clock to `perf_counter()` reduced maximum bursts to four in paired
+one-minute diagnostics on each laptop GPU. Both adapters then passed all four
+ten-second modes with the corrected harness. The original >250 ms stalls did not
+reproduce, and desktop display routing remains a hypothesis requiring its hardware.
+See the [comparison and remaining checks](platform-results/2026-10-03-windows-soak-comparison.md).
+
 Windows hybrid-GPU soak follow-up (2026-10-03): the user's Intel UHD 630 and
 NVIDIA GTX 1050 Ti Max-Q each passed four ten-second D3D12 preflight modes. The
 eight-hour traffic attempts then failed on the harness's 250 ms sender-lag guard:

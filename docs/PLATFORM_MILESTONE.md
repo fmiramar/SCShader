@@ -87,6 +87,13 @@ for testing the implemented desktop feature set.
 
 ## Session log
 
+- 2026-10-03 desktop/laptop comparison: confirmed a Python 3.12 Windows sender
+  pacing defect and switched the soak clock to `perf_counter()`. Four one-minute
+  diagnostics and eight corrected ten-second mode checks pass on Intel UHD 630
+  and GTX 1050 Ti Max-Q. Rare sender stalls and desktop RTX queue-service gaps
+  remain open; display ownership must be controlled in the next desktop matrix.
+  See the [comparison](platform-results/2026-10-03-windows-soak-comparison.md).
+
 - 2026-10-03 Windows: investigate the three failed RTX / D3D12 eight-hour attempts
   (incoming OSC overflow after 15–19 minutes). Optional timing and Windows power
   tracing reproduced an event-loop gap in a short run; four repeated short modes

@@ -1,5 +1,15 @@
 # Verification
 
+## Desktop/laptop sender-clock investigation — 2026-10-03
+
+On Python 3.12.11, a 30-second scheduler-only control confirms 15/16 ms clock
+steps. Each laptop GPU passes 60-second traffic diagnostics with both the original
+clock and `perf_counter()`; maximum bursts decrease from 16 to four. After the
+harness correction, both GPUs pass all four ten-second modes on the unchanged
+`df4d0eff...dacea` renderer. No long-duration or desktop rerun is claimed, and
+the >250 ms sender stall remains unexplained. The new harness records clock and
+Python versions. See the [full comparison](platform-results/2026-10-03-windows-soak-comparison.md).
+
 ## Windows dual-GPU soak results and timing diagnostics — 2026-10-03
 
 The three October 2 eight-hour attempts failed on incoming OSC queue overflow
@@ -27,7 +37,7 @@ the sender's high-rate catch-up cap without changing the cap at 1,000 Hz, the
 Both adapters passed the four-mode, ten-second D3D12 preflight. On the same
 development renderer, the Intel eight-hour traffic attempt ran 20,199.89 seconds
 before the harness aborted after a 311.996 ms sender-lag spike. It sent 20,199,532
-updates, advanced 1,212,005 frames, recorded zero queue drops and peaked at
+updates, advanced from frame 6 to 1,212,005, recorded zero sampled queue drops and peaked at
 333,020 KiB RSS. The NVIDIA attempt aborted after 15.781 seconds when sender lag
 reached 436.999 ms; it sent 13,652 updates and recorded zero queue drops. Neither
 run qualifies as an eight-hour check. The renderer reported the intended adapter
