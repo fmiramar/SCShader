@@ -113,6 +113,28 @@ coexist with a complete test on this adapter. It does not isolate why the RTX ru
 filled its queue; physical monitor power state was not recorded as telemetry. Each
 run has its own `run.json`, CSV and renderer/console logs under the paths above.
 
+## Planned comparison on other hardware
+
+Before the macOS Intel regression, the user plans to repeat the eight-hour test on
+other hardware. To make the outcome comparable, reuse the packaged renderer with
+SHA-256 `b04ad1c4ed00589b5fc7deda79dcfb3ccdb8a9d58214e928437b7c5851e6e5ff` if it
+runs on that system; do not substitute the timing-instrumented candidate. Request
+28,800 seconds, 1,000 uniform updates/second, traffic-only mode, D3D12,
+high-performance preference, and an explicit adapter substring. Confirm the
+renderer ready message reports the intended GPU. If that backend or adapter is
+unavailable, record the actual selection and treat it as a different comparison.
+
+Keep the test otherwise quiet and leave the render window untouched for this
+baseline. Record the GPU and driver, Windows version, which GPU physically drives
+the active monitor, whether other displays are attached, and the render window's
+monitor. Record actual monitor power state separately from Windows AC display-off
+and sleep settings; the two are not interchangeable observations. Keep those
+conditions fixed for the run and note any change or user interaction with its
+time. Preserve the new run's `run.json`, CSV, renderer log and console log under a
+fresh ignored `build/platform-tests/` directory; report the outcome and any
+`E_QUEUE_FULL` text without editing the raw evidence. After this comparison, move
+to the planned macOS Intel regression.
+
 The instrumented executable is saved at
 `build/diagnostic-candidates/2026-10-03-timing-02/scshader-renderer.exe`.
 Run with `SCSHADER_TRACE_TIMING=1` to preserve phase and display-power evidence;
