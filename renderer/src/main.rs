@@ -7,6 +7,7 @@ mod platform;
 mod protocol;
 mod renderer;
 mod scheduler;
+mod timing;
 
 use std::path::PathBuf;
 

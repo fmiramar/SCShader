@@ -583,6 +583,7 @@ impl Renderer {
     }
 
     pub fn poll_gpu(&self) {
+        let _timing = crate::timing::enter(crate::timing::Stage::Poll);
         let _ = self.device.poll(wgpu::PollType::Poll);
     }
 
@@ -1451,6 +1452,7 @@ impl Renderer {
     }
 
     fn acquire_frame(&mut self) -> wgpu::CurrentSurfaceTexture {
+        let _timing = crate::timing::enter(crate::timing::Stage::Acquire);
         #[cfg(feature = "gpu-test-hooks")]
         if std::mem::take(&mut self.simulate_surface_loss) {
             return wgpu::CurrentSurfaceTexture::Lost;
@@ -1459,6 +1461,7 @@ impl Renderer {
     }
 
     pub fn render(&mut self) -> Result<(), String> {
+        let _timing = crate::timing::enter(crate::timing::Stage::Render);
         let frame_started_at = Instant::now();
         // Acquire before staging per-frame uniforms. A skipped/occluded frame
         // must not accumulate uploads that never reach a queue submission.
@@ -1614,8 +1617,14 @@ impl Renderer {
             self.submit_intermediate_pass(&mut encoder);
             self.overlay.as_ref().unwrap().encode(&mut encoder, &view);
         }
-        self.queue.submit(Some(encoder.finish()));
-        self.queue.present(frame);
+        {
+            let _timing = crate::timing::enter(crate::timing::Stage::Submit);
+            self.queue.submit(Some(encoder.finish()));
+        }
+        {
+            let _timing = crate::timing::enter(crate::timing::Stage::Present);
+            self.queue.present(frame);
+        }
         #[cfg(feature = "gpu-counters")]
         if std::env::var_os("SCSHADER_DIAGNOSTIC_WAIT").is_some() {
             self.device

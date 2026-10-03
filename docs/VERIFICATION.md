@@ -1,5 +1,27 @@
 # Verification
 
+## Windows dual-GPU soak results and timing diagnostics — 2026-10-03
+
+The three October 2 eight-hour attempts failed on incoming OSC queue overflow
+after 1144.529, 952.906 and 894.918 seconds. Optional timing/display-power tracing
+then captured a 256 ms command-service gap during a short failure, with the
+display on and sender lag below 4 ms. The repeat passes four ten-second modes;
+the 30-minute diagnostic was interrupted at the user's request, with partial
+samples through 230.015 seconds. The interrupted diagnostic supplies no long-run
+pass, and no RTX root-cause fix is claimed. Pre-commit Rust formatting/Clippy,
+61 Rust tests and all 132 Python tests pass. Exact hashes, negative evidence and resume
+instructions are in [the investigation](platform-results/2026-10-03-windows-soak.md).
+
+The user resumed testing with sequential eight-hour runs on RTX 3060 and RX 580,
+using the same packaged 0.0.18 renderer. AC display-off and sleep were set to Never.
+RTX failed on a queue drop after 107 seconds; RX 580 passed 28,800 seconds, sending
+28.8 million updates with no drops. The exact renderer passes the traffic-only
+eight-hour check on RX 580; it does not qualify the changed diagnostic renderer
+or the full four-mode suite. The RTX 3060 failure remains open. Review also fixed
+the sender's high-rate catch-up cap without changing the cap at 1,000 Hz, the
+99% rate requirement or renderer-drop failure checks. See the
+[Windows soak record](platform-results/2026-10-03-windows-soak.md).
+
 ## Notice and corresponding-source packaging — 2026-10-02
 
 Development 0.0.18, starting at `2c790b1`; renderer, SC classes, dependency pins and

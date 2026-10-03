@@ -21,6 +21,20 @@ import time
 from osc_client import ManagedRenderer, OscClient
 from process_memory import windows_rss_kib
 
+# Bound recovery bursts by elapsed traffic time, not a fixed packet count:
+# 16 updates at 1 kHz, but enough for normal polling at the supported 50 kHz.
+MAX_CATCH_UP_SECONDS = 0.016
+
+
+def due_traffic_updates(next_update: float, now: float, rate: float) -> tuple[int, int, float]:
+    """Return a bounded send count, stale ticks to skip, and next scheduled tick."""
+    if next_update > now:
+        return 0, 0, next_update
+    due = math.floor((now - next_update) * rate) + 1
+    max_burst = max(1, math.ceil(rate * MAX_CATCH_UP_SECONDS))
+    skipped = max(0, due - max_burst)
+    return due - skipped, skipped, next_update + skipped / rate
+
 
 @dataclass
 class Health:
@@ -219,6 +233,12 @@ def arguments():
 
 def run(args, duration, result):
     with contextlib.ExitStack() as stack:
+        tracing = bool(args.renderer) and os.environ.get("SCSHADER_TRACE_TIMING") == "1"
+        result["timing_trace_enabled"] = tracing
+        power_trace = None
+        if tracing and os.name == "nt" and args.csv:
+            from windows_power_trace import WindowsPowerTrace
+            power_trace = stack.enter_context(WindowsPowerTrace(args.csv.with_suffix(".power.jsonl")))
         owned = None
         if args.renderer:
             with args.renderer.open("rb") as binary:
@@ -294,11 +314,14 @@ def run(args, duration, result):
         next_action = start + (1.0 if args.mode == "reload" else resize_interval)
         next_resize_probe = start
         reload_pending = None
-        actions = updates = reloads = 0
+        actions = updates = reloads = skipped_updates = max_burst = 0
+        max_sender_lag_ms = 0.0
         rss = None
 
         def sample(now):
             nonlocal rss
+            if power_trace:
+                power_trace.drain()
             elapsed = now - start
             if pid is not None:
                 rss = process_rss_kib(pid)
@@ -319,10 +342,13 @@ def run(args, duration, result):
                 if owned and owned.process.poll() is not None:
                     raise RuntimeError(f"renderer exited with {owned.process.returncode}")
                 if args.mode == "traffic":
-                    # Never issue an unbounded catch-up burst after a stalled driver.
+                    max_sender_lag_ms = max(max_sender_lag_ms, (now - next_update) * 1000)
                     if now - next_update > 0.25:
                         raise RuntimeError("traffic generator stalled; requested rate was not maintained")
-                    while next_update <= now:
+                    send_count, skipped, next_update = due_traffic_updates(next_update, now, args.rate)
+                    skipped_updates += skipped
+                    max_burst = max(max_burst, send_count)
+                    for _ in range(send_count):
                         client.send("/scshader/v1/uniform/f", "isf",
                                     (resource, "amount", 0.5 + 0.5 * math.sin((next_update - start) * 2)))
                         updates += 1
@@ -379,7 +405,9 @@ def run(args, duration, result):
             if args.quit and not owned:
                 client.send("/scshader/v1/quit")
         finally:
-            result.update(elapsed_seconds=time.monotonic() - start, updates=updates, pongs=health.pongs,
+            result.update(elapsed_seconds=time.monotonic() - start, updates=updates,
+                          skipped_updates=skipped_updates, max_update_burst=max_burst, pongs=health.pongs,
+                          max_sender_lag_ms=max_sender_lag_ms,
                           status_samples=health.statuses, first_frame=health.first_frame, last_frame=health.frame,
                           reloads=reloads, resize_actions=resize.requests if resize else 0,
                           resize_confirmations=len(resize.observations) if resize else 0,

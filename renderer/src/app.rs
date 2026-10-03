@@ -128,6 +128,7 @@ impl App {
     }
 
     fn initialize(&mut self, event_loop: &ActiveEventLoop) -> Result<(), String> {
+        let _timing = crate::timing::enter(crate::timing::Stage::Initialize);
         let selected_monitor = if self.config.window.fullscreen {
             match self.config.window.monitor_index {
                 Some(index) => Some(event_loop.available_monitors().nth(index).ok_or_else(|| {
@@ -196,6 +197,7 @@ impl App {
     }
 
     fn process_commands(&mut self, event_loop: &ActiveEventLoop) {
+        let _timing = crate::timing::enter(crate::timing::Stage::Commands);
         let started = Instant::now();
         // Fair service for due and incoming work, yielding between atomic OSC
         // packets. A single compile/atomic bundle can still exceed this budget.
@@ -1026,6 +1028,7 @@ impl App {
     }
 
     fn poll_hot_reload(&mut self) {
+        let _timing = crate::timing::enter(crate::timing::Stage::Reload);
         let Some(reply_to) = self.last_reply_target else {
             return;
         };
@@ -1129,6 +1132,7 @@ impl ApplicationHandler for App {
         window_id: WindowId,
         event: WindowEvent,
     ) {
+        let _timing = crate::timing::enter(crate::timing::Stage::WindowEvent);
         if self
             .window
             .as_ref()
@@ -1169,7 +1173,13 @@ impl ApplicationHandler for App {
                 self.send_mouse_input(kind, self.last_mouse_position, mouse_button_code(button));
             }
             WindowEvent::KeyboardInput { event, .. } => self.send_key_input(&event),
-            WindowEvent::Focused(focused) => self.send_focus_input(focused),
+            WindowEvent::Focused(focused) => {
+                crate::timing::event(if focused { "focused" } else { "unfocused" });
+                self.send_focus_input(focused);
+            }
+            WindowEvent::Occluded(occluded) => {
+                crate::timing::event(if occluded { "occluded" } else { "unoccluded" });
+            }
             WindowEvent::CursorLeft { .. } => self.pending_mouse_position = None,
             WindowEvent::RedrawRequested => {
                 self.process_commands(event_loop);
@@ -1201,6 +1211,7 @@ impl ApplicationHandler for App {
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        let _timing = crate::timing::enter(crate::timing::Stage::AboutToWait);
         if let Some(renderer) = &self.renderer {
             renderer.poll_gpu();
         }

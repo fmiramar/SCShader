@@ -112,7 +112,11 @@ impl OscServer {
     }
 
     pub fn try_recv(&self) -> Result<IncomingCommand, std::sync::mpsc::TryRecvError> {
-        self.receiver.try_recv()
+        let result = self.receiver.try_recv();
+        if result.is_ok() {
+            crate::timing::received();
+        }
+        result
     }
 
     pub fn replies(&self) -> &ReplySender {
@@ -702,6 +706,7 @@ fn enqueue(
     if incoming.command.is_continuous() {
         let (connected, diagnostic) = admit_continuous(incoming, sender, dropped_updates);
         if let Some(error) = diagnostic {
+            crate::timing::queue_full();
             report_error(replies, &error);
         }
         connected

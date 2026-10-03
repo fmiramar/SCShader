@@ -149,6 +149,8 @@ impl WindowSystem {
     pub fn event_loop(self) -> Result<EventLoop<()>, String> {
         self.validate(std::env::consts::OS)?;
         let mut builder = EventLoop::builder();
+        #[cfg(target_os = "windows")]
+        crate::timing::install_windows_hook(&mut builder);
         #[cfg(target_os = "linux")]
         match self {
             Self::Auto => {}

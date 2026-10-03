@@ -5,7 +5,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
 from osc_client import decode_message, osc_message, osc_bundle
-from soak_uniforms import Health, MemoryHealth
+from soak_uniforms import Health, MemoryHealth, due_traffic_updates
 
 
 class WireTests(unittest.TestCase):
@@ -81,6 +81,41 @@ class HealthTests(unittest.TestCase):
             MemoryHealth(1000, 100, 10).sample(1001, 0)
         with self.assertRaisesRegex(RuntimeError, "PID"):
             MemoryHealth(1000, 100, 0).sample(None, 0)
+
+
+class TrafficScheduleTests(unittest.TestCase):
+    def test_future_tick_does_not_send_or_shift_schedule(self):
+        self.assertEqual(due_traffic_updates(1.0, 0.5, 1000), (0, 0, 1.0))
+
+    def test_due_ticks_are_capped_and_stale_ticks_skipped(self):
+        count, skipped, next_update = due_traffic_updates(0.0, 0.249, 1000)
+        self.assertEqual(count, 16)
+        self.assertEqual(skipped, 234)
+        self.assertAlmostEqual(next_update, 0.234)
+
+    def test_normal_single_tick_has_no_skips(self):
+        self.assertEqual(due_traffic_updates(1.0, 1.0, 1000), (1, 0, 1.0))
+
+    def test_high_rate_keeps_up_with_normal_one_millisecond_polling(self):
+        rate = 50000
+        next_update = 0.0
+        updates = 0
+        for poll in range(1000):
+            count, skipped, next_update = due_traffic_updates(next_update, poll / 1000, rate)
+            self.assertEqual(skipped, 0)
+            updates += count
+            for _ in range(count):
+                next_update += 1.0 / rate
+        self.assertGreaterEqual(updates, rate * 0.99)
+        self.assertLessEqual(updates, rate + 1)
+
+    def test_recovery_burst_scales_with_rate_and_allows_low_rate_progress(self):
+        for rate, expected_count in [(1, 1), (1000, 16), (50000, 800)]:
+            with self.subTest(rate=rate):
+                count, skipped, next_update = due_traffic_updates(0.0, 1.0, rate)
+                self.assertEqual(count, expected_count)
+                self.assertEqual(count + skipped, rate + 1)
+                self.assertAlmostEqual(next_update + count / rate, 1.0 + 1.0 / rate)
 
 
 if __name__ == "__main__":

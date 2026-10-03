@@ -1,6 +1,19 @@
 # Implementation checkpoint
 
-Updated 2026-10-02. Current development version: **0.0.18**. Not a final v0.1.0 release.
+Updated 2026-10-03. Current development version: **0.0.18**. Not a final v0.1.0 release.
+
+Windows soak investigation (2026-10-03): three earlier RTX 3060 / D3D12
+eight-hour runs failed after 15–19 minutes on incoming-queue overflow. Optional
+timing tracing reproduced a 256 ms command-service gap while the sender stayed
+on pace. A repeat four-mode short check passed, then the user paused to switch
+models and adjust display power. Follow-up eight-hour tests used the same packaged
+renderer on both GPUs, with AC display-off and sleep set to Never. RTX 3060/DX12
+failed again on `E_QUEUE_FULL` after 107 seconds; RX 580/DX12 completed 28,800
+seconds with 28.8 million updates and no queue drops. The RTX long-run failure
+remains open. The pass qualifies that packaged binary and traffic mode only.
+Pre-commit review corrected the test sender's high-rate catch-up cap; Rust
+formatting/Clippy, 61 Rust tests and all 132 Python tests pass. See
+[the investigation](platform-results/2026-10-03-windows-soak.md).
 
 Distribution follow-up: notice assembly now has explicit license choices,
 hash-pinned provenance/recovery records and zero missing texts for all packaging

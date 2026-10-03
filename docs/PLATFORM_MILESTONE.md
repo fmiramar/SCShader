@@ -87,6 +87,19 @@ for testing the implemented desktop feature set.
 
 ## Session log
 
+- 2026-10-03 Windows: investigate the three failed RTX / D3D12 eight-hour attempts
+  (incoming OSC overflow after 15–19 minutes). Optional timing and Windows power
+  tracing reproduced an event-loop gap in a short run; four repeated short modes
+  pass. The user paused the longer diagnostic after about four minutes for a model
+  switch and display-power adjustment. Short passes do not clear this long-run
+  failure; see [the investigation](platform-results/2026-10-03-windows-soak.md).
+- 2026-10-03 Windows follow-up: user requested sequential eight-hour RTX 3060 and
+  RX 580 traffic tests after setting AC display-off and sleep to Never; physical
+  monitors were to be switched off. On the same packaged renderer, RTX 3060/DX12
+  failed after 107 seconds on `E_QUEUE_FULL`, while RX 580/DX12 passed 28,800 seconds
+  with 28.8 million updates and no drops. The RTX long-run failure remains open;
+  see the [Windows record](platform-results/2026-10-03-windows-soak.md).
+
 - 2026-09-30 Windows desktop: native 0.0.18 short checks pass on RTX 3060 and
   RX 580. The extended Windows harness passes 21 stages per GPU across three
   displays, with independent native geometry/DPI and GPU allocation evidence.
