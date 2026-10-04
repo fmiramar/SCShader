@@ -1,6 +1,15 @@
 # Implementation checkpoint
 
-Updated 2026-10-03. Current development version: **0.0.18**. Not a final v0.1.0 release.
+Updated 2026-10-04. Current development version: **0.0.18**. Not a final v0.1.0 release.
+
+Laptop eight-hour follow-up: **Intel UHD 630 and GTX 1050 Ti Max-Q both pass**
+28,800 seconds of D3D12 traffic on the unchanged laptop renderer and corrected
+sender. They sent 28,799,902 / 28,799,804 updates, with zero sampled renderer drops,
+bounded memory and maximum sender lag of 19.310 / 22.435 ms. Independent evaluation
+confirmed each adapter's eight-hour qualification; the local supervisor's overall
+flag was stale and is explained in the result. These are traffic-only passes.
+Desktop RTX failures, other modes and final release gates remain separate. See the
+[eight-hour results](platform-results/2026-10-04-windows-laptop-eight-hour.md).
 
 Laptop one-hour follow-up: **Intel UHD 630 and GTX 1050 Ti Max-Q both pass**
 3,600 seconds of D3D12 traffic with the corrected sender and unchanged renderer.

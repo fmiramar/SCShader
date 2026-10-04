@@ -87,6 +87,14 @@ for testing the implemented desktop feature set.
 
 ## Session log
 
+- 2026-10-04 laptop eight-hour checks: Intel UHD 630 and GTX 1050 Ti Max-Q both
+  pass 28,800 seconds of D3D12 traffic on the unchanged renderer and corrected
+  sender. Independent evaluation confirms the individual passes, bounded memory
+  and zero sampled queue drops. The local supervisor has a stale overall flag;
+  raw evidence is preserved and the discrepancy explained. Desktop RTX, other
+  modes/platforms and final release gates remain open. See the
+  [eight-hour results](platform-results/2026-10-04-windows-laptop-eight-hour.md).
+
 - 2026-10-03 laptop one-hour checks: both Intel UHD 630 and GTX 1050 Ti Max-Q
   pass 3,600 seconds of D3D12 traffic with the corrected sender. Automatic serial
   execution finished at 23:15:50 local time. No repeated assistant polling; zero

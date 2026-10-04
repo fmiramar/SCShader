@@ -1,5 +1,17 @@
 # Verification
 
+## Windows laptop eight-hour traffic checks — 2026-10-04
+
+Both adapters independently pass the standard validator for 28,800 seconds:
+Intel 28,799,902 updates / 19.310 ms maximum sender lag; NVIDIA 28,799,804 updates /
+22.435 ms maximum lag. Sender-skipped ticks were 98/196, while all 2,881 CSV
+samples per GPU show zero renderer queue drops or scheduled rejections. Memory
+remained within the original limits. All candidate hashes match; renderer
+`df4d0eff...dacea`, corrected harness identical to `a4cf5ac`, Python 3.12.11, D3D12.
+The per-adapter eight-hour flags are true; the supervisor's stale overall false
+flag is documented without rewriting raw evidence. Scope is traffic only on the
+recorded laptop configuration. [Full evaluation](platform-results/2026-10-04-windows-laptop-eight-hour.md).
+
 ## Windows laptop one-hour traffic checks — 2026-10-03
 
 Both user-authorized serial runs pass the standard acceptance validator:

@@ -1,5 +1,9 @@
 # Windows desktop and laptop soak investigation — 2026-10-03
 
+October 4 follow-up: both laptop adapters subsequently
+[passed eight-hour traffic checks](2026-10-04-windows-laptop-eight-hour.md) with
+the corrected sender. The history and remaining causal questions below are retained.
+
 ## Findings
 
 There are two observed failure mechanisms. The desktop RTX 3060 overflows the
