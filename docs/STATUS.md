@@ -2,6 +2,13 @@
 
 Updated 2026-10-03. Current development version: **0.0.18**. Not a final v0.1.0 release.
 
+Laptop one-hour follow-up: **Intel UHD 630 and GTX 1050 Ti Max-Q both pass**
+3,600 seconds of D3D12 traffic with the corrected sender and unchanged renderer.
+Maximum sender lag was 20.202/18.969 ms, with 19/20 sender-skipped ticks and zero
+sampled renderer queue drops. The old stalls did not reproduce. Eight-hour
+qualification and the desktop RTX cause remain open. See the
+[one-hour results](platform-results/2026-10-03-windows-laptop-one-hour.md).
+
 Desktop/laptop comparison (2026-10-03): the RTX failure is a renderer queue-service
 gap; both laptop failures tripped the sender-lag guard. Python 3.12's coarse Windows
 monotonic clock was confirmed to batch 1 kHz traffic into bursts of 16. Switching

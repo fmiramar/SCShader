@@ -87,6 +87,12 @@ for testing the implemented desktop feature set.
 
 ## Session log
 
+- 2026-10-03 laptop one-hour checks: both Intel UHD 630 and GTX 1050 Ti Max-Q
+  pass 3,600 seconds of D3D12 traffic with the corrected sender. Automatic serial
+  execution finished at 23:15:50 local time. No repeated assistant polling; zero
+  sampled renderer queue drops. Eight-hour and desktop investigation gates remain
+  open. See the [one-hour results](platform-results/2026-10-03-windows-laptop-one-hour.md).
+
 - 2026-10-03 unattended laptop follow-up: Intel and NVIDIA each pass 600 seconds
   of traced D3D12 traffic with zero skipped updates or sampled queue drops. The
   scheduler-only control completes. System profiling was unavailable, the old

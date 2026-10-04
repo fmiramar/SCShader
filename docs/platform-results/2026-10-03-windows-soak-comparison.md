@@ -199,3 +199,8 @@ display-power logs remained active. This limits attribution of any future stall.
 Raw evidence and the automatic `RESULTS.md` are in the new Desktop folder
 `SCShader-laptop-diagnostics-20261003-2038`, outside the repository.
 The desktop matrix and one-hour/eight-hour qualification remain not run.
+
+Later that evening, the user authorized sequential one-hour tests. Both laptop
+adapters passed on the corrected sender; see the separate
+[one-hour result](2026-10-03-windows-laptop-one-hour.md). This supplies the next
+duration gate while leaving eight-hour qualification and intermittent root causes open.

@@ -1,5 +1,15 @@
 # Verification
 
+## Windows laptop one-hour traffic checks — 2026-10-03
+
+Both user-authorized serial runs pass the standard acceptance validator:
+Intel 3600.000730 seconds / 3,599,980 updates; NVIDIA 3600.000170 seconds /
+3,599,978 updates. Maximum sender lag was 20.202/18.969 ms, skipped sender ticks
+19/20, and sampled renderer drops/rejections zero. Memory stayed within bounds.
+Harness `bfa86e6`, Python 3.12.11, unchanged renderer `df4d0eff...dacea`, D3D12.
+These qualify one-hour traffic on each selected laptop adapter, not eight hours
+or the desktop RTX failure. [Exact evidence and scope](platform-results/2026-10-03-windows-laptop-one-hour.md).
+
 ## Desktop/laptop sender-clock investigation — 2026-10-03
 
 On Python 3.12.11, a 30-second scheduler-only control confirms 15/16 ms clock
