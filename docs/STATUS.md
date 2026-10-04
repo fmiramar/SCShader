@@ -11,6 +11,12 @@ ten-second modes with the corrected harness. The original >250 ms stalls did not
 reproduce, and desktop display routing remains a hypothesis requiring its hardware.
 See the [comparison and remaining checks](platform-results/2026-10-03-windows-soak-comparison.md).
 
+The subsequent unattended ten-minute traffic diagnostics pass on both laptop
+GPUs with zero skipped updates or sampled queue drops. Maximum sender lag was
+15.847 ms (Intel) and 14.087 ms (NVIDIA); the no-renderer control completed too.
+The old stall did not reproduce. Windows system profiling was unavailable, so
+application traces supply the new timing evidence; long-duration gates remain open.
+
 Windows hybrid-GPU soak follow-up (2026-10-03): the user's Intel UHD 630 and
 NVIDIA GTX 1050 Ti Max-Q each passed four ten-second D3D12 preflight modes. The
 eight-hour traffic attempts then failed on the harness's 250 ms sender-lag guard:

@@ -10,6 +10,13 @@ harness correction, both GPUs pass all four ten-second modes on the unchanged
 the >250 ms sender stall remains unexplained. The new harness records clock and
 Python versions. See the [full comparison](platform-results/2026-10-03-windows-soak-comparison.md).
 
+Follow-up on `d1f9842`: an unattended ten-second preflight and two 600-second
+traffic runs pass on Intel/NVIDIA, with 599,998/599,999 updates, zero skipped
+updates and zero sampled queue drops. Maximum lag is 15.847/14.087 ms. A 60-second
+scheduler-only control completes with 3.171 ms maximum lag. Windows system
+profiling policy could not be enabled; renderer/sender traces are preserved.
+No historical stall reproduced, and these passes do not qualify longer durations.
+
 ## Windows dual-GPU soak results and timing diagnostics — 2026-10-03
 
 The three October 2 eight-hour attempts failed on incoming OSC queue overflow

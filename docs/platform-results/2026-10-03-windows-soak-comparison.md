@@ -164,3 +164,38 @@ build, CPU, drivers and display routing all differ.
 
 The desktop matrix, OS trace at a natural stall, and renewed long-duration
 qualification remain open. The local clock correction has short-run evidence only.
+
+## Unattended ten-minute laptop follow-up
+
+The user authorized the next diagnostics with no repeated assistant polling.
+An unattended supervisor ran serially from 20:41:03 to 21:02:19 on October 3,
+America/Sao_Paulo (finished October 4 at 00:02:19 UTC). It used source `d1f9842`,
+the same `df4d0eff...dacea` executable, D3D12, the corrected clock and timing
+instrumentation. It requested system/display wakefulness for its own lifetime,
+started the window at logical position `(64,64)`, and released the request at exit.
+
+| Diagnostic | Measured seconds | Updates / scheduled control ticks | Max sender lag | Skipped | Outcome |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Intel UHD 630 | 600.000241 | 599,998 | 15.847 ms | 0 | Pass |
+| GTX 1050 Ti Max-Q | 600.000450 | 599,999 | 14.087 ms | 0 | Pass |
+| Scheduler control, no renderer/network | 60.000168 | 59,999 | 3.171 ms | 0 | Completed |
+
+The preceding ten-second Intel preflight also passed. Each GPU run recorded 600
+pong/status replies, zero sampled drops/rejections and display-power state on.
+Frame counters advanced 6 to 35,981 (Intel) and 8 to 35,987 (NVIDIA); peak RSS was
+326,688 KiB and 191,000 KiB respectively. All owned test processes exited normally.
+
+Maximum bursts were 16 and 15 in these longer samples: the earlier one-minute
+maximum of four was an observation, not a guaranteed bound after the clock fix.
+The trace's only clock gaps over 50 ms cover initialization before traffic starts.
+Approximately 109 ms receive waits also belong to the startup handshake. During
+the run, maximum sleep calls were below 4 ms, send calls below 15 ms and RSS calls
+below 0.4 ms. NVIDIA's maximum console write took 10.678 ms. These measurements
+did not reproduce the historical >250 ms sender stall or renderer queue overflow.
+
+Windows Performance Recorder could not enable the system profiling policy
+(`0xc5585011`); no OS scheduling trace was obtained. Application timing and
+display-power logs remained active. This limits attribution of any future stall.
+Raw evidence and the automatic `RESULTS.md` are in the new Desktop folder
+`SCShader-laptop-diagnostics-20261003-2038`, outside the repository.
+The desktop matrix and one-hour/eight-hour qualification remain not run.

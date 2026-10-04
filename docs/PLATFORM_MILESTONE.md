@@ -87,6 +87,12 @@ for testing the implemented desktop feature set.
 
 ## Session log
 
+- 2026-10-03 unattended laptop follow-up: Intel and NVIDIA each pass 600 seconds
+  of traced D3D12 traffic with zero skipped updates or sampled queue drops. The
+  scheduler-only control completes. System profiling was unavailable, the old
+  >250 ms stall did not reproduce, and long-duration/desktop gates remain open.
+  Details are in the [comparison](platform-results/2026-10-03-windows-soak-comparison.md).
+
 - 2026-10-03 desktop/laptop comparison: confirmed a Python 3.12 Windows sender
   pacing defect and switched the soak clock to `perf_counter()`. Four one-minute
   diagnostics and eight corrected ten-second mode checks pass on Intel UHD 630
