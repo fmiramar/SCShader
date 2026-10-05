@@ -300,6 +300,42 @@ still provides system-wide CSwitch/ReadyThread and DxgKrnl events. This pass
 strengthens route-specific stability evidence without identifying the cause of
 the earlier `E_QUEUE_FULL` event.
 
+### One-hour WPR scheduler and renderer timing-trace follow-up — 2026-10-05
+
+A second one-hour RTX-left run enabled the renderer's opt-in phase timing trace
+while the same compact WPR profile captured system scheduling and DxgKrnl
+events. The exact 0.0.18 binary completed the guarded traffic run, including
+the historic failure interval. It does not reproduce or fix the intermittent
+queue-service fault and does not qualify the eight-hour gate.
+
+- Duration: 3,600.001 seconds; 3,599,992 updates; 8 sender-skipped ticks;
+  maximum burst 16; maximum sender lag 22.755 ms. No sender checkpoint crossed
+  the 50 ms threshold.
+- Renderer: NVIDIA GeForce RTX 3060, D3D12, high-performance preference,
+  SHA-256 `cc78217490017d3175eb97083efde56a6c3726fc86257a1154c03d2a19a5ae34`.
+  Sender PID: 16840; renderer PID: 6672; window position `(-1856,64)`.
+- RSS initial/baseline/peak/final: 155,992/158,424/158,636/156,188 KiB.
+  No `E_QUEUE_FULL` or queue-drop diagnostic occurred; the only protocol error
+  was the expected malformed-packet check.
+- Renderer timing tracing was enabled. The log records a 417.195 ms startup
+  initialization phase, but no later phase exceeded its 50 ms logging threshold
+  and no queue-full snapshot was produced.
+- A paired 15-second WPR/timing-trace smoke passed before the hour run.
+- WPR captured 1:00:01.322 with zero lost buffers and zero lost events. The raw
+  ETL is 3,547,332,608 bytes under
+  `build/platform-tests/2026-10-05-timingtrace-wpr-1h-rtx3060-left/`.
+- A two-second ETL slice around the equivalent historic elapsed time contains
+  120 renderer Present events with a maximum 16.893 ms interval and zero
+  nonzero Present return statuses. Sender TID 16820 and renderer TID 2776
+  ReadyThread event inter-arrivals peak at 1.849/1.885 ms. These are event
+  spacings, not ready-to-running dispatch-latency measurements; this clean
+  sample does not identify why the earlier queue overflowed. xperf emitted an
+  Invalid Event decode warning during extraction, while WPR reports zero lost
+  buffers/events.
+
+This run also qualifies one hour of traffic for the exact tested binary and
+route. The eight-hour queue-service failure and its cause remain open.
+
 ## Current diagnosis and next steps
 
 The queue is bounded at 256 commands. At the test rate of 1,000 continuous

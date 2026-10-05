@@ -30,6 +30,15 @@ losses. This qualifies the one-hour traffic check for that exact route and
 binary. It does not identify a fix or qualify the eight-hour gate; the
 intermittent RTX queue-service issue remains open.
 
+A second RTX-left one-hour WPR run enabled renderer phase timing and passed
+3,600.001 seconds on the same binary. It sent 3,599,992 updates, skipped 8
+sender ticks, peaked at 22.755 ms sender lag, and stayed within RSS bounds; no
+queue-full event occurred. WPR captured 1:00:01.322 with zero losses. A narrow
+ETL slice at the analogous historical failure time showed regular sampled
+ReadyThread/Present event spacing, but that does not measure dispatch latency
+or explain the earlier failure. The queue-service cause remains unknown and the
+eight-hour gate stays open. See the [RTX results](platform-results/2026-10-04-windows-rtx3060-soaks.md).
+
 2026-10-05 traced routing diagnostics pass for 30 minutes on both the RTX-driven
 left output and the Radeon-driven primary. A requested 45-minute diagnostic
 stopped at 830.779 seconds when the traffic sender exceeded its 250 ms pacing

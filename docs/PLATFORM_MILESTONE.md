@@ -87,6 +87,15 @@ for testing the implemented desktop feature set.
 
 ## Session log
 
+- 2026-10-05 RTX-left timing-trace follow-up: a second one-hour D3D12 traffic
+  run passes on the exact renderer with opt-in phase tracing and compact WPR
+  scheduling capture. It sends 3,599,992 updates, skips 8 ticks, peaks at
+  22.755 ms sender lag, and has stable RSS; no `E_QUEUE_FULL` occurs. WPR loses
+  no events. The trace slice around the historical failure point is clean but
+  does not measure dispatch latency or explain the earlier queue overflow. The
+  eight-hour gate and root cause remain open. See the
+  [RTX result](platform-results/2026-10-04-windows-rtx3060-soaks.md).
+
 - 2026-10-05 WPR scheduler follow-up: timestamped 50/100/150/200/250 ms
   sender-lag checkpoints and sender PID are now in acceptance evidence. Python
   unittest discovery passes 135 tests. A compact CSwitch/ReadyThread + DxgKrnl

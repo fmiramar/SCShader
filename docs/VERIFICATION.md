@@ -42,6 +42,18 @@ sender PID. Python unittest discovery passes 135 tests. This is not a one-hour
 qualification or a root-cause finding. See the
 [scheduler capture and limits](platform-results/2026-10-04-windows-rtx3060-soaks.md).
 
+The subsequent one-hour RTX-left WPR run enabled renderer timing tracing and
+passes 3,600.001 seconds on the exact 0.0.18/D3D12 binary. It sends 3,599,992
+updates with 8 skipped ticks, 22.755 ms maximum sender lag and stable RSS. No
+queue-full event or post-startup phase above the trace's 50 ms threshold is
+recorded; startup initialization took 417.195 ms. WPR reports zero lost
+buffers/events. A two-second slice at the analogous historic failure time has
+regular ReadyThread/Present event spacing, but cannot establish thread dispatch
+latency or a root cause. xperf reports an Invalid Event decode warning during
+extraction. This qualifies one-hour traffic for this route and binary only; the
+intermittent queue-service issue and eight-hour gate remain open. [Exact result
+and limitations](platform-results/2026-10-04-windows-rtx3060-soaks.md).
+
 ## Windows laptop eight-hour traffic checks — 2026-10-04
 
 Both adapters independently pass the standard validator for 28,800 seconds:
