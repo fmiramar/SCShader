@@ -1,6 +1,6 @@
 # Implementation checkpoint
 
-Updated 2026-10-04. Current development version: **0.0.18**. Not a final v0.1.0 release.
+Updated 2026-10-05. Current development version: **0.0.18**. Not a final v0.1.0 release.
 
 Desktop RTX 3060 follow-up: the exact 0.0.18 D3D12 renderer passes one hour of
 traffic, then fails its eight-hour attempt after 2,482.785 seconds on
@@ -8,6 +8,13 @@ traffic, then fails its eight-hour attempt after 2,482.785 seconds on
 remains open; do not repeat the eight-hour soak on this unchanged binary before
 investigating the queue-service failure. See the
 [RTX 3060 results](platform-results/2026-10-04-windows-rtx3060-soaks.md).
+
+2026-10-05 traced routing diagnostics pass for 30 minutes on both the RTX-driven
+left output and the Radeon-driven primary. A requested 45-minute diagnostic
+stopped at 830.779 seconds when the traffic sender exceeded its 250 ms pacing
+guard (704.582 ms maximum lag); the renderer log confirms the RTX 3060 and no
+queue-full event. The sender pause and original queue-service failure remain
+unexplained. The eight-hour gate stays unqualified.
 
 Laptop eight-hour follow-up: **Intel UHD 630 and GTX 1050 Ti Max-Q both pass**
 28,800 seconds of D3D12 traffic on the unchanged laptop renderer and corrected

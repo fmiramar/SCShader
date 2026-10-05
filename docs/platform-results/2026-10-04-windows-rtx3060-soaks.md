@@ -86,3 +86,118 @@ Raw evidence is retained locally under ignored `build/` paths:
 `build/soak/2026-10-04-nvidia-rtx3060-one-hour/`, and
 `build/soak/2026-10-04-nvidia-rtx3060-eight-hour/`. No raw logs or binaries are
 included in the source commit.
+
+## Follow-up traced display-routing diagnostics — 2026-10-05
+
+These follow-ups used the same 0.0.18 renderer SHA above, explicitly selected
+`--adapter NVIDIA`, with DX12, 1,000 updates/second, timing tracing enabled,
+high-performance power preference, and AC display/sleep timeouts disabled.
+They do not change the failed eight-hour outcome or identify the queue-service
+root cause.
+
+### Display routing and short controls
+
+Read-only Windows monitor enumeration during this session found the current
+topology differs from the earlier desktop record: `\\.\DISPLAY1` is the left
+RTX 3060 output at `[-1920, 0, 0, 1080]`; `\\.\DISPLAY5` is the center primary
+Radeon RX 580 output at `[0, 0, 1920, 1080]`; `\\.\DISPLAY6` is the right RX 580
+output at `[1920, 0, 3840, 1080]`. The first assumed right-side test position
+(`1984,64`) was on `DISPLAY6`, not an RTX-driven display; its results are
+therefore recorded as RX-output routing below.
+
+All 60-second traced route controls passed. Both renderer adapters (RTX 3060 and
+RX 580) ran on the left RTX output, and both ran on each of the two RX-driven
+outputs. Runs sent 59,999–60,000 updates, had maximum sender lag of 2.81–3.76 ms,
+and showed no runtime slow-phase or queue-full trace. Native window snapshots
+confirmed the actual monitor for every route. These short controls show that
+both render adapters can present on each tested output; they are not long-run
+qualification.
+
+### Thirty-minute traced traffic
+
+| Renderer adapter | Display output | Duration | Updates | Skipped | Max sender lag | Peak RSS | Outcome |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| RTX 3060 | RX 580 primary (`DISPLAY5`) | 1800.001 s | 1,800,000 | 0 | 8.524 ms | 184,760 KiB | Pass |
+| RTX 3060 | RTX 3060 left (`DISPLAY1`) | 1800.002 s | 1,799,944 | 56 | 39.790 ms | 164,384 KiB | Pass |
+
+Both logs recorded the NVIDIA adapter selected by the renderer, no runtime
+`slow=` timing events after initialization, and no queue-full diagnostics. The
+first row's window was placed at `(64,64)` on the RX-driven primary; the second
+was placed at `(-1856,64)` on the RTX-driven left monitor.
+
+### Interrupted 45-minute traced diagnostic
+
+The next RTX 3060/DX12 run targeted the prior eight-hour failure window and was
+requested for 2,700 seconds on the RX-driven primary. It stopped after
+830.779 seconds (13 minutes 50.8 seconds) because the Python traffic sender
+exceeded its 250 ms pacing guard: maximum sender lag was 704.582 ms. The run sent
+829,993 updates, skipped 81 ticks, and reached 187,552 KiB peak RSS. The
+acceptance result is **failed/incomplete**; it is not a 45-minute pass.
+
+The renderer log confirms `NVIDIA GeForce RTX 3060` on DX12 and records only a
+491.116 ms initialization phase above the 50 ms trace threshold. It contains no
+runtime slow-phase or `E_QUEUE_FULL` record. The final sampled queue/drop fields
+were zero. Thus this attempt did not reproduce the renderer's queue-full fault;
+it failed independently because the test sender itself paused. The reason for
+that sender pause is unknown. No renderer process remained after the harness
+closed the run.
+
+During testing, Task Manager briefly attributed SCShader activity to GPU-0
+(NVIDIA) and GPU-1 (AMD). This is not evidence that the selected renderer adapter
+changed: the run manifest and renderer startup record both identify the RTX 3060.
+Task Manager reports per-process GPU engine activity and its GPU numbering;
+see [Microsoft's Task Manager GPU overview](https://devblogs.microsoft.com/directx/gpus-in-the-task-manager/).
+The exact cause of the AMD activity on this two-adapter desktop was not captured.
+
+These results leave the intermittent RTX 3060 `E_QUEUE_FULL` issue unresolved.
+They do not qualify the unchanged renderer for another eight-hour attempt.
+Detailed raw logs, CSV/JSON manifests, and local monitor snapshots remain under
+ignored `build/platform-tests/2026-10-05-*` paths and are not included in the
+source commit.
+
+## Current diagnosis and next steps
+
+The queue is bounded at 256 commands. At the test rate of 1,000 continuous
+updates/second, a full queue represents about 256 ms of unconsumed traffic, with
+slightly less room for other commands. An earlier timing reproduction captured
+about 240 ms between renderer callbacks and 256 ms since the last consumed
+command while sender lag was only 3.035 ms. The October 4 eight-hour queue-full
+failure also had only 83.276 ms maximum sender lag, below the harness's 250 ms
+failure guard. Together these point to a **consumer-side service gap** as the
+proximate mechanism; they do not explain what blocked or delayed the renderer's
+event-loop thread.
+
+The leading underlying suspects are a rare wait or long callback in the D3D12
+frame/presentation path, Windows window-message processing, or OS/driver thread
+scheduling. They remain hypotheses. Thirty-minute runs pass on both the RTX's
+own output and an RX-driven output, so the current evidence does not show a
+reproducible display-route dependency. Task Manager's GPU-0/GPU-1 activity change
+does not demonstrate a renderer adapter switch. No physical GPU fault, device
+reset, or adapter fallback was recorded. The latest 45-minute run's sender-lag
+failure is a separate harness stall; it is not the cause of the October 4
+queue-full event. Sampled process RSS was stable, so a system-memory leak is not
+supported by these runs; GPU-memory telemetry was not collected.
+
+If RTX 3060 qualification remains important, the next useful work is one
+instrumented reproduction attempt, not another unchanged eight-hour soak:
+
+1. Preserve the current strict failure guards and `--adapter NVIDIA` selection.
+   Add a timestamped record when sender lag approaches its 250 ms limit so a
+   harness pause can be separated from a renderer queue-service pause.
+2. Capture Windows ETW data for CPU thread scheduling and DXGI/DxgKrnl/DWM GPU
+   activity during a fixed-window traffic run. If system profiling remains
+   unavailable under the current policy, expand the renderer trace around
+   `about_to_wait`, redraw/event callbacks, frame acquisition, submit, and
+   `Present`, and keep the queue-full snapshot of phase, time since receive, and
+   last native message.
+3. Change one condition per follow-up. Use the captured phase and Windows trace
+   to decide whether to compare a second display route or a different backend;
+   the completed 30-minute route pair already shows that neither route alone
+   deterministically reproduces the fault.
+4. After a root cause is identified and a fix is covered by a regression check,
+   rerun the short suite, schedule a one-hour validation, and leave the
+   eight-hour soak as the final release gate.
+
+Increasing the queue size or relaxing the sender/queue acceptance criteria would
+hide symptoms without identifying the stall, so neither is a useful diagnostic
+change.

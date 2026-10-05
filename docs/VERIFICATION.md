@@ -13,6 +13,15 @@ Clippy, Rust/Python tests, scheduling/runtime stress and logical recovery pass.
 Investigate and fix the queue-service issue before another long soak. See the
 [full result and exact evidence](platform-results/2026-10-04-windows-rtx3060-soaks.md).
 
+The 2026-10-05 traced display-route controls pass for 60 seconds on both GPUs
+across the RTX-driven left output and two Radeon-driven outputs. Two RTX/DX12
+30-minute traffic runs also pass: one on each manufacturer's output. A requested
+45-minute follow-up stops at 830.779 seconds because the sender's maximum lag
+reaches 704.582 ms, above its 250 ms guard. That run records NVIDIA RTX 3060 and
+no renderer queue-full event; it is a harness failure and does not reproduce or
+resolve the earlier fault. The eight-hour gate remains open. See the
+[traced diagnostics and limitations](platform-results/2026-10-04-windows-rtx3060-soaks.md).
+
 ## Windows laptop eight-hour traffic checks — 2026-10-04
 
 Both adapters independently pass the standard validator for 28,800 seconds:

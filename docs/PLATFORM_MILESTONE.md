@@ -87,6 +87,15 @@ for testing the implemented desktop feature set.
 
 ## Session log
 
+- 2026-10-05 desktop RTX 3060 diagnostics: traced 60-second adapter/output
+  controls pass, and traced 30-minute traffic passes on both the RTX-driven left
+  display and Radeon-driven primary. The next 45-minute run stops after
+  830.779 seconds because sender lag reaches 704.582 ms, above the 250 ms test
+  guard. Renderer logs confirm NVIDIA RTX 3060 and no `E_QUEUE_FULL`; this is a
+  separate sender stall and does not reproduce or resolve the recurring queue
+  failure. The eight-hour gate remains unqualified. See the
+  [traced results](platform-results/2026-10-04-windows-rtx3060-soaks.md).
+
 - 2026-10-04 desktop RTX 3060 soaks: the exact 0.0.18/D3D12 binary passes one
   hour of traffic (3,599,919 updates), then fails its eight-hour attempt after
   2,482.785 seconds on `E_QUEUE_FULL` with one continuous update dropped. Four

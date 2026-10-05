@@ -4,7 +4,10 @@ Status: the 0.0.18 desktop package passes RTX 3060/RX 580 short D3D12 modes and
 three-display interactions, user window/input checks, isolated SC/help checks,
 and RX 580 stress/recovery. The RTX 3060 passes one hour of traffic but fails an
 eight-hour attempt on `E_QUEUE_FULL`; investigate and fix that queue-service issue
-before repeating the long soak. See the
+before repeating the long soak. Follow-up tracing passes 30-minute traffic on
+both the RTX-driven and Radeon-driven displays, but a 45-minute diagnostic ends
+at 830.779 seconds on the sender-lag guard without reproducing `E_QUEUE_FULL`.
+The root cause remains unknown. See the
 [latest desktop soak result](../platform-results/2026-10-04-windows-rtx3060-soaks.md).
 Listening, mixed DPI, sleep/wake and remaining release gates are tracked in the
 [desktop result](../platform-results/2026-09-30-windows-dual-gpu.md).
