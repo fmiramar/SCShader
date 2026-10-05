@@ -27,7 +27,7 @@ properties on other operating systems or architectures.
 
 | Track | Starting evidence | Next required evidence | Priority |
 | --- | --- | --- | --- |
-| Windows x64 / D3D12 | Installed 0.0.18 desktop package; RTX 3060/RX 580 short modes and three-display interactions, user window/input checks, isolated SC/help and RX 580 stress/recovery pass; earlier Intel result retained | Listening, mixed DPI/sleep-wake and other-platform regression | Short and interaction gates passed |
+| Windows x64 / D3D12 | Installed 0.0.18 desktop package and interaction checks pass; RTX 3060 one-hour traffic passes but its eight-hour attempt fails on `E_QUEUE_FULL`; RX 580 has a separate eight-hour pass | Resolve/retest the RTX queue-service failure, plus listening, mixed DPI/sleep-wake and other-platform regression | Desktop long-run gate incomplete |
 | CachyOS x86-64 / Hyprland / Vulkan | 0.0.18 package, Wayland/Xwayland interactions, acceptance, SC/help, stress and recovery pass | Manual input/appearance/listening and long release gates | Short Linux gate passed |
 | macOS arm64 / Metal | Native 0.0.18 Apple M5 short suites plus 19 native interaction stages and user input confirmation pass; SC normal-close correction passes 26 installed checks | Listening/sleep-wake observations and Intel/shared-platform regression | Short and interaction gates passed |
 | macOS x64 / Metal | Local 0.0.16 short suites and installed docs passed | Rerun affected checks after shared changes; retain memory workaround | Critical regression protection |
@@ -86,6 +86,14 @@ video/camera, compute, and shared memory remain later scope, not prerequisites
 for testing the implemented desktop feature set.
 
 ## Session log
+
+- 2026-10-04 desktop RTX 3060 soaks: the exact 0.0.18/D3D12 binary passes one
+  hour of traffic (3,599,919 updates), then fails its eight-hour attempt after
+  2,482.785 seconds on `E_QUEUE_FULL` with one continuous update dropped. Four
+  short modes pass on RTX 3060 and RX 580; static tests, scheduling/runtime
+  stress and logical recovery also pass. The recurring RTX queue-drop symptom
+  remains unexplained, so another long soak should wait for investigation and a
+  fix. See the [result](platform-results/2026-10-04-windows-rtx3060-soaks.md).
 
 - 2026-10-04 laptop eight-hour checks: Intel UHD 630 and GTX 1050 Ti Max-Q both
   pass 28,800 seconds of D3D12 traffic on the unchanged renderer and corrected

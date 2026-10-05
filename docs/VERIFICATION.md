@@ -1,5 +1,18 @@
 # Verification
 
+## Windows desktop RTX 3060 traffic soaks — 2026-10-04
+
+On the exact 0.0.18 D3D12 renderer (`cc782174...a5ae34`), RTX 3060 traffic passes
+3,600.001 seconds with 3,599,919 updates, 81 sender-skipped ticks, 38.211 ms
+maximum lag and bounded RSS. The subsequent eight-hour attempt fails after
+2,482.785 seconds on `E_QUEUE_FULL`, dropping one continuous update; sender lag
+peaks at 83.276 ms and RSS remains within limits. This reproduces the desktop
+queue-drop symptom, does not qualify eight hours, and does not establish a root
+cause. Four ten-second modes also pass on RTX 3060 and RX 580; formatting,
+Clippy, Rust/Python tests, scheduling/runtime stress and logical recovery pass.
+Investigate and fix the queue-service issue before another long soak. See the
+[full result and exact evidence](platform-results/2026-10-04-windows-rtx3060-soaks.md).
+
 ## Windows laptop eight-hour traffic checks — 2026-10-04
 
 Both adapters independently pass the standard validator for 28,800 seconds:

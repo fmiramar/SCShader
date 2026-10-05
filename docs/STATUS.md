@@ -2,6 +2,13 @@
 
 Updated 2026-10-04. Current development version: **0.0.18**. Not a final v0.1.0 release.
 
+Desktop RTX 3060 follow-up: the exact 0.0.18 D3D12 renderer passes one hour of
+traffic, then fails its eight-hour attempt after 2,482.785 seconds on
+`E_QUEUE_FULL` (one dropped continuous update). The RTX desktop long-run issue
+remains open; do not repeat the eight-hour soak on this unchanged binary before
+investigating the queue-service failure. See the
+[RTX 3060 results](platform-results/2026-10-04-windows-rtx3060-soaks.md).
+
 Laptop eight-hour follow-up: **Intel UHD 630 and GTX 1050 Ti Max-Q both pass**
 28,800 seconds of D3D12 traffic on the unchanged laptop renderer and corrected
 sender. They sent 28,799,902 / 28,799,804 updates, with zero sampled renderer drops,
