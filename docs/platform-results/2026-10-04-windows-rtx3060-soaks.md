@@ -37,6 +37,17 @@ eight-hour manifest reports `passed: false` and both qualification flags false.
 Its failure reason is `bounded OSC queue full; dropped 1 continuous update(s)`.
 The sender-lag guard did not trigger. Memory remained under the configured limits
 in both runs. A single queue-drop diagnostic still fails the acceptance gate.
+The runner stopped on the first diagnostic; during shutdown, the renderer log
+recorded another queue-full warning and reported three total dropped updates.
+The final ten-second CSV sample before failure (at 2480.202 seconds) showed zero
+sampled drops, so the trigger occurred between samples.
+
+This run had timing tracing disabled and did not record the physical monitor,
+window placement, or display-adapter routing. The power timeouts rule out normal
+idle sleep/display shutdown as configured causes, but they do not explain the
+queue-service pause. A prior traced reproduction observed a 256 ms command-service
+gap without identifying the Windows operation behind it; see the
+[timing investigation](2026-10-03-windows-soak-comparison.md).
 
 The eight-hour attempt is already the requested eight-hour test. It stopped after
 about 41 minutes; do not count it as complete or repeat it on this unchanged
