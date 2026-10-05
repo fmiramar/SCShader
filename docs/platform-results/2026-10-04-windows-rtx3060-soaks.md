@@ -189,9 +189,23 @@ instrumented reproduction attempt, not another unchanged eight-hour soak:
 1. Preserve the current strict failure guards and `--adapter NVIDIA` selection.
    Add a timestamped record when sender lag approaches its 250 ms limit so a
    harness pause can be separated from a renderer queue-service pause.
-2. Capture Windows ETW data for CPU thread scheduling and DXGI/DxgKrnl/DWM GPU
-   activity during a fixed-window traffic run. If system profiling remains
-   unavailable under the current policy, expand the renderer trace around
+2. Use Microsoft's Windows Performance Toolkit (WPT) for a cross-vendor ETW
+   capture: WPR records CPU scheduling and graphics events, and WPA/GPUView
+   analyzes them. At the latest check, `wpr.exe` was already available and
+   exposed `GPU` and `DesktopComposition` profiles; WPA and GPUView were not
+   found on `PATH`. Install only the WPT feature from the Windows ADK if those
+   analyzers are not installed elsewhere. The earlier WPR attempt failed to
+   enable system profiling (`0xc5585011`), so resolve that capture-policy issue
+   and verify a short trace before any long capture. See
+   [WPT](https://learn.microsoft.com/en-us/windows-hardware/drivers/display/using-gpuview)
+   and [GPUView installation](https://learn.microsoft.com/en-us/windows-hardware/drivers/display/installing-gpuview).
+   If WPT still cannot capture the renderer's D3D12 waits, NVIDIA Nsight Systems
+   is an optional RTX-specific supplement for D3D12/WDDM activity and wait calls;
+   it is not needed for basic test control. AMD Radeon GPU Profiler targets AMD
+   GPU workloads and would not diagnose the renderer's selected RTX adapter.
+   See [Nsight Systems](https://developer.nvidia.com/docs/drive/drive-os/7.0.3/public/nsight/nsight-systems/UserGuide/index.html)
+   and [Radeon GPU Profiler](https://gpuopen.com/manuals/rgp_manual/).
+   If system profiling remains unavailable, expand the renderer trace around
    `about_to_wait`, redraw/event callbacks, frame acquisition, submit, and
    `Present`, and keep the queue-full snapshot of phase, time since receive, and
    last native message.
