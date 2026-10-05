@@ -167,16 +167,21 @@ failure guard. Together these point to a **consumer-side service gap** as the
 proximate mechanism; they do not explain what blocked or delayed the renderer's
 event-loop thread.
 
-The leading underlying suspects are a rare wait or long callback in the D3D12
-frame/presentation path, Windows window-message processing, or OS/driver thread
-scheduling. They remain hypotheses. Thirty-minute runs pass on both the RTX's
-own output and an RX-driven output, so the current evidence does not show a
-reproducible display-route dependency. Task Manager's GPU-0/GPU-1 activity change
-does not demonstrate a renderer adapter switch. No physical GPU fault, device
-reset, or adapter fallback was recorded. The latest 45-minute run's sender-lag
-failure is a separate harness stall; it is not the cause of the October 4
-queue-full event. Sampled process RSS was stable, so a system-memory leak is not
-supported by these runs; GPU-memory telemetry was not collected.
+The earlier queue-full trace captured phase `event_loop` about 240 ms between
+instrumented callbacks, rather than an instrumented GPU acquisition, submit, or
+present phase. That makes a Windows/winit event-loop or message-dispatch delay,
+or OS thread-scheduling stall, the leading underlying suspects. A D3D12/driver
+presentation wait remains possible but was not observed in that trace; Microsoft's
+[DXGI Present documentation](https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiswapchain-present)
+notes that Present can wait on a message-pump thread in some configurations.
+These are hypotheses. Thirty-minute runs pass on both the RTX's own output and
+an RX-driven output, so the current evidence does not show a reproducible
+display-route dependency. Task Manager's GPU-0/GPU-1 activity change does not
+demonstrate a renderer adapter switch. No physical GPU fault, device reset, or
+adapter fallback was recorded. The latest 45-minute run's sender-lag failure is
+a separate harness stall; it is not the cause of the October 4 queue-full event.
+Sampled process RSS was stable, so a system-memory leak is not supported by these
+runs; GPU-memory telemetry was not collected.
 
 If RTX 3060 qualification remains important, the next useful work is one
 instrumented reproduction attempt, not another unchanged eight-hour soak:
