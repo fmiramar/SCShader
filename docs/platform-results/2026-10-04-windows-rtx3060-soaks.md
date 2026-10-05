@@ -275,6 +275,31 @@ but does not qualify the unchanged renderer for one hour or eight hours and
 does not identify a root cause. The profile footprint was about 87 MiB/minute
 on the 45-minute run; keep raw ETLs and exports in ignored `build/` evidence.
 
+### One-hour WPR scheduler validation on the RTX-driven display — 2026-10-05
+
+The exact renderer then passed a bounded one-hour traffic check while the
+compact WPR scheduler profile recorded the run. The renderer window was placed
+at `(-1856,64)` on the left RTX-driven `DISPLAY1`. This qualifies the one-hour
+traffic gate for this exact binary and route, but it does not qualify the
+eight-hour release gate or prove a fix for the intermittent queue-service
+failure.
+
+- Duration: 3,600.000 seconds; 3,599,999 updates; zero skipped updates.
+- Renderer: NVIDIA GeForce RTX 3060, D3D12, high-performance preference,
+  SHA-256 `cc78217490017d3175eb97083efde56a6c3726fc86257a1154c03d2a19a5ae34`.
+- Sender PID: 10628; maximum sender lag 2.420 ms; maximum burst 3.
+- Renderer PID: 17328; RSS baseline/peak/final 158,468/159,180/154,116 KiB.
+- No `E_QUEUE_FULL` or queue-drop diagnostic was recorded. The only renderer
+  protocol message was the expected malformed-packet check.
+- WPR captured 1:00:02.403 with zero lost buffers and zero lost events; raw
+  evidence is under `build/platform-tests/2026-10-05-scheduler-1h-rtx3060-left/`.
+
+The acceptance runner's timing-trace flag was not enabled for this run, so the
+renderer timing log does not add phase-level evidence. The WPR scheduler trace
+still provides system-wide CSwitch/ReadyThread and DxgKrnl events. This pass
+strengthens route-specific stability evidence without identifying the cause of
+the earlier `E_QUEUE_FULL` event.
+
 ## Current diagnosis and next steps
 
 The queue is bounded at 256 commands. At the test rate of 1,000 continuous
@@ -323,9 +348,9 @@ non-reproduction as a fix:
    route dependency or reproduce the queue failure. Use a captured failure to
    choose the next route/backend comparison rather than changing queue capacity
    or relaxing acceptance guards.
-3. After a root cause is identified and a fix has regression coverage, rerun
-   short checks, schedule a one-hour validation, and leave the eight-hour soak
-   as the user's final release gate.
+3. The one-hour RTX-left validation now passes for this exact binary and route.
+   After a root cause is identified and a fix has regression coverage, leave
+   the eight-hour soak as the user's final release gate.
 
 Increasing the queue size or relaxing the sender/queue acceptance criteria would
 hide symptoms without identifying the stall, so neither is a useful diagnostic

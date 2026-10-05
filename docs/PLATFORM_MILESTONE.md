@@ -97,6 +97,14 @@ for testing the implemented desktop feature set.
   It does not reproduce the fault or establish a fix. See the
   [capture record](platform-results/2026-10-04-windows-rtx3060-soaks.md).
 
+- 2026-10-05 RTX-left one-hour scheduler validation: the exact 0.0.18/D3D12
+  renderer passes 3,600.000 seconds at 1,000 updates/second on the RTX-driven
+  left display, with 3,599,999 updates, zero skipped updates, 2.420 ms maximum
+  sender lag, stable RSS, no queue-full diagnostic, and zero WPR lost events.
+  This qualifies the one-hour traffic check for this exact binary and route;
+  it does not reproduce or fix the intermittent queue-service fault and does
+  not qualify the eight-hour gate. See the [capture record](platform-results/2026-10-04-windows-rtx3060-soaks.md).
+
 - 2026-10-05 desktop RTX capture diagnostic: a custom WPR DxgKrnl GPU
   present/scheduling profile and Nsight D3D12 smoke produced usable traces with
   zero ETW loss. The requested 45-minute RTX-left run stopped after 900.082

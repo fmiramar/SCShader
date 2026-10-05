@@ -23,6 +23,13 @@ zero ETW loss. It did not reproduce the failure or establish a fix. The harness
 now records timestamped sender-lag checkpoints and the sender PID. Python: 135
 tests pass. See the [capture record](platform-results/2026-10-04-windows-rtx3060-soaks.md).
 
+The subsequent WPR-only scheduler validation passes one hour on the RTX-driven
+left display with the same renderer hash: 3,599,999 updates, zero skips, 2.420
+ms maximum sender lag, stable RSS, no queue-full diagnostic, and zero WPR
+losses. This qualifies the one-hour traffic check for that exact route and
+binary. It does not identify a fix or qualify the eight-hour gate; the
+intermittent RTX queue-service issue remains open.
+
 2026-10-05 traced routing diagnostics pass for 30 minutes on both the RTX-driven
 left output and the Radeon-driven primary. A requested 45-minute diagnostic
 stopped at 830.779 seconds when the traffic sender exceeded its 250 ms pacing
