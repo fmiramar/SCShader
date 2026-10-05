@@ -28,7 +28,7 @@ def digest(path: Path) -> str:
 
 
 def validate_result(result: dict, mode: str, seconds: float, renderer_hash: str, backend="auto", window_system="auto",
-                    adapter=None, power_preference="high-performance"):
+                    adapter=None, power_preference="high-performance", position=None):
     if (result.get("passed") is not True or result.get("mode") != mode
             or result.get("renderer_sha256") != renderer_hash
             or result.get("requested_seconds") != seconds
@@ -41,6 +41,7 @@ def validate_result(result: dict, mode: str, seconds: float, renderer_hash: str,
             or result.get("requested_window_system", "auto") != window_system
             or result.get("requested_adapter") != adapter
             or result.get("requested_power_preference", "high-performance") != power_preference
+            or result.get("requested_window_position") != position
             or result.get("max_rss_mib") != 512
             or result.get("max_rss_growth_mib") != 128
             or result.get("memory_warmup_seconds") != 30):
@@ -66,6 +67,8 @@ def arguments(argv=None):
     parser.add_argument("--window-system", choices=["auto", "x11", "wayland"], default="auto")
     parser.add_argument("--adapter", help="unique GPU name substring, e.g. NVIDIA or Intel")
     parser.add_argument("--power-preference", choices=["high-performance", "low-power", "none"], default="high-performance")
+    parser.add_argument("--position", nargs=2, type=int, metavar=("X", "Y"),
+                        help="initial renderer window position in logical screen coordinates")
     duration = parser.add_mutually_exclusive_group()
     duration.add_argument("--minutes", type=float, help="duration per selected mode (default: 60)")
     duration.add_argument("--seconds", type=float, help="explicit short smoke override")
@@ -102,6 +105,7 @@ def main():
                   seconds_per_mode=seconds, selected_modes=args.modes,
                   requested_backend=args.backend, requested_window_system=args.window_system,
                   requested_adapter=args.adapter, requested_power_preference=args.power_preference,
+                  requested_window_position=args.position,
                   renderer_sha256=renderer_hash, modes={}, active_mode=None)
 
     def save():
@@ -128,6 +132,8 @@ def main():
                        "--renderer-log", str(args.output_dir / f"{mode}-renderer.log")]
             if args.adapter:
                 command.extend(["--adapter", args.adapter])
+            if args.position:
+                command.extend(["--position", *(str(value) for value in args.position)])
             with (args.output_dir / f"{mode}-console.log").open("x") as log:
                 process = spawn_owned(command, stdout=log, stderr=subprocess.STDOUT)
                 try:
@@ -141,7 +147,7 @@ def main():
             if code:
                 raise RuntimeError(f"{mode}: exit {code}; {result.get('reason', 'see console log')}")
             validate_result(result, mode, seconds, renderer_hash, args.backend, args.window_system,
-                            args.adapter, args.power_preference)
+                            args.adapter, args.power_preference, args.position)
             print(f"PASS {mode}: {result['elapsed_seconds']:.2f} measured seconds", flush=True)
         record.update(state="complete", passed=True, active_mode=None,
                       **qualifications(args.modes, seconds))

@@ -9,6 +9,13 @@ remains open; do not repeat the eight-hour soak on this unchanged binary before
 investigating the queue-service failure. See the
 [RTX 3060 results](platform-results/2026-10-04-windows-rtx3060-soaks.md).
 
+The 2026-10-05 capture diagnostic adds a separate guarded failure: an RTX-left
+WPR/Nsight run stopped at 900.082 seconds on 128.9 MiB RSS growth, with no
+queue-full event and 26.078 ms maximum sender lag. A matched WPR-only 15-minute
+control passed with stable RSS, which points to Nsight instrumentation overhead
+but does not prove a renderer leak. The queue-service issue and eight-hour gate
+remain open; see the [capture results](platform-results/2026-10-04-windows-rtx3060-soaks.md).
+
 2026-10-05 traced routing diagnostics pass for 30 minutes on both the RTX-driven
 left output and the Radeon-driven primary. A requested 45-minute diagnostic
 stopped at 830.779 seconds when the traffic sender exceeded its 250 ms pacing

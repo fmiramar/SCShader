@@ -22,6 +22,15 @@ no renderer queue-full event; it is a harness failure and does not reproduce or
 resolve the earlier fault. The eight-hour gate remains open. See the
 [traced diagnostics and limitations](platform-results/2026-10-04-windows-rtx3060-soaks.md).
 
+The later WPT/Nsight diagnostic records a usable 60-second GPU-event smoke, but
+the combined RTX-left run stops after 900.082 seconds on the 128 MiB RSS-growth
+guard; sender lag peaks at 26.078 ms and no renderer queue-full event is recorded.
+A matched WPR-only 900-second control passes with 2.508 ms maximum lag and
+stable RSS. This contrast implicates Nsight in-process instrumentation but is
+not a root-cause finding. Both runs are below one-hour qualification. The WPR
+ETLs report zero lost buffers/events. See the
+[capture diagnostic and trace limits](platform-results/2026-10-04-windows-rtx3060-soaks.md).
+
 ## Windows laptop eight-hour traffic checks — 2026-10-04
 
 Both adapters independently pass the standard validator for 28,800 seconds:

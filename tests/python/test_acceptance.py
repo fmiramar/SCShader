@@ -88,3 +88,13 @@ class AcceptanceTests(unittest.TestCase):
                              "--adapter", "Intel", "--power-preference", "low-power"])
         self.assertEqual(args.adapter, "Intel")
         self.assertEqual(args.power_preference, "low-power")
+
+    def test_window_position_request_is_signed_and_must_match_evidence(self):
+        args, _ = arguments(["--renderer", "renderer", "--output-dir", "new", "--seconds", "10",
+                             "--position", "-1856", "64"])
+        self.assertEqual(args.position, [-1856, 64])
+        result = self.result()
+        result["requested_window_position"] = [-1856, 64]
+        validate_result(result, "traffic", 28800, "expected", position=[-1856, 64])
+        with self.assertRaises(RuntimeError):
+            validate_result(result, "traffic", 28800, "expected", position=[64, 64])

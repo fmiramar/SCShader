@@ -27,7 +27,7 @@ properties on other operating systems or architectures.
 
 | Track | Starting evidence | Next required evidence | Priority |
 | --- | --- | --- | --- |
-| Windows x64 / D3D12 | Installed 0.0.18 desktop package and interaction checks pass; RTX 3060 one-hour traffic passes but its eight-hour attempt fails on `E_QUEUE_FULL`; RX 580 has a separate eight-hour pass | Resolve/retest the RTX queue-service failure, plus listening, mixed DPI/sleep-wake and other-platform regression | Desktop long-run gate incomplete |
+| Windows x64 / D3D12 | Installed 0.0.18 desktop package and interaction checks pass; RTX 3060 one-hour traffic passes but its eight-hour attempt fails on `E_QUEUE_FULL`; RX 580 has a separate eight-hour pass. A traced RTX run hit the RSS guard at 15 minutes under Nsight; a matched WPR-only 15-minute control passed | Resolve/retest the RTX queue-service failure and account for Nsight's apparent RSS overhead, plus listening, mixed DPI/sleep-wake and other-platform regression | Desktop long-run gate incomplete |
 | CachyOS x86-64 / Hyprland / Vulkan | 0.0.18 package, Wayland/Xwayland interactions, acceptance, SC/help, stress and recovery pass | Manual input/appearance/listening and long release gates | Short Linux gate passed |
 | macOS arm64 / Metal | Native 0.0.18 Apple M5 short suites plus 19 native interaction stages and user input confirmation pass; SC normal-close correction passes 26 installed checks | Listening/sleep-wake observations and Intel/shared-platform regression | Short and interaction gates passed |
 | macOS x64 / Metal | Local 0.0.16 short suites and installed docs passed | Rerun affected checks after shared changes; retain memory workaround | Critical regression protection |
@@ -86,6 +86,17 @@ video/camera, compute, and shared memory remain later scope, not prerequisites
 for testing the implemented desktop feature set.
 
 ## Session log
+
+- 2026-10-05 desktop RTX capture diagnostic: a custom WPR DxgKrnl GPU
+  present/scheduling profile and Nsight D3D12 smoke produced usable traces with
+  zero ETW loss. The requested 45-minute RTX-left run stopped after 900.082
+  seconds when Nsight-instrumented renderer RSS exceeded the 128 MiB growth
+  guard by 0.9 MiB; sender lag stayed below 27 ms and no `E_QUEUE_FULL` occurred.
+  A matched WPR-only 900-second control passed with zero skipped updates, 2.508
+  ms maximum sender lag and stable RSS. This points to profiler overhead but
+  does not establish a renderer leak or resolve the earlier queue failure. The
+  eight-hour gate remains unqualified. See the
+  [capture diagnostic](platform-results/2026-10-04-windows-rtx3060-soaks.md).
 
 - 2026-10-05 desktop RTX 3060 diagnostics: traced 60-second adapter/output
   controls pass, and traced 30-minute traffic passes on both the RTX-driven left

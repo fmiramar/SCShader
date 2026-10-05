@@ -5,7 +5,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
 from osc_client import decode_message, osc_message, osc_bundle
-from soak_uniforms import Health, MemoryHealth, due_traffic_updates
+from soak_uniforms import Health, MemoryHealth, arguments as soak_arguments, due_traffic_updates, renderer_options
 
 
 class WireTests(unittest.TestCase):
@@ -116,6 +116,12 @@ class TrafficScheduleTests(unittest.TestCase):
                 self.assertEqual(count, expected_count)
                 self.assertEqual(count + skipped, rate + 1)
                 self.assertAlmostEqual(next_update + count / rate, 1.0 + 1.0 / rate)
+
+    def test_window_position_is_forwarded_as_signed_renderer_arguments(self):
+        args, _ = soak_arguments(["--renderer", "renderer", "--seconds", "10", "--backend", "dx12",
+                                  "--adapter", "NVIDIA", "--position", "-1856", "64"])
+        self.assertEqual(renderer_options(args), ["--position", "-1856", "64",
+                                                  "--adapter", "NVIDIA", "--backend", "dx12"])
 
 
 if __name__ == "__main__":

@@ -189,7 +189,7 @@ def process_rss_kib(pid: int) -> int | None:
         return None
 
 
-def arguments():
+def arguments(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", choices=["127.0.0.1"], default="127.0.0.1")
     parser.add_argument("--port", type=int, default=57140)
@@ -204,6 +204,8 @@ def arguments():
     parser.add_argument("--window-system", choices=["auto", "x11", "wayland"], default="auto")
     parser.add_argument("--adapter", help="unique GPU name substring")
     parser.add_argument("--power-preference", choices=["high-performance", "low-power", "none"], default="high-performance")
+    parser.add_argument("--position", nargs=2, type=int, metavar=("X", "Y"),
+                        help="initial renderer window position in logical screen coordinates")
     parser.add_argument("--pid", type=int, help="attached renderer PID for RSS sampling")
     parser.add_argument("--csv", type=Path, help="stream metrics here, including on failure/interruption")
     parser.add_argument("--json", type=Path, help="write measured result; passed is false on failure/interruption")
@@ -211,7 +213,7 @@ def arguments():
     parser.add_argument("--max-rss-growth-mib", type=float, default=128.0)
     parser.add_argument("--memory-warmup", type=float, default=30.0)
     parser.add_argument("--quit", action="store_true", help="quit attached renderer after success; owned children always stop")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     duration = args.seconds if args.seconds is not None else args.minutes * 60.0
     if (not all(math.isfinite(v) for v in [duration, args.rate, args.max_rss_mib, args.max_rss_growth_mib, args.memory_warmup])
             or duration <= 0 or not 0 < args.rate <= 50000 or not 1 <= args.port <= 65535
@@ -220,7 +222,8 @@ def arguments():
     if args.renderer and args.pid:
         parser.error("--pid is for attached renderers; --renderer captures its own child's PID")
     if not args.renderer and (args.backend != "auto" or args.window_system != "auto"
-                              or args.adapter is not None or args.power_preference != "high-performance"):
+                              or args.adapter is not None or args.power_preference != "high-performance"
+                              or args.position is not None):
         parser.error("backend/display/GPU selection requires an owned --renderer")
     if args.adapter is not None and not args.adapter.strip():
         parser.error("adapter must not be empty")
@@ -238,10 +241,27 @@ def arguments():
     return args, duration
 
 
+def renderer_options(args):
+    options = []
+    position = getattr(args, "position", None)
+    if position:
+        options.extend(["--position", *(str(value) for value in position)])
+    if args.adapter:
+        options.extend(["--adapter", args.adapter])
+    if args.power_preference != "high-performance":
+        options.extend(["--power-preference", args.power_preference])
+    if args.backend != "auto":
+        options.extend(["--backend", args.backend])
+    if args.window_system != "auto":
+        options.extend(["--window-system", args.window_system])
+    return options
+
+
 def run(args, duration, result):
     with contextlib.ExitStack() as stack:
         tracing = bool(args.renderer) and os.environ.get("SCSHADER_TRACE_TIMING") == "1"
         result["timing_trace_enabled"] = tracing
+        result["requested_window_position"] = getattr(args, "position", None)
         power_trace = None
         if tracing and os.name == "nt" and args.csv:
             from windows_power_trace import WindowsPowerTrace
@@ -250,16 +270,8 @@ def run(args, duration, result):
         if args.renderer:
             with args.renderer.open("rb") as binary:
                 result["renderer_sha256"] = hashlib.file_digest(binary, "sha256").hexdigest()
-            extra_args = []
-            if args.adapter:
-                extra_args.extend(["--adapter", args.adapter])
-            if args.power_preference != "high-performance":
-                extra_args.extend(["--power-preference", args.power_preference])
-            if args.backend != "auto":
-                extra_args.extend(["--backend", args.backend])
-            if args.window_system != "auto":
-                extra_args.extend(["--window-system", args.window_system])
-            owned = stack.enter_context(ManagedRenderer(args.renderer, args.port, args.renderer_log, extra_args))
+            owned = stack.enter_context(ManagedRenderer(args.renderer, args.port, args.renderer_log,
+                                                        renderer_options(args)))
             client, pid = owned.client, owned.process.pid
             ready = owned.ready_reply
         else:

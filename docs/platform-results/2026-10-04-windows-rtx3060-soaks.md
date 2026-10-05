@@ -155,6 +155,74 @@ Detailed raw logs, CSV/JSON manifests, and local monitor snapshots remain under
 ignored `build/platform-tests/2026-10-05-*` paths and are not included in the
 source commit.
 
+## 2026-10-05 WPT/Nsight capture diagnostic
+
+The deterministic window-position option was added to the acceptance harness so
+these runs could request `(-1856, 64)`, inside the left RTX-driven display's
+bounds (`DISPLAY1`, `[-1920, 0, 0, 1080]`). The candidate remained the unchanged
+0.0.18 renderer SHA-256 above. Python unittest discovery passed all 134 tests
+after the harness change.
+
+WPR 10.0.26100, WPA, and GPUView were available. Custom WPR profiles are
+supported by Microsoft's [recording profile documentation](https://learn.microsoft.com/en-us/windows-hardware/test/wpt/recording-profiles);
+the profile used the documented [EventProvider process filter](https://learn.microsoft.com/en-us/windows-hardware/test/wpt/eventprovider).
+The smaller profile enabled Microsoft-Windows-DxgKrnl keyword mask `0x08018000`
+(GPU scheduling, DxgKrnl, and present events), level 5, without stacks or CPU
+context switches. A smoke trace recorded 224,351 DxgKrnl rows across 22 event
+types and contained present-queue, GPU scheduling, and VSync events. The dump
+still contained events from many process IDs; 12,992 rows had the smoke's
+renderer PID. This profile provides system-wide WDDM context and did not
+isolate every event to the renderer.
+
+Broad profiles were rejected before the long run because their measured
+footprints were excessive: Nsight's full WDDM profile produced a 191 MB report
+and 2.39 GB SQLite export per minute; its light WDDM profile produced a 99 MB
+report and 1.52 GB SQLite export per minute. WPR CPU.Light plus GPU.Light
+produced a 1.15 GB ETL per minute, and a CPU context-switch plus DxgKrnl profile
+produced 500 MiB per minute. A first process-tree smoke also produced 2.64
+million scheduler rows in 60 seconds. Its wrapper exited before stopping WPR
+after Nsight emitted a non-fatal no-NVTX notice; WPR was stopped explicitly
+afterward with zero lost events, but that trace was not used for size
+qualification.
+
+The revised 60-second smoke passed on the RTX 3060 at the requested position:
+60,000 updates, zero skipped updates, 2.063 ms maximum sender lag, and no ETW
+loss. Nsight exported 113,233 D3D12 API rows, 29,205 GPU workload rows, and
+21,910 memory-operation rows. The WPR ETL was 35,651,584 bytes for 67.1 seconds;
+the Nsight report was 5,594,799 bytes and its SQLite export was 15,564,800 bytes
+for the 60-second profile. This made the capture size practical, but it did not
+show that Nsight's in-process instrumentation would preserve the renderer's RSS
+guard over a long run.
+
+The requested 2,700-second combined WPR/Nsight run stopped at 900.082 seconds
+because RSS growth exceeded the 128 MiB guard: baseline 201,668 KiB, peak
+333,676 KiB, reported growth 128.9 MiB. It sent 900,071 updates, skipped 11,
+reached a 16-update burst, and had 26.078 ms maximum sender lag. The renderer
+log recorded no `E_QUEUE_FULL`; the sampled queue/drop counters remained zero.
+The output contains an 85,701,750-byte Nsight report, a 235,036,672-byte SQLite
+export, and a 355,467,264-byte WPR ETL. The ETL reports zero lost buffers and
+events. The Nsight export contains 1,675,571 D3D12 API rows, 432,389 workload
+rows, and 324,298 memory-operation rows. CPU context-switch tracing was disabled
+because the process-tree profile generated an impractical scheduler stream.
+Nsight's command returned 1 because the acceptance child failed its RSS guard;
+the Nsight report was generated and WPR stopped successfully.
+
+A matched 900-second WPR-only control used the same binary, adapter, position,
+timing trace, and acceptance limits, without Nsight. It passed with 900,000
+updates, zero skipped updates, 2.508 ms maximum sender lag, and RSS baseline /
+peak / final of 159,400 / 159,416 / 157,240 KiB. Its 328,204,288-byte ETL also
+had zero lost buffers and events. The contrast strongly implicates Nsight's
+in-process instrumentation in the captured run's RSS growth; it does not prove
+that the renderer has no memory issue under other conditions. Neither 15-minute
+run qualifies as a one-hour check, and neither reproduces the earlier
+`E_QUEUE_FULL` failure. The combined capture was not usable for a 45-minute
+acceptance pass with the current RSS guard.
+
+The combined run's timing log recorded the renderer losing focus at 260.584
+seconds; frame production continued. The harness closed its owned renderer
+window when the RSS guard stopped the test, rather than after a renderer crash.
+All raw traces, exports, and logs remain under ignored `build/platform-tests/2026-10-05-*` paths.
+
 ## Current diagnosis and next steps
 
 The queue is bounded at 256 commands. At the test rate of 1,000 continuous
@@ -178,31 +246,40 @@ These are hypotheses. Thirty-minute runs pass on both the RTX's own output and
 an RX-driven output, so the current evidence does not show a reproducible
 display-route dependency. Task Manager's GPU-0/GPU-1 activity change does not
 demonstrate a renderer adapter switch. No physical GPU fault, device reset, or
-adapter fallback was recorded. The latest 45-minute run's sender-lag failure is
-a separate harness stall; it is not the cause of the October 4 queue-full event.
-Sampled process RSS was stable, so a system-memory leak is not supported by these
-runs; GPU-memory telemetry was not collected.
+adapter fallback was recorded. The October 5 RX-primary 45-minute attempt
+stopped on the sender-lag guard. The later RTX-left combined WPR/Nsight capture
+stopped on the renderer RSS guard after 15 minutes, while a matched WPR-only
+control passed 15 minutes with stable RSS. This contrast points to Nsight
+instrumentation overhead in that run, but does not prove the renderer has no
+memory issue under other conditions. Neither follow-up reproduces the October 4
+queue-full event. GPU-memory telemetry was not collected.
 
-If RTX 3060 qualification remains important, the next useful work is one
-instrumented reproduction attempt, not another unchanged eight-hour soak:
+If RTX 3060 qualification remains important, the next useful work is to isolate
+the profiler-associated RSS growth and find a lower-overhead capture, not to
+repeat the same instrumented 45-minute attempt or unchanged eight-hour soak:
 
 1. Preserve the current strict failure guards and `--adapter NVIDIA` selection.
    Add a timestamped record when sender lag approaches its 250 ms limit so a
    harness pause can be separated from a renderer queue-service pause.
 2. Use Microsoft's Windows Performance Toolkit (WPT) for a cross-vendor ETW
    capture: WPR records CPU scheduling and graphics events, and WPA/GPUView
-   analyzes them. At the latest check, `wpr.exe` was already available and
-   exposed `GPU` and `DesktopComposition` profiles; WPA and GPUView were not
-   found on `PATH`. Install only the WPT feature from the Windows ADK if those
-   analyzers are not installed elsewhere. The earlier WPR attempt failed to
-   enable system profiling (`0xc5585011`), so resolve that capture-policy issue
-   and verify a short trace before any long capture. See
+   analyzes them. At the earlier check, `wpr.exe` was available and exposed
+   `GPU` and `DesktopComposition` profiles; WPA and GPUView were not found in
+   that workspace. They were found in the 2026-10-05 Windows session. A custom
+   WPR profile now records DxgKrnl present/GPU-scheduling events with zero ETW
+   loss. Its dump still contains many system/DWM process IDs, so treat it as
+   system-wide WDDM context. The combined Nsight D3D12/WPR run hit the renderer
+   RSS guard at 15 minutes; the matched WPR-only control passed 15 minutes.
+   Do not repeat the same instrumented 45-minute run until its RSS overhead is
+   addressed. A CPU-scheduling profile needs a practical-size smoke test. See
    [WPT](https://learn.microsoft.com/en-us/windows-hardware/drivers/display/using-gpuview)
    and [GPUView installation](https://learn.microsoft.com/en-us/windows-hardware/drivers/display/installing-gpuview).
-   If WPT still cannot capture the renderer's D3D12 waits, NVIDIA Nsight Systems
-   is an optional RTX-specific supplement for D3D12/WDDM activity and wait calls;
-   it is not needed for basic test control. AMD Radeon GPU Profiler targets AMD
-   GPU workloads and would not diagnose the renderer's selected RTX adapter.
+   The current WPR profile captures WDDM events but omits CPU context switches;
+   an all-process scheduler profile was too large even in a short smoke. Nsight
+   captured D3D12 API/workload events, but its combined run failed the RSS guard.
+   Keep Nsight to short diagnostics until a lower-overhead mode passes a matched
+   control. AMD Radeon GPU Profiler targets AMD GPU workloads and would not
+   diagnose the renderer's selected RTX adapter.
    See [Nsight Systems](https://developer.nvidia.com/docs/drive/drive-os/7.0.3/public/nsight/nsight-systems/UserGuide/index.html)
    and [Radeon GPU Profiler](https://gpuopen.com/manuals/rgp_manual/).
    If system profiling remains unavailable, expand the renderer trace around
