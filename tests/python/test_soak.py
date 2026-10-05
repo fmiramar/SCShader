@@ -5,7 +5,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
 from osc_client import decode_message, osc_message, osc_bundle
-from soak_uniforms import Health, MemoryHealth, arguments as soak_arguments, due_traffic_updates, renderer_options
+from soak_uniforms import Health, MemoryHealth, SenderLagMonitor, arguments as soak_arguments, due_traffic_updates, renderer_options
 
 
 class WireTests(unittest.TestCase):
@@ -84,6 +84,21 @@ class HealthTests(unittest.TestCase):
 
 
 class TrafficScheduleTests(unittest.TestCase):
+    def test_sender_lag_monitor_records_timestamped_threshold_crossings_once(self):
+        monitor = SenderLagMonitor()
+        self.assertIsNone(monitor.observe(49.9, 1.0, "2026-10-05T12:00:00.000+00:00"))
+        first = monitor.observe(100.0, 2.0, "2026-10-05T12:00:01.000+00:00")
+        self.assertEqual(first["crossed_checkpoints_ms"], [50.0, 100.0])
+        self.assertEqual(first["observed_lag_ms"], 100.0)
+        self.assertEqual(first["utc_timestamp"], "2026-10-05T12:00:01.000+00:00")
+        self.assertEqual(monitor.observe(175.0, 3.0)["crossed_checkpoints_ms"], [150.0])
+        self.assertEqual(monitor.observe(225.0, 4.0)["crossed_checkpoints_ms"], [200.0])
+        at_limit = monitor.observe(250.0, 5.0)
+        self.assertEqual(at_limit["crossed_checkpoints_ms"], [250.0])
+        self.assertEqual(at_limit["limit_ms"], 250.0)
+        self.assertIsNone(monitor.observe(300.0, 6.0))
+        self.assertEqual(len(monitor.checkpoints), 4)
+
     def test_future_tick_does_not_send_or_shift_schedule(self):
         self.assertEqual(due_traffic_updates(1.0, 0.5, 1000), (0, 0, 1.0))
 

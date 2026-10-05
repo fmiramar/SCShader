@@ -31,6 +31,17 @@ not a root-cause finding. Both runs are below one-hour qualification. The WPR
 ETLs report zero lost buffers/events. See the
 [capture diagnostic and trace limits](platform-results/2026-10-04-windows-rtx3060-soaks.md).
 
+The follow-up compact WPR scheduler profile passes a 60-second smoke and a
+45-minute RTX 3060 / D3D12 diagnostic, covering the previous 2,482.785-second
+queue-failure point without reproducing it. The 45-minute run sends 2,700,000
+updates, skips none, peaks at 6.706 ms sender lag, and records no sampled queue
+drops or runtime renderer slow phase; WPR reports zero lost buffers/events.
+The 4.1 GB ETL includes system-wide CPU context switches and DxgKrnl activity.
+The harness now records lag checkpoints with UTC timestamps and the Python
+sender PID. Python unittest discovery passes 135 tests. This is not a one-hour
+qualification or a root-cause finding. See the
+[scheduler capture and limits](platform-results/2026-10-04-windows-rtx3060-soaks.md).
+
 ## Windows laptop eight-hour traffic checks — 2026-10-04
 
 Both adapters independently pass the standard validator for 28,800 seconds:

@@ -34,7 +34,7 @@ class AcceptanceTests(unittest.TestCase):
     def result(self):
         return dict(passed=True, mode="traffic", renderer_sha256="expected", requested_seconds=28800,
                     elapsed_seconds=28800.1, rss_monitoring=True, requested_rate=1000, overlay_enabled=False,
-                    max_rss_mib=512, max_rss_growth_mib=128, memory_warmup_seconds=30)
+                    max_rss_mib=512, max_rss_growth_mib=128, memory_warmup_seconds=30, sender_pid=1234)
 
     def test_exact_completed_candidate_is_accepted(self):
         validate_result(self.result(), "traffic", 28800, "expected")
@@ -54,7 +54,8 @@ class AcceptanceTests(unittest.TestCase):
                            ("requested_seconds", 60), ("elapsed_seconds", 60),
                            ("elapsed_seconds", float("nan")), ("rss_monitoring", False),
                            ("max_rss_mib", 1024), ("max_rss_growth_mib", 256),
-                           ("memory_warmup_seconds", 200), ("requested_rate", 100), ("overlay_enabled", True)]:
+                           ("memory_warmup_seconds", 200), ("requested_rate", 100), ("overlay_enabled", True),
+                           ("sender_pid", 0)]:
             result = self.result()
             result[key] = value
             with self.assertRaises(RuntimeError):

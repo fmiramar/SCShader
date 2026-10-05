@@ -44,7 +44,8 @@ def validate_result(result: dict, mode: str, seconds: float, renderer_hash: str,
             or result.get("requested_window_position") != position
             or result.get("max_rss_mib") != 512
             or result.get("max_rss_growth_mib") != 128
-            or result.get("memory_warmup_seconds") != 30):
+            or result.get("memory_warmup_seconds") != 30
+            or type(result.get("sender_pid")) is not int or result.get("sender_pid") <= 0):
         raise RuntimeError(f"{mode}: missing, mismatched, failed, or incomplete evidence")
     if adapter and adapter.strip().lower() not in result.get("device", "").lower():
         raise RuntimeError(f"{mode}: renderer did not report the requested adapter")

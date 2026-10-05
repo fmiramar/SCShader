@@ -7,7 +7,10 @@ eight-hour attempt on `E_QUEUE_FULL`; investigate and fix that queue-service iss
 before repeating the long soak. Follow-up tracing passes 30-minute traffic on
 both the RTX-driven and Radeon-driven displays, but a 45-minute diagnostic ends
 at 830.779 seconds on the sender-lag guard without reproducing `E_QUEUE_FULL`.
-The root cause remains unknown. See the
+A later WPR-only scheduler capture passes 45 minutes through the historic
+queue-failure point with no sender pause or queue drop; this does not establish
+a fix. The harness now records UTC lag checkpoints and sender PID for future
+trace correlation. The root cause remains unknown. See the
 [latest desktop soak result](../platform-results/2026-10-04-windows-rtx3060-soaks.md).
 Listening, mixed DPI, sleep/wake and remaining release gates are tracked in the
 [desktop result](../platform-results/2026-09-30-windows-dual-gpu.md).

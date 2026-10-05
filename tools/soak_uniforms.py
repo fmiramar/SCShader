@@ -24,6 +24,8 @@ from process_memory import windows_rss_kib
 # Bound recovery bursts by elapsed traffic time, not a fixed packet count:
 # 16 updates at 1 kHz, but enough for normal polling at the supported 50 kHz.
 MAX_CATCH_UP_SECONDS = 0.016
+SENDER_LAG_LIMIT_MS = 250.0
+SENDER_LAG_CHECKPOINTS_MS = (50.0, 100.0, 150.0, 200.0, SENDER_LAG_LIMIT_MS)
 
 
 # CPython 3.12 on Windows implements monotonic() with GetTickCount64:
@@ -41,6 +43,30 @@ def due_traffic_updates(next_update: float, now: float, rate: float) -> tuple[in
     max_burst = max(1, math.ceil(rate * MAX_CATCH_UP_SECONDS))
     skipped = max(0, due - max_burst)
     return due - skipped, skipped, next_update + skipped / rate
+
+
+@dataclass
+class SenderLagMonitor:
+    """Record timestamped crossings of the traffic sender's lag guard."""
+    recorded_ms: set[float] = field(default_factory=set)
+    checkpoints: list[dict] = field(default_factory=list)
+
+    def observe(self, lag_ms: float, elapsed_seconds: float, utc_timestamp: str | None = None) -> dict | None:
+        crossed = [threshold for threshold in SENDER_LAG_CHECKPOINTS_MS
+                   if threshold <= lag_ms and threshold not in self.recorded_ms]
+        if not crossed:
+            return None
+        self.recorded_ms.update(crossed)
+        record = {
+            "event": "sender_lag_checkpoint",
+            "utc_timestamp": utc_timestamp or datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+            "elapsed_seconds": round(elapsed_seconds, 6),
+            "observed_lag_ms": round(lag_ms, 3),
+            "crossed_checkpoints_ms": crossed,
+            "limit_ms": SENDER_LAG_LIMIT_MS,
+        }
+        self.checkpoints.append(record)
+        return record
 
 
 @dataclass
@@ -337,6 +363,7 @@ def run(args, duration, result):
         reload_pending = None
         actions = updates = reloads = skipped_updates = max_burst = 0
         max_sender_lag_ms = 0.0
+        sender_lag_monitor = SenderLagMonitor()
         rss = None
 
         def sample(now):
@@ -363,8 +390,12 @@ def run(args, duration, result):
                 if owned and owned.process.poll() is not None:
                     raise RuntimeError(f"renderer exited with {owned.process.returncode}")
                 if args.mode == "traffic":
-                    max_sender_lag_ms = max(max_sender_lag_ms, (now - next_update) * 1000)
-                    if now - next_update > 0.25:
+                    sender_lag_ms = (now - next_update) * 1000
+                    max_sender_lag_ms = max(max_sender_lag_ms, sender_lag_ms)
+                    checkpoint = sender_lag_monitor.observe(sender_lag_ms, now - start)
+                    if checkpoint:
+                        print("SENDER_LAG_CHECKPOINT " + json.dumps(checkpoint, sort_keys=True), flush=True)
+                    if sender_lag_ms > SENDER_LAG_LIMIT_MS:
                         raise RuntimeError("traffic generator stalled; requested rate was not maintained")
                     send_count, skipped, next_update = due_traffic_updates(next_update, now, args.rate)
                     skipped_updates += skipped
@@ -429,6 +460,8 @@ def run(args, duration, result):
             result.update(elapsed_seconds=soak_clock() - start, updates=updates,
                           skipped_updates=skipped_updates, max_update_burst=max_burst, pongs=health.pongs,
                           max_sender_lag_ms=max_sender_lag_ms,
+                          sender_lag_limit_ms=SENDER_LAG_LIMIT_MS,
+                          sender_lag_checkpoints=sender_lag_monitor.checkpoints,
                           status_samples=health.statuses, first_frame=health.first_frame, last_frame=health.frame,
                           reloads=reloads, resize_actions=resize.requests if resize else 0,
                           resize_confirmations=len(resize.observations) if resize else 0,
@@ -446,7 +479,13 @@ def main() -> int:
                   requested_backend=args.backend, requested_window_system=args.window_system,
                   requested_adapter=args.adapter, requested_power_preference=args.power_preference,
                   elapsed_seconds=0.0, expected_protocol_errors=0, max_rss_mib=args.max_rss_mib,
-                  max_rss_growth_mib=args.max_rss_growth_mib, memory_warmup_seconds=args.memory_warmup)
+                  max_rss_growth_mib=args.max_rss_growth_mib, memory_warmup_seconds=args.memory_warmup,
+                  sender_pid=os.getpid(), sender_lag_limit_ms=SENDER_LAG_LIMIT_MS,
+                  sender_lag_checkpoints=[])
+    print("SENDER_PROCESS " + json.dumps({
+        "pid": os.getpid(),
+        "utc_timestamp": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+    }, sort_keys=True), flush=True)
     code = 1
     try:
         run(args, duration, result)

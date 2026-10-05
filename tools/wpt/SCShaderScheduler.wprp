@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WindowsPerformanceRecorder Version="1.0">
+  <Profiles>
+    <SystemCollector Id="SCShaderSchedulerSystemCollector" Name="SCShader scheduler collector">
+      <BufferSize Value="1024" />
+      <Buffers Value="64" />
+    </SystemCollector>
+    <EventCollector Id="SCShaderSchedulerDxgCollector" Name="SCShader DxgKrnl collector">
+      <BufferSize Value="1024" />
+      <Buffers Value="64" />
+    </EventCollector>
+    <SystemProvider Id="SCShaderSchedulerSystemProvider">
+      <Keywords>
+        <Keyword Value="CSwitch" />
+        <Keyword Value="CompactCSwitch" />
+        <Keyword Value="ProcessThread" />
+        <Keyword Value="ReadyThread" />
+      </Keywords>
+    </SystemProvider>
+    <EventProvider Id="SCShaderSchedulerDxgProvider"
+                   Name="802ec45a-1e99-4b83-9920-87c98277ba9d"
+                   NonPagedMemory="true" Level="5" Strict="true">
+      <Keywords>
+        <Keyword Value="0x0000000008018000" />
+      </Keywords>
+    </EventProvider>
+    <Profile Id="SCShaderScheduler.Light.File"
+             Name="SCShaderScheduler"
+             Description="CPU scheduling and DxgKrnl GPU scheduling/present events; no stacks"
+             LoggingMode="File" DetailLevel="Light">
+      <ProblemCategories>
+        <ProblemCategory Value="Resource Analysis" />
+      </ProblemCategories>
+      <Collectors>
+        <SystemCollectorId Value="SCShaderSchedulerSystemCollector">
+          <SystemProviderId Value="SCShaderSchedulerSystemProvider" />
+        </SystemCollectorId>
+        <EventCollectorId Value="SCShaderSchedulerDxgCollector">
+          <EventProviders>
+            <EventProviderId Value="SCShaderSchedulerDxgProvider" />
+          </EventProviders>
+        </EventCollectorId>
+      </Collectors>
+    </Profile>
+  </Profiles>
+</WindowsPerformanceRecorder>

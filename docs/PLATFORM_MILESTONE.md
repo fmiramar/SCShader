@@ -27,7 +27,7 @@ properties on other operating systems or architectures.
 
 | Track | Starting evidence | Next required evidence | Priority |
 | --- | --- | --- | --- |
-| Windows x64 / D3D12 | Installed 0.0.18 desktop package and interaction checks pass; RTX 3060 one-hour traffic passes but its eight-hour attempt fails on `E_QUEUE_FULL`; RX 580 has a separate eight-hour pass. A traced RTX run hit the RSS guard at 15 minutes under Nsight; a matched WPR-only 15-minute control passed | Resolve/retest the RTX queue-service failure and account for Nsight's apparent RSS overhead, plus listening, mixed DPI/sleep-wake and other-platform regression | Desktop long-run gate incomplete |
+| Windows x64 / D3D12 | Installed 0.0.18 desktop package and interaction checks pass; RTX 3060 one-hour traffic passes but its eight-hour attempt fails on `E_QUEUE_FULL`; RX 580 has a separate eight-hour pass. Nsight capture hit the RSS guard, while a compact WPR scheduler profile passed 45 minutes through the historic queue-failure time without reproducing it | Resolve/retest the intermittent RTX queue-service failure; retain sender PID/lag checkpoints and WPR capture for a future reproduction, plus listening, mixed DPI/sleep-wake and other-platform regression | Desktop long-run gate incomplete |
 | CachyOS x86-64 / Hyprland / Vulkan | 0.0.18 package, Wayland/Xwayland interactions, acceptance, SC/help, stress and recovery pass | Manual input/appearance/listening and long release gates | Short Linux gate passed |
 | macOS arm64 / Metal | Native 0.0.18 Apple M5 short suites plus 19 native interaction stages and user input confirmation pass; SC normal-close correction passes 26 installed checks | Listening/sleep-wake observations and Intel/shared-platform regression | Short and interaction gates passed |
 | macOS x64 / Metal | Local 0.0.16 short suites and installed docs passed | Rerun affected checks after shared changes; retain memory workaround | Critical regression protection |
@@ -86,6 +86,16 @@ video/camera, compute, and shared memory remain later scope, not prerequisites
 for testing the implemented desktop feature set.
 
 ## Session log
+
+- 2026-10-05 WPR scheduler follow-up: timestamped 50/100/150/200/250 ms
+  sender-lag checkpoints and sender PID are now in acceptance evidence. Python
+  unittest discovery passes 135 tests. A compact CSwitch/ReadyThread + DxgKrnl
+  WPR profile passes a 60-second smoke, 15-minute control, and 45-minute
+  RTX 3060/D3D12 traffic diagnostic. The 45-minute run crosses the former
+  2,482.785-second queue-failure time with 2.7 million updates, zero sender
+  skips/queue drops, 6.706 ms maximum sender lag, stable RSS, and zero ETW loss.
+  It does not reproduce the fault or establish a fix. See the
+  [capture record](platform-results/2026-10-04-windows-rtx3060-soaks.md).
 
 - 2026-10-05 desktop RTX capture diagnostic: a custom WPR DxgKrnl GPU
   present/scheduling profile and Nsight D3D12 smoke produced usable traces with

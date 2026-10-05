@@ -223,6 +223,58 @@ seconds; frame production continued. The harness closed its owned renderer
 window when the RSS guard stopped the test, rather than after a renderer crash.
 All raw traces, exports, and logs remain under ignored `build/platform-tests/2026-10-05-*` paths.
 
+## 2026-10-05 sender checkpoints and WPR scheduler capture
+
+The acceptance harness now writes one-time sender-lag checkpoint records at
+50, 100, 150, 200, and 250 ms. Each record contains a UTC timestamp, monotonic
+elapsed time, observed lag, and guard limit; thresholds crossed between polling
+iterations share the first observation time. The mode JSON now includes the
+traffic sender PID, and the acceptance validator requires it, so future WPR
+process reports can distinguish the sender from the acceptance supervisor.
+
+`tools/wpt/SCShaderScheduler.wprp` combines kernel `CSwitch`, `CompactCSwitch`,
+`ProcessThread`, and `ReadyThread` events with the existing DxgKrnl
+GPU-scheduling/present keyword mask `0x08018000`. It records no call stacks and
+does not use Nsight. Kernel scheduling and WDDM events are system-wide; the
+profile does not isolate all events to SCShader. The timing summary can be
+correlated by UTC, and xperf's context-switch process report includes the
+renderer and Python processes.
+
+A final 60-second profile smoke passed on the exact renderer hash above, NVIDIA
+RTX 3060, D3D12, and the Radeon-driven primary at `(64,64)`: 60,000 updates, no
+skips, and 2.080 ms maximum sender lag. The ETL was 58,720,256 bytes for 61.37
+seconds with zero lost buffers/events. The sender PID was present in both the
+console marker and JSON, and xperf listed it alongside the renderer. xperf also
+emitted an `Invalid Event` decode warning for the ETW
+`EventTraceConfigGuid` system-configuration record; its context-switch report
+completed, and WPR reported no lost data. The GUID is identified in
+[Microsoft's NT Kernel Logger constants](https://learn.microsoft.com/en-us/windows/win32/etw/nt-kernel-logger-constants).
+
+A 15-minute WPR-only run on the same route passed 900.001 seconds with 900,000
+updates, no skipped ticks, 5.467 ms maximum sender lag, and no queue/drop
+counters. It produced a 1,939,865,600-byte ETL with zero lost buffers/events.
+This covered the earlier sender-pause interval near 831 seconds without
+reproducing it.
+
+The follow-up 45-minute WPR-only run used the same 0.0.18 renderer, NVIDIA
+RTX 3060, D3D12, high-performance preference, Radeon-driven primary position
+`(64,64)`, 1 kHz traffic, and renderer timing trace. It passed 2,700.001
+seconds with 2,700,000 updates, zero skipped ticks, maximum sender lag 6.706 ms,
+and no sender checkpoint. RSS baseline/peak/final was 184,436/184,960/182,284
+KiB. The renderer timing log contains only the 441.041 ms initialization phase
+above its 50 ms threshold; it records no runtime slow phase or `E_QUEUE_FULL`.
+The 4,105,175,040-byte ETL spans 45:02 and reports zero lost buffers/events.
+xperf's process report includes the renderer and two `python.exe` processes;
+this run predates the sender-PID field, so it does not distinguish the sender
+from its supervisor. The updated 60-second smoke verifies that PID evidence is
+now emitted for future captures.
+
+Neither WPR-only run reproduces the queue-full or sender-pause failures. The
+45-minute diagnostic covers the historic 2,482.785-second queue-failure time,
+but does not qualify the unchanged renderer for one hour or eight hours and
+does not identify a root cause. The profile footprint was about 87 MiB/minute
+on the 45-minute run; keep raw ETLs and exports in ignored `build/` evidence.
+
 ## Current diagnosis and next steps
 
 The queue is bounded at 256 commands. At the test rate of 1,000 continuous
@@ -254,45 +306,26 @@ instrumentation overhead in that run, but does not prove the renderer has no
 memory issue under other conditions. Neither follow-up reproduces the October 4
 queue-full event. GPU-memory telemetry was not collected.
 
-If RTX 3060 qualification remains important, the next useful work is to isolate
-the profiler-associated RSS growth and find a lower-overhead capture, not to
-repeat the same instrumented 45-minute attempt or unchanged eight-hour soak:
+The queue-service cause remains open. Nsight stays out of longer diagnostics
+because its in-process instrumentation previously hit the RSS guard. The compact
+WPR scheduler profile passed a 45-minute run with no losses, but the intermittent
+queue failure did not recur. Preserve the strict guards and do not treat that
+non-reproduction as a fix:
 
-1. Preserve the current strict failure guards and `--adapter NVIDIA` selection.
-   Add a timestamped record when sender lag approaches its 250 ms limit so a
-   harness pause can be separated from a renderer queue-service pause.
-2. Use Microsoft's Windows Performance Toolkit (WPT) for a cross-vendor ETW
-   capture: WPR records CPU scheduling and graphics events, and WPA/GPUView
-   analyzes them. At the earlier check, `wpr.exe` was available and exposed
-   `GPU` and `DesktopComposition` profiles; WPA and GPUView were not found in
-   that workspace. They were found in the 2026-10-05 Windows session. A custom
-   WPR profile now records DxgKrnl present/GPU-scheduling events with zero ETW
-   loss. Its dump still contains many system/DWM process IDs, so treat it as
-   system-wide WDDM context. The combined Nsight D3D12/WPR run hit the renderer
-   RSS guard at 15 minutes; the matched WPR-only control passed 15 minutes.
-   Do not repeat the same instrumented 45-minute run until its RSS overhead is
-   addressed. A CPU-scheduling profile needs a practical-size smoke test. See
-   [WPT](https://learn.microsoft.com/en-us/windows-hardware/drivers/display/using-gpuview)
-   and [GPUView installation](https://learn.microsoft.com/en-us/windows-hardware/drivers/display/installing-gpuview).
-   The current WPR profile captures WDDM events but omits CPU context switches;
-   an all-process scheduler profile was too large even in a short smoke. Nsight
-   captured D3D12 API/workload events, but its combined run failed the RSS guard.
-   Keep Nsight to short diagnostics until a lower-overhead mode passes a matched
-   control. AMD Radeon GPU Profiler targets AMD GPU workloads and would not
-   diagnose the renderer's selected RTX adapter.
-   See [Nsight Systems](https://developer.nvidia.com/docs/drive/drive-os/7.0.3/public/nsight/nsight-systems/UserGuide/index.html)
-   and [Radeon GPU Profiler](https://gpuopen.com/manuals/rgp_manual/).
-   If system profiling remains unavailable, expand the renderer trace around
-   `about_to_wait`, redraw/event callbacks, frame acquisition, submit, and
-   `Present`, and keep the queue-full snapshot of phase, time since receive, and
-   last native message.
-3. Change one condition per follow-up. Use the captured phase and Windows trace
-   to decide whether to compare a second display route or a different backend;
-   the completed 30-minute route pair already shows that neither route alone
-   deterministically reproduces the fault.
-4. After a root cause is identified and a fix is covered by a regression check,
-   rerun the short suite, schedule a one-hour validation, and leave the
-   eight-hour soak as the final release gate.
+1. Keep the sender UTC checkpoints, `sender_pid`, renderer timing trace, and
+   `tools/wpt/SCShaderScheduler.wprp` together for any future reproduction. If a
+   sender checkpoint or queue-full diagnostic occurs, use its UTC/elapsed time
+   and PID to focus WPA on the sender and renderer threads. The xperf
+   `EventTraceConfigGuid` decode warning remains a tooling limitation despite
+   zero WPR lost buffers/events.
+2. Change only one condition per follow-up. Existing 30-minute route comparisons
+   and the new 45-minute primary-display diagnostic do not show a deterministic
+   route dependency or reproduce the queue failure. Use a captured failure to
+   choose the next route/backend comparison rather than changing queue capacity
+   or relaxing acceptance guards.
+3. After a root cause is identified and a fix has regression coverage, rerun
+   short checks, schedule a one-hour validation, and leave the eight-hour soak
+   as the user's final release gate.
 
 Increasing the queue size or relaxing the sender/queue acceptance criteria would
 hide symptoms without identifying the stall, so neither is a useful diagnostic

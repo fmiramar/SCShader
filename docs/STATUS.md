@@ -16,6 +16,13 @@ control passed with stable RSS, which points to Nsight instrumentation overhead
 but does not prove a renderer leak. The queue-service issue and eight-hour gate
 remain open; see the [capture results](platform-results/2026-10-04-windows-rtx3060-soaks.md).
 
+A later WPR-only scheduler capture passed 45 minutes on the RTX 3060 / D3D12,
+including the prior 2,482-second queue-failure window: 2.7 million updates,
+zero skipped ticks or queue drops, 6.706 ms maximum sender lag, stable RSS, and
+zero ETW loss. It did not reproduce the failure or establish a fix. The harness
+now records timestamped sender-lag checkpoints and the sender PID. Python: 135
+tests pass. See the [capture record](platform-results/2026-10-04-windows-rtx3060-soaks.md).
+
 2026-10-05 traced routing diagnostics pass for 30 minutes on both the RTX-driven
 left output and the Radeon-driven primary. A requested 45-minute diagnostic
 stopped at 830.779 seconds when the traffic sender exceeded its 250 ms pacing
