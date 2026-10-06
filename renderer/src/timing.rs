@@ -1,4 +1,4 @@
-//! Opt-in wall-clock tracing, including a receiver-thread snapshot during a stall.
+//! Opt-in wall-clock tracing, including an OSC-thread snapshot during a service stall.
 //! No OSC fields, queue limits, or failure policies change when this is enabled.
 use std::{
     sync::{
@@ -45,7 +45,8 @@ struct Trace {
     // Phase and start time share one atomic snapshot. Writers are main-thread only;
     // the OSC thread can inspect the phase even while a driver call is blocked.
     phase: AtomicU64,
-    last_receive: AtomicU64,
+    // App-side queue-consumption time, sampled after a successful try_recv.
+    last_dequeue: AtomicU64,
     slow_counts: [AtomicU64; 11],
     #[cfg(target_os = "windows")]
     native_message: AtomicU64,
@@ -56,7 +57,7 @@ impl Trace {
         Self {
             epoch: Instant::now(),
             phase: AtomicU64::new(0),
-            last_receive: AtomicU64::new(0),
+            last_dequeue: AtomicU64::new(0),
             slow_counts: std::array::from_fn(|_| AtomicU64::new(0)),
             #[cfg(target_os = "windows")]
             native_message: AtomicU64::new(0),
@@ -88,8 +89,12 @@ impl Trace {
         (
             (phase & 0xff) as usize,
             now.saturating_sub(phase >> 8),
-            now.saturating_sub(self.last_receive.load(Ordering::Relaxed)),
+            now.saturating_sub(self.last_dequeue.load(Ordering::Relaxed)),
         )
+    }
+
+    fn mark_dequeued(&self) {
+        self.last_dequeue.store(self.now(), Ordering::Relaxed);
     }
 }
 
@@ -150,22 +155,22 @@ impl Drop for Scope<'_> {
     }
 }
 
-pub fn received() {
+pub fn dequeued() {
     if let Some(trace) = trace() {
-        trace.last_receive.store(trace.now(), Ordering::Relaxed);
+        trace.mark_dequeued();
     }
 }
 
 pub fn queue_full() {
     if let Some(trace) = trace() {
         let now = trace.now();
-        let (phase, phase_us, receive_us) = trace.snapshot_at(now);
+        let (phase, phase_us, dequeue_us) = trace.snapshot_at(now);
         eprintln!(
-            "SCShader timing t={:.6}s queue_full phase={} phase_ms={:.3} since_receive_ms={:.3}",
+            "SCShader timing t={:.6}s queue_full phase={} phase_ms={:.3} since_dequeue_ms={:.3}",
             now as f64 / 1_000_000.0,
             NAMES[phase],
             phase_us as f64 / 1000.0,
-            receive_us as f64 / 1000.0
+            dequeue_us as f64 / 1000.0
         );
         #[cfg(target_os = "windows")]
         {
@@ -236,15 +241,24 @@ mod tests {
     }
 
     #[test]
-    fn stalled_snapshot_reports_driver_wait_and_unserviced_queue_age() {
+    fn stalled_snapshot_reports_driver_wait_and_time_since_last_dequeue() {
         let trace = Trace::new();
         trace
             .phase
             .store((10_000 << 8) | Stage::Acquire as u64, Ordering::Relaxed);
-        trace.last_receive.store(8_000, Ordering::Relaxed);
+        trace.last_dequeue.store(8_000, Ordering::Relaxed);
         assert_eq!(
             trace.snapshot_at(300_000),
             (Stage::Acquire as usize, 290_000, 292_000)
         );
+    }
+
+    #[test]
+    fn dequeue_resets_the_queue_service_age_snapshot() {
+        let trace = Trace::new();
+        trace.last_dequeue.store(1, Ordering::Relaxed);
+        trace.mark_dequeued();
+        let dequeued_at = trace.last_dequeue.load(Ordering::Relaxed);
+        assert_eq!(trace.snapshot_at(dequeued_at + 5_000).2, 5_000);
     }
 }

@@ -27,7 +27,7 @@ properties on other operating systems or architectures.
 
 | Track | Starting evidence | Next required evidence | Priority |
 | --- | --- | --- | --- |
-| Windows x64 / D3D12 | Installed 0.0.18 desktop package and interaction checks pass; RTX 3060 one-hour traffic passes but its eight-hour attempt fails on `E_QUEUE_FULL`; RX 580 has a separate eight-hour pass. Nsight capture hit the RSS guard, while a compact WPR scheduler profile passed 45 minutes through the historic queue-failure time without reproducing it | Resolve/retest the intermittent RTX queue-service failure; retain sender PID/lag checkpoints and WPR capture for a future reproduction, plus listening, mixed DPI/sleep-wake and other-platform regression | Desktop long-run gate incomplete |
+| Windows x64 / D3D12 | Installed 0.0.18 desktop package and interaction checks pass; RTX 3060 one-hour traffic passes but its eight-hour attempt fails on `E_QUEUE_FULL`; RX 580 has a separate eight-hour pass. Compact WPR scheduler and timing traces, plus a 60-second concurrent resize/traffic check, have not reproduced the failure. Source review has not established an event-loop defect | Correlate a future queue-full event with sender PID/lag checkpoints and WPR scheduling evidence; keep the queue-service cause open, plus listening, mixed DPI/sleep-wake and other-platform regression | Desktop long-run gate incomplete |
 | CachyOS x86-64 / Hyprland / Vulkan | 0.0.18 package, Wayland/Xwayland interactions, acceptance, SC/help, stress and recovery pass | Manual input/appearance/listening and long release gates | Short Linux gate passed |
 | macOS arm64 / Metal | Native 0.0.18 Apple M5 short suites plus 19 native interaction stages and user input confirmation pass; SC normal-close correction passes 26 installed checks | Listening/sleep-wake observations and Intel/shared-platform regression | Short and interaction gates passed |
 | macOS x64 / Metal | Local 0.0.16 short suites and installed docs passed | Rerun affected checks after shared changes; retain memory workaround | Critical regression protection |
@@ -86,6 +86,18 @@ video/camera, compute, and shared memory remain later scope, not prerequisites
 for testing the implemented desktop feature set.
 
 ## Session log
+
+- 2026-10-05 RTX event-loop follow-up: source review confirms that
+  `since_receive_ms` in prior timing evidence measured time since successful
+  app-side queue dequeue, so the opt-in field is now named `since_dequeue_ms`.
+  No Winit or application event-loop defect is established. A combined RTX-left
+  diagnostic passes 60 seconds of 1 kHz traffic (60,000 updates) with three
+  concurrent OSC resize confirmations, 2.827 ms maximum sender lag, and zero
+  WPR lost data. The run does not reproduce the queue gap and used the renderer
+  built before the diagnostic-label change. The updated release renderer
+  (`a65c5d5f...3cd8c2`) passes a 10-second traced RTX traffic smoke with 10,000
+  updates, no skips and 1.810 ms maximum lag. Rust formatting and 60 tests pass;
+  the eight-hour gate remains open. See the [RTX result](platform-results/2026-10-04-windows-rtx3060-soaks.md).
 
 - 2026-10-05 RTX-left timing-trace follow-up: a second one-hour D3D12 traffic
   run passes on the exact renderer with opt-in phase tracing and compact WPR

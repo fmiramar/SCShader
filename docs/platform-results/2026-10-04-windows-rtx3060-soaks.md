@@ -336,22 +336,79 @@ queue-service fault and does not qualify the eight-hour gate.
 This run also qualifies one hour of traffic for the exact tested binary and
 route. The eight-hour queue-service failure and its cause remain open.
 
+## 2026-10-05 event-loop review and resize-under-traffic diagnostic
+
+The source review found no demonstrated Winit or SCShader event-loop defect.
+SCShader's OSC receiver thread validates packets and uses a bounded 256-command
+channel; the window/event-loop thread dequeues commands in `about_to_wait` and
+`RedrawRequested` callbacks. `process_commands` bounds each pass by command
+count and elapsed time. See [`osc.rs`](../../renderer/src/osc.rs) and
+[`app.rs`](../../renderer/src/app.rs).
+
+This review also corrected a timing-field name. The previous
+`since_receive_ms` value was updated by `OscServer::try_recv()` after a
+successful application-side queue dequeue; it did not measure time since a UDP
+packet arrived. The opt-in diagnostic now calls this `since_dequeue_ms`. Queue
+capacity, enqueue policy, OSC contract, and runtime behavior are unchanged.
+Rust formatting and all 60 Rust unit tests pass on the updated source.
+
+The pinned Winit 0.30.13 Windows implementation maps `ControlFlow::Poll` to a
+zero-timeout message wait and dispatches queued Windows messages; its event-loop
+runner yields message draining after `RedrawRequested`, and Windows redraw
+requests use `WM_PAINT`. See Winit's [Windows event loop](https://github.com/rust-windowing/winit/blob/v0.30.13/src/platform_impl/windows/event_loop.rs),
+[event-loop runner](https://github.com/rust-windowing/winit/blob/v0.30.13/src/platform_impl/windows/event_loop/runner.rs),
+and [window implementation](https://github.com/rust-windowing/winit/blob/v0.30.13/src/window.rs).
+This expected message-pump path makes Windows message handling a hypothesis to
+correlate during a failure, not an established source defect.
+
+A combined short diagnostic ran the exact prior renderer hash
+`cc78217490017d3175eb97083efde56a6c3726fc86257a1154c03d2a19a5ae34` on the
+RTX 3060 / D3D12 / left display. The standard traffic acceptance runner sent
+60,000 updates over 60.001 seconds while a second OSC client requested and
+confirmed three window resizes over 55 seconds. Sender lag peaked at 2.827 ms;
+there were no skipped ticks, the largest update burst was three, and RSS
+initial/peak/final was 156,392/162,252/162,188 KiB. Resize confirmations took
+10.073–11.623 ms. The renderer trace records only 420.874 ms startup
+initialization above its 50 ms threshold and no queue-full event. WPR captured
+61.308 seconds with zero lost buffers/events. Raw evidence remains under
+ignored `build/platform-tests/2026-10-05-resize-during-traffic-wpr-60s-rtx3060-left-retry1/`.
+
+The initial feedback-only attempt had three confirmed resizes but zero continuous
+updates, so it is not treated as resize-under-traffic evidence. A first combined
+launcher attempt also stopped before starting the renderer because it reused an
+acceptance output directory; the fresh-directory retry above is the completed
+diagnostic. Neither this short run nor the clean one-hour trace reproduces the
+queue overflow. The short run used the renderer built before the diagnostic
+label-only source change. The updated source then built with Rust 1.97.1 in
+release mode as SHA-256
+`a65c5d5f97301c17347e170ffeee0623904368ef5276916a898d8cc7653cd8c2`; `--version`
+reports 0.0.18. A 10-second RTX-left D3D12 traffic smoke with timing enabled
+passed on that executable: 10,000 updates, zero skips, maximum burst 2 and
+1.810 ms maximum sender lag. This checks startup and normal traffic on the new
+binary, but does not test resize under that hash, trigger a queue-full snapshot,
+or qualify any long-duration gate.
+
 ## Current diagnosis and next steps
 
 The queue is bounded at 256 commands. At the test rate of 1,000 continuous
 updates/second, a full queue represents about 256 ms of unconsumed traffic, with
 slightly less room for other commands. An earlier timing reproduction captured
 about 240 ms between renderer callbacks and 256 ms since the last consumed
-command while sender lag was only 3.035 ms. The October 4 eight-hour queue-full
-failure also had only 83.276 ms maximum sender lag, below the harness's 250 ms
-failure guard. Together these point to a **consumer-side service gap** as the
-proximate mechanism; they do not explain what blocked or delayed the renderer's
-event-loop thread.
+command while sender lag was only 3.035 ms. The old `since_receive_ms` field is
+now understood to mean time since the last app-side dequeue. The October 4
+eight-hour queue-full failure also had only 83.276 ms maximum sender lag, below
+the harness's 250 ms
+failure guard. That eight-hour run had timing tracing disabled and no WPR ETL;
+its last CSV sample was 2.583 seconds before the queue failure, so it cannot
+identify the blocking stage. This supports a **consumer-side service gap** as
+the proximate mechanism but does not explain what blocked or delayed the
+renderer event-loop thread.
 
 The earlier queue-full trace captured phase `event_loop` about 240 ms between
 instrumented callbacks, rather than an instrumented GPU acquisition, submit, or
-present phase. That makes a Windows/winit event-loop or message-dispatch delay,
-or OS thread-scheduling stall, the leading underlying suspects. A D3D12/driver
+present phase. The source review confirms Winit's Poll/message-dispatch path but
+does not identify a lost wakeup or SCShader defect. Windows message handling or
+OS thread scheduling remain hypotheses. A D3D12/driver
 presentation wait remains possible but was not observed in that trace; Microsoft's
 [DXGI Present documentation](https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiswapchain-present)
 notes that Present can wait on a message-pump thread in some configurations.

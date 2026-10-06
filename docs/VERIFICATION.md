@@ -1,5 +1,23 @@
 # Verification
 
+## RTX-left concurrent resize and traffic diagnostic — 2026-10-05
+
+The 60.001-second D3D12 run sends 60,000 updates with zero skipped ticks and
+2.827 ms maximum sender lag while a second OSC client completes three resizes
+during a 55-second overlap. RSS stays within bounds; the renderer log records
+only 420.874 ms startup initialization above 50 ms. WPR captures 61.308 seconds
+with zero lost buffers/events. This does not reproduce the queue-service failure
+or qualify one hour. Source review confirms the old `since_receive_ms` timing
+field measured age since application-side dequeue; it is renamed
+`since_dequeue_ms`. Rust 1.97.1 `cargo fmt --check` and `cargo test --locked`
+pass (60 tests). The traffic/resize run used the preceding renderer hash
+`cc782174...a5ae34`, before this diagnostic-label-only source change. The
+updated release build has SHA-256
+`a65c5d5f97301c17347e170ffeee0623904368ef5276916a898d8cc7653cd8c2`; a 10-second
+timing-enabled RTX-left traffic smoke passes with 10,000 updates, no skipped
+ticks and 1.810 ms maximum sender lag. This is a short smoke only. [Detailed
+analysis and exact evidence](platform-results/2026-10-04-windows-rtx3060-soaks.md).
+
 ## Windows desktop RTX 3060 traffic soaks — 2026-10-04
 
 On the exact 0.0.18 D3D12 renderer (`cc782174...a5ae34`), RTX 3060 traffic passes
@@ -10,7 +28,8 @@ peaks at 83.276 ms and RSS remains within limits. This reproduces the desktop
 queue-drop symptom, does not qualify eight hours, and does not establish a root
 cause. Four ten-second modes also pass on RTX 3060 and RX 580; formatting,
 Clippy, Rust/Python tests, scheduling/runtime stress and logical recovery pass.
-Investigate and fix the queue-service issue before another long soak. See the
+The source review has not identified a cause or fix; do not repeat the eight-hour
+soak until the queue-service issue is resolved. See the
 [full result and exact evidence](platform-results/2026-10-04-windows-rtx3060-soaks.md).
 
 The 2026-10-05 traced display-route controls pass for 60 seconds on both GPUs

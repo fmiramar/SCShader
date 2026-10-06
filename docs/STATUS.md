@@ -5,9 +5,18 @@ Updated 2026-10-05. Current development version: **0.0.18**. Not a final v0.1.0 
 Desktop RTX 3060 follow-up: the exact 0.0.18 D3D12 renderer passes one hour of
 traffic, then fails its eight-hour attempt after 2,482.785 seconds on
 `E_QUEUE_FULL` (one dropped continuous update). The RTX desktop long-run issue
-remains open; do not repeat the eight-hour soak on this unchanged binary before
-investigating the queue-service failure. See the
+remains open; do not repeat the eight-hour soak on this unchanged binary. The
+source and trace review has narrowed the proximate mechanism but has not found
+the underlying cause or a fix. See the
 [RTX 3060 results](platform-results/2026-10-04-windows-rtx3060-soaks.md).
+
+A 60-second RTX-left diagnostic then passed 1 kHz traffic while a second OSC
+client requested and confirmed three window resizes: 60,000 updates, zero skips,
+2.827 ms maximum sender lag, and zero WPR lost data. This does not reproduce the
+intermittent queue-service gap. Source review confirms that the old
+`since_receive_ms` timing value measured time since app-side dequeue; it is now
+named `since_dequeue_ms`. No event-loop defect is established, and the
+eight-hour gate remains open.
 
 The 2026-10-05 capture diagnostic adds a separate guarded failure: an RTX-left
 WPR/Nsight run stopped at 900.082 seconds on 128.9 MiB RSS growth, with no

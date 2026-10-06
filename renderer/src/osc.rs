@@ -114,7 +114,7 @@ impl OscServer {
     pub fn try_recv(&self) -> Result<IncomingCommand, std::sync::mpsc::TryRecvError> {
         let result = self.receiver.try_recv();
         if result.is_ok() {
-            crate::timing::received();
+            crate::timing::dequeued();
         }
         result
     }

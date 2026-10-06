@@ -12,8 +12,11 @@ queue-failure point with no sender pause or queue drop; this does not establish
 a fix. The harness now records UTC lag checkpoints and sender PID for future
 trace correlation. A second one-hour RTX-left WPR run with renderer timing
 tracing also passes without reproducing the failure; the sampled ETL window is
-clean but does not establish dispatch latency or root cause. The eight-hour
-blocker remains. See the
+clean but does not establish dispatch latency or root cause. A 60-second
+concurrent resize/traffic diagnostic also passes, and source review corrects the
+queue timing field to report age since dequeue. The updated release renderer
+passes a 10-second traced RTX traffic smoke, but no event-loop defect is proven
+and the eight-hour blocker remains. See the
 [latest desktop soak result](../platform-results/2026-10-04-windows-rtx3060-soaks.md).
 Listening, mixed DPI, sleep/wake and remaining release gates are tracked in the
 [desktop result](../platform-results/2026-09-30-windows-dual-gpu.md).
