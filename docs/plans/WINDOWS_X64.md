@@ -2,9 +2,11 @@
 
 Status: the 0.0.18 desktop package passes RTX 3060/RX 580 short D3D12 modes and
 three-display interactions, user window/input checks, isolated SC/help checks,
-and RX 580 stress/recovery. The RTX 3060 passes one hour of traffic but fails an
-eight-hour attempt on `E_QUEUE_FULL`; investigate and fix that queue-service issue
-before repeating the long soak. Follow-up tracing passes 30-minute traffic on
+and RX 580 stress/recovery. The updated RTX 3060 renderer passes eight hours of
+traffic on the RTX-left route (28,800,001 updates, no skipped ticks or queue-full
+event). The earlier `E_QUEUE_FULL` failure on the previous renderer hash remains
+unexplained; the new run had no WPR capture and does not establish a fix or cover
+the four-mode suite. Follow-up tracing passes 30-minute traffic on
 both the RTX-driven and Radeon-driven displays, but a 45-minute diagnostic ends
 at 830.779 seconds on the sender-lag guard without reproducing `E_QUEUE_FULL`.
 A later WPR-only scheduler capture passes 45 minutes through the historic
@@ -15,8 +17,8 @@ tracing also passes without reproducing the failure; the sampled ETL window is
 clean but does not establish dispatch latency or root cause. A 60-second
 concurrent resize/traffic diagnostic also passes, and source review corrects the
 queue timing field to report age since dequeue. The updated release renderer
-passes a 10-second traced RTX traffic smoke, but no event-loop defect is proven
-and the eight-hour blocker remains. See the
+passes the 10-second traced smoke and the eight-hour traffic check, but no
+event-loop defect or root cause is proven and final-candidate gates remain. See the
 [latest desktop soak result](../platform-results/2026-10-04-windows-rtx3060-soaks.md).
 Listening, mixed DPI, sleep/wake and remaining release gates are tracked in the
 [desktop result](../platform-results/2026-09-30-windows-dual-gpu.md).

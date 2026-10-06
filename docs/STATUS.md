@@ -1,13 +1,15 @@
 # Implementation checkpoint
 
-Updated 2026-10-05. Current development version: **0.0.18**. Not a final v0.1.0 release.
+Updated 2026-10-06. Current development version: **0.0.18**. Not a final v0.1.0 release.
 
-Desktop RTX 3060 follow-up: the exact 0.0.18 D3D12 renderer passes one hour of
-traffic, then fails its eight-hour attempt after 2,482.785 seconds on
-`E_QUEUE_FULL` (one dropped continuous update). The RTX desktop long-run issue
-remains open; do not repeat the eight-hour soak on this unchanged binary. The
-source and trace review has narrowed the proximate mechanism but has not found
-the underlying cause or a fix. See the
+**Latest RTX 3060 result:** the updated renderer (SHA-256
+`a65c5d5f97301c17347e170ffeee0623904368ef5276916a898d8cc7653cd8c2`) passes an
+eight-hour D3D12 traffic check on the RTX-driven left display: 28,800.002 seconds,
+28,800,001 updates, zero skipped ticks, 15.376 ms maximum sender lag, and no
+queue-full event. Timing tracing was enabled; WPR was disabled. This qualifies
+the exact binary and route for eight-hour traffic only. The earlier failure on
+`E_QUEUE_FULL` remains unexplained, and this result is not the four-mode suite or
+the final-candidate release validation. See the
 [RTX 3060 results](platform-results/2026-10-04-windows-rtx3060-soaks.md).
 
 A 60-second RTX-left diagnostic then passed 1 kHz traffic while a second OSC

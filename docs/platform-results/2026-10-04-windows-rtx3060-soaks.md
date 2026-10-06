@@ -388,6 +388,42 @@ passed on that executable: 10,000 updates, zero skips, maximum burst 2 and
 binary, but does not test resize under that hash, trigger a queue-full snapshot,
 or qualify any long-duration gate.
 
+## 2026-10-06 eight-hour RTX-left traffic check
+
+The updated 0.0.18 renderer passed the standard eight-hour traffic acceptance
+check on the NVIDIA RTX 3060, explicitly selected with D3D12 and the window at
+`(-1856,64)` on the RTX-driven left display. The renderer SHA-256 is
+`a65c5d5f97301c17347e170ffeee0623904368ef5276916a898d8cc7653cd8c2`; the run
+started at `2026-10-06T02:49:56Z` and finished at `2026-10-06T10:49:56Z`.
+
+- **Pass:** 28,800.002 seconds; 28,800,001 updates; zero skipped updates;
+  maximum burst 16; 15.376 ms maximum sender lag; no sender lag checkpoint crossed
+  50 ms.
+- **Pass:** RSS initial/baseline/peak/final was 155,988/158,428/161,508/158,704
+  KiB. There was no `E_QUEUE_FULL` or queue-drop event. The only protocol error
+  was the acceptance harness's expected malformed-packet probe.
+- **Pass:** 28,776 pong/status samples; frames increased from 4 to 1,727,850.
+  The timing trace recorded only 425.279 ms startup initialization above its
+  50 ms threshold; no runtime slow phase was recorded.
+- **Not run:** WPR scheduler capture. Timing tracing was enabled; without WPR
+  this run cannot attribute a future service gap to OS scheduling or other
+  system activity.
+
+The acceptance manifest passes and marks this as an eight-hour check, but not an
+eight-hour suite (`qualifies_as_eight_hour_suite: false`): only traffic mode ran;
+trivial, reload, and feedback were not included. This pass qualifies the exact
+binary and route above. It does not explain or retroactively resolve the earlier
+`E_QUEUE_FULL` failure on renderer hash
+`cc78217490017d3175eb97083efde56a6c3726fc86257a1154c03d2a19a5ae34`. No failure
+was captured on the new run, and it had no WPR capture. Do not increase queue
+capacity or weaken acceptance guards based on this non-reproduction. Final-
+candidate release validation and the remaining platform/manual gates are still
+outstanding.
+
+Raw JSON, CSV, timing logs, and run metadata remain under ignored
+`build/platform-tests/2026-10-05-rtx3060-8h-timingtrace-left-current-retry1/`;
+they are not part of the source commit.
+
 ## Current diagnosis and next steps
 
 The queue is bounded at 256 commands. At the test rate of 1,000 continuous
@@ -426,9 +462,10 @@ queue-full event. GPU-memory telemetry was not collected.
 
 The queue-service cause remains open. Nsight stays out of longer diagnostics
 because its in-process instrumentation previously hit the RSS guard. The compact
-WPR scheduler profile passed a 45-minute run with no losses, but the intermittent
-queue failure did not recur. Preserve the strict guards and do not treat that
-non-reproduction as a fix:
+WPR scheduler profile passed a 45-minute run with no losses, and the later
+eight-hour traffic pass on the updated hash also did not reproduce the queue
+failure. That pass had no WPR capture, so the original cause is still unknown.
+Preserve the strict guards and do not treat non-reproduction as a fix:
 
 1. Keep the sender UTC checkpoints, `sender_pid`, renderer timing trace, and
    `tools/wpt/SCShaderScheduler.wprp` together for any future reproduction. If a
@@ -441,9 +478,11 @@ non-reproduction as a fix:
    route dependency or reproduce the queue failure. Use a captured failure to
    choose the next route/backend comparison rather than changing queue capacity
    or relaxing acceptance guards.
-3. The one-hour RTX-left validation now passes for this exact binary and route.
-   After a root cause is identified and a fix has regression coverage, leave
-   the eight-hour soak as the user's final release gate.
+3. The one-hour and eight-hour traffic checks pass on their recorded RTX-left
+   binaries/routes, including the updated hash described above. The older
+   `E_QUEUE_FULL` failure remains unexplained. Keep the final-candidate eight-hour
+   release validation as the user's last release gate after remaining platform
+   checks and candidate freeze.
 
 Increasing the queue size or relaxing the sender/queue acceptance criteria would
 hide symptoms without identifying the stall, so neither is a useful diagnostic

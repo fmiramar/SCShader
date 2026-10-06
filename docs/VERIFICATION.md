@@ -1,5 +1,22 @@
 # Verification
 
+## RTX-left eight-hour traffic check — 2026-10-06
+
+The exact 0.0.18 renderer SHA-256
+`a65c5d5f97301c17347e170ffeee0623904368ef5276916a898d8cc7653cd8c2` passes
+28,800.002 seconds of 1 kHz D3D12 traffic on the NVIDIA RTX 3060, explicitly
+selected with the window at `(-1856,64)` on the left RTX-driven display. The run
+sends 28,800,001 updates with zero skipped updates, a maximum burst of 16, and
+15.376 ms maximum sender lag. RSS initial/peak/final is 155,988/161,508/158,704
+KiB. Timing trace was enabled; WPR was disabled. The acceptance manifest marks
+`qualifies_as_eight_hour_check: true` and
+`qualifies_as_eight_hour_suite: false`; this is a traffic-only qualification for
+this exact binary and route. No queue-full event occurred, but this does not
+identify a cause or fix for the earlier `E_QUEUE_FULL` failure on the previous
+renderer hash. It is not final-candidate release validation. Raw evidence remains
+under ignored `build/platform-tests/2026-10-05-rtx3060-8h-timingtrace-left-current-retry1/`.
+See the [detailed result and limitations](platform-results/2026-10-04-windows-rtx3060-soaks.md).
+
 ## RTX-left concurrent resize and traffic diagnostic — 2026-10-05
 
 The 60.001-second D3D12 run sends 60,000 updates with zero skipped ticks and

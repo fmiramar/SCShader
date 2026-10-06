@@ -27,7 +27,7 @@ properties on other operating systems or architectures.
 
 | Track | Starting evidence | Next required evidence | Priority |
 | --- | --- | --- | --- |
-| Windows x64 / D3D12 | Installed 0.0.18 desktop package and interaction checks pass; RTX 3060 one-hour traffic passes but its eight-hour attempt fails on `E_QUEUE_FULL`; RX 580 has a separate eight-hour pass. Compact WPR scheduler and timing traces, plus a 60-second concurrent resize/traffic check, have not reproduced the failure. Source review has not established an event-loop defect | Correlate a future queue-full event with sender PID/lag checkpoints and WPR scheduling evidence; keep the queue-service cause open, plus listening, mixed DPI/sleep-wake and other-platform regression | Desktop long-run gate incomplete |
+| Windows x64 / D3D12 | RTX 3060 now passes eight-hour traffic on renderer `a65c5d5f...3cd8c2` at the RTX-left route; RX 580 has a separate eight-hour pass. The earlier RTX `E_QUEUE_FULL` failure on hash `cc782174...a5ae34` remains unexplained. The new pass is traffic-only, without WPR, and is not the four-mode suite or final-candidate validation | Keep the old failure marked unresolved; if it recurs, capture sender PID/lag checkpoints with WPR. Complete listening, mixed DPI/sleep-wake and other-platform regression, then validate the frozen final candidate | Traffic check passed for recorded binaries; desktop release gate incomplete |
 | CachyOS x86-64 / Hyprland / Vulkan | 0.0.18 package, Wayland/Xwayland interactions, acceptance, SC/help, stress and recovery pass | Manual input/appearance/listening and long release gates | Short Linux gate passed |
 | macOS arm64 / Metal | Native 0.0.18 Apple M5 short suites plus 19 native interaction stages and user input confirmation pass; SC normal-close correction passes 26 installed checks | Listening/sleep-wake observations and Intel/shared-platform regression | Short and interaction gates passed |
 | macOS x64 / Metal | Local 0.0.16 short suites and installed docs passed | Rerun affected checks after shared changes; retain memory workaround | Critical regression protection |
@@ -73,8 +73,10 @@ result, not the existence of implementation code or a future test command.
    deferral of runtime provisioning and signing qualification.
 2. Freeze a candidate per supported platform. Schedule its exact-binary one-hour
    validation with the user; do not inherit the historical 0.0.14 result for 0.0.16.
-3. The user runs the eight-hour test on the completed final candidate as the last
-   release validation step. It is not queued or launched by this milestone.
+3. The current development renderer has now passed an eight-hour traffic-only
+   check on the RTX-left route. The user still runs the eight-hour release test
+   on the completed final candidate as the last validation step; this earlier
+   run does not cover the four-mode suite or explain the older queue-full failure.
 4. Sync reviewed development source, tests, and documentation to the public GitHub
    `main` branch so the same candidate can be tested on other computers. This
    standing authorization does not cover release tags, binary release uploads,
@@ -86,6 +88,17 @@ video/camera, compute, and shared memory remain later scope, not prerequisites
 for testing the implemented desktop feature set.
 
 ## Session log
+
+- 2026-10-06 RTX-left eight-hour traffic check: the updated 0.0.18 D3D12
+  renderer (`a65c5d5f...3cd8c2`) passes 28,800.002 seconds on the NVIDIA RTX
+  3060 at `(-1856,64)`, with 28,800,001 updates, zero skipped ticks, maximum
+  sender lag 15.376 ms, and no queue-full event. RSS was 155,988/161,508/158,704
+  KiB initial/peak/final; timing tracing was enabled and WPR disabled. This
+  qualifies this exact route and binary for eight-hour traffic only. It does not
+  explain the previous `E_QUEUE_FULL` failure on `cc782174...a5ae34`, exercise
+  the eight-hour four-mode suite, or complete final-candidate release validation.
+  Raw evidence remains under ignored `build/platform-tests/`; see the
+  [RTX result record](platform-results/2026-10-04-windows-rtx3060-soaks.md).
 
 - 2026-10-05 RTX event-loop follow-up: source review confirms that
   `since_receive_ms` in prior timing evidence measured time since successful
