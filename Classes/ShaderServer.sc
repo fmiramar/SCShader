@@ -415,11 +415,21 @@ ShaderServer : Object {
     }
 
     receivedPong { |message, time, source|
-        var id = message[1].asInteger, receivedAt = Main.elapsedTime;
-        var sentAt = message[2].asFloat, rendererTime = message[3].asFloat;
-        var roundTrip = (receivedAt - sentAt).max(0.0);
-        var candidateOffset = rendererTime - (sentAt + (roundTrip * 0.5));
-        var callback = syncCallbacks.removeAt(id);
+        var id, receivedAt, sentAt, rendererTime, roundTrip, candidateOffset, callback;
+        if(message.size < 4) {
+            this.receivedError(['/scshader/v1/error', "error", "protocol", 0,
+                "E_PROTOCOL", "malformed pong reply"], time, source);
+            ^this
+        };
+        id = message[1].asInteger;
+        callback = syncCallbacks.removeAt(id);
+        // A timed-out or duplicate pong must not influence the clock estimate.
+        if(callback.isNil) { ^this };
+        receivedAt = Main.elapsedTime;
+        sentAt = message[2].asFloat;
+        rendererTime = message[3].asFloat;
+        roundTrip = (receivedAt - sentAt).max(0.0);
+        candidateOffset = rendererTime - (sentAt + (roundTrip * 0.5));
         clockSampleCount = clockSampleCount + 1;
         if(clockRoundTrip.isNil or: { roundTrip <= clockRoundTrip }) {
             clockRoundTrip = roundTrip;

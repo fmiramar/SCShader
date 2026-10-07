@@ -53,7 +53,7 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
           QTWEBENGINE_DISABLE_SANDBOX: 1
-        run: python3 tools/run_sc_checks.py compile_check typed_controls_unit diagnostics_unit
+        run: python3 tools/run_sc_checks.py compile_check typed_controls_unit diagnostics_unit reply_regression_unit
 
   package:
     name: Package ${{ matrix.platform }}-${{ matrix.architecture }}
