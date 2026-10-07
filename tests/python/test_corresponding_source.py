@@ -55,6 +55,17 @@ class CorrespondingSourceTests(unittest.TestCase):
             self.assertNotIn(str(self.root), archive.read(f"{ROOT}/SOURCE_MANIFEST.json").decode())
         self.assertTrue(self.output.with_name(self.output.name + ".sha256").is_file())
 
+    def test_windows_performance_profile_is_included(self):
+        profile = self.project / "tools/wpt/SCShaderScheduler.wprp"
+        profile.parent.mkdir(parents=True, exist_ok=True)
+        profile.write_text("<WindowsPerformanceRecorderProfile />\n", encoding="utf-8")
+        self.create()
+        with zipfile.ZipFile(self.output) as archive:
+            self.assertEqual(
+                archive.read(f"{ROOT}/tools/wpt/SCShaderScheduler.wprp"),
+                b"<WindowsPerformanceRecorderProfile />\n",
+            )
+
     def test_existing_outputs_are_retained(self):
         self.create()
         original = self.output.read_bytes()

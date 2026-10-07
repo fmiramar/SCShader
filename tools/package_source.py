@@ -33,7 +33,7 @@ SKIP_SUFFIXES = {".pyc", ".log", ".csv", ".zip", ".so", ".dylib", ".dll", ".exe"
 SOURCE_SUFFIXES = {
     ".md", ".rs", ".toml", ".lock", ".sc", ".schelp", ".scd", ".wgsl",
     ".glsl", ".frag", ".ppm", ".json", ".py", ".sh", ".ps1", ".m",
-    ".yml", ".yaml", ".txt",
+    ".yml", ".yaml", ".txt", ".wprp",
 }
 
 
