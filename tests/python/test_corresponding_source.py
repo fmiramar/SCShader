@@ -58,7 +58,7 @@ class CorrespondingSourceTests(unittest.TestCase):
     def test_windows_performance_profile_is_included(self):
         profile = self.project / "tools/wpt/SCShaderScheduler.wprp"
         profile.parent.mkdir(parents=True, exist_ok=True)
-        profile.write_text("<WindowsPerformanceRecorderProfile />\n", encoding="utf-8")
+        profile.write_bytes(b"<WindowsPerformanceRecorderProfile />\n")
         self.create()
         with zipfile.ZipFile(self.output) as archive:
             self.assertEqual(
