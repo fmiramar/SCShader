@@ -1,0 +1,46 @@
+(
+var check = { |condition, message| if(condition.not) { Error(message).throw } };
+var rejects = { |action| var failed = false; try { action.value } { failed = true }; check.value(failed, "Expected SCHydra rejection") };
+var h, other, expr, snapshot, oldBytes, nested, shared, reused, copied;
+try {
+    h = SCHydra.new;
+    other = SCHydra.new;
+    expr = h.osc(10).rotate(0.2);
+    snapshot = expr.snapshot(\o0);
+    oldBytes = snapshot[\bytes].copy;
+    check.value(snapshot[\nodes].size == 2, "osc.rotate should have two nodes");
+    check.value(snapshot[\nodes][0][\name] == \osc, "source node order");
+    check.value(snapshot[\nodes][1][\receiver] == 1, "rotate receiver ID");
+    check.value(snapshot[\nodes][0][\args][1][1] == 0.1, "osc sync default");
+    check.value(snapshot[\root] == 2, "root ID");
+    check.value(oldBytes.size > 20, "missing IR payload");
+    check.value(oldBytes[0].bitAnd(255) == 72 and: { oldBytes[3].bitAnd(255) == 82 }, "HYIR header");
+    check.value(oldBytes[7].bitAnd(255) == 0, "IR minor version");
+    check.value(oldBytes[11].bitAnd(255) == 2, "IR node count");
+    expr.rotate(0.3);
+    check.value(snapshot[\nodes].size == 2 and: { snapshot[\bytes] == oldBytes }, "snapshot changed after builder edit");
+    check.value(expr.snapshot[\nodes].size == 3, "new builder edit missing");
+    copied = expr.copy;
+    copied.rotate(0.4);
+    check.value(expr.snapshot[\nodes].size == 3 and: { copied.snapshot[\nodes].size == 4 }, "copy shared mutable builder state");
+    nested = h.osc(10).blend(h.noise(3), 0.4).snapshot;
+    check.value(nested[\nodes].size == 3 and: { nested[\nodes].last[\category] == \combine }, "nested branch missing");
+    shared = h.noise(3);
+    reused = h.osc.blend(shared).blend(shared).snapshot;
+    check.value(reused[\nodes].size == 4, "shared nested expression was duplicated");
+    rejects.value { h.osc.blend(other.noise(3)) };
+    rejects.value { h.osc(inf) };
+    rejects.value { h.osc.snapshot(\invalid) };
+    rejects.value { h.osc.rotate(0.2).blend(1) };
+    rejects.value { SCHydraExpr.new(h, \rotate, [0.2, 0]) };
+    expr = h.osc;
+    expr.blend(expr);
+    rejects.value { expr.snapshot };
+    rejects.value { h.osc.out(\o0) };
+    h.free;
+    rejects.value { h.osc };
+    other.free;
+    "SCSHADER_HYDRA_AST_UNIT_OK".postln;
+    0.exit;
+} { |error| error.reportError; 1.exit };
+)

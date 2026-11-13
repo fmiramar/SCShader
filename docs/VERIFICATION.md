@@ -1,5 +1,18 @@
 # Verification
 
+## Hydra offline AST front end — 2026-11-12
+
+With an isolated sclang class configuration that excludes the separately installed
+SCShader copy, `sclang -D -l build/hydra-tests/sclang.yaml tests/sc/hydra_ast_unit.scd`
+passes on SuperCollider 3.14.1. It verifies declared defaults, nested expressions,
+shared-subtree IDs, snapshot/copy isolation, binary header and invalid inputs.
+`tests/sc/compile_check.scd` passes with the same configuration, protecting the
+existing class library surface. This is source-checkout evidence only; no package
+installation, OSC handshake, WGSL or GPU pixels were tested. The first attempt
+failed because sclang signed 32-bit shifts overflowed at 32 bits; the bound check
+was corrected and the focused test reran successfully. Raw test configuration and
+logs remain under ignored `build/`.
+
 ## Hydra architecture preparation — 2026-11-12
 
 Source `94b9f1a03395d48b7b84a9386ad7c2951b44a137`: explicit

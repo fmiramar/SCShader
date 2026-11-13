@@ -68,10 +68,10 @@ result, not the existence of implementation code or a future test command.
 
 ## Separate Hydra development track
 
-2026-11-12: [Hydra Steps 01–04](hydra/PROGRESS.md) record a baseline, pinned behavior
-inventory, native architecture and first visual-slice specification. This is an opt-in feature track; no Hydra
-runtime is implemented and no P1 platform check is marked complete by these
-documents. The next step implements the SC expression front end.
+2026-11-12: [Hydra Steps 01–05](hydra/PROGRESS.md) record a baseline, pinned behavior
+inventory, native architecture, first visual slice and offline SC expression
+classes. The renderer transport and GPU path remain pending. These documents
+do not complete a P1 platform check. The next step implements bounded OSC transport.
 
 ## Work after P1
 
