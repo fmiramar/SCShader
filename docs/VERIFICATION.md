@@ -1,5 +1,41 @@
 # Verification
 
+## Hydra clock and scheduled controls — Step 16
+
+Parent `fb3959f`; source identified by the commit containing this record. Native
+Apple M5 / Metal, aarch64-apple-darwin, Rust 1.97.1 and SC 3.14.1; version 0.0.18,
+dependencies and lockfile unchanged. Ordinary installed renderer SHA-256
+`7a820cef8f99db0bac312d832f24b9017f9e2d47e5bcf37babd5489da7f01ad2`.
+
+PASS: formatting, strict all-target/all-feature Clippy, 82 renderer tests,
+three ten-test helper suites and two overlay tests. Clock tests cover continuous
+speed changes, pause/reverse/reset and frame metadata; transport tests cover
+idempotence, stale controls, failed preparation and admission of timed numeric/
+clock controls while structural edits remain immediate-only. The production GPU
+helper verifies beat/BPM, frame and delta pixels plus retained numeric, temporal,
+rollback, edit/disposal and linear/sRGB presentation cases. No GPU alias errors.
+
+Twelve installed SC checks pass, including clock controls through an owned
+TempoClock/Routine/Pseq, the actual new eight-beat example, and all ten preceding
+checks. The example boots/synchronizes a private audio server, sends eight audio
+bundles with muted Synths and eight corresponding visual-control/marker bundles.
+The eight renderer command-application errors range 10.587–11.139 ms
+(mean 10.780 ms). These are short scheduled-versus-applied
+renderer measurements; they do not measure GPU presentation, scan-out, acoustic
+output latency or physical audiovisual alignment. The separate source control
+smoke measures roughly 11–13 ms on this setup. Existing bounded queues, scheduler,
+NTP mapping and payload accounting are reused without a second clock estimator.
+Ordinary arm64 package/notice checks pass; the prior extension is backed up outside
+Extensions. Test hooks are absent from the installed executable.
+
+Evidence: `build/hydra-tests/clock-16/` (`clippy-reviewed.log`, `rust-reviewed.log`,
+`pixels.log`, `sc/`, `installed/`, package logs). The first compile check's unused
+compatibility-wrapper warnings are retained in `check.log`; the strict final check
+passes with narrow fixture annotations. Python runtime code did not change; its
+full suite was not repeated. Manual listening/desktop sync, other backends,
+non-default clock recovery injection and long soaks remain unqualified. Reset
+retains history; BPM changes may jump beat phase. See [CLOCK.md](hydra/CLOCK.md).
+
 ## Hydra numeric sources — Step 15
 
 Parent `b53a140`; source identified by the commit containing this record. Native

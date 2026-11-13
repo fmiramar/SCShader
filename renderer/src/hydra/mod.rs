@@ -1,4 +1,5 @@
 //! Opt-in Hydra transport. Graph activation is gated on the native compiler.
+pub mod clock;
 pub mod compiler;
 pub mod families;
 pub mod gpu;
@@ -64,6 +65,15 @@ impl Request {
             }
             "commit" | "abort" | "close" => {
                 args.len() == 3 && scoped && integer(&args, 2, 1, i32::MAX)
+            }
+            "clock" => {
+                args.len() == 7
+                    && scoped
+                    && integer(&args, 2, 1, i32::MAX)
+                    && matches!(args[3],OscType::Float(v) if v.is_finite() && (0.0..=1000.).contains(&v))
+                    && matches!(args[4],OscType::Float(v) if v.is_finite() && v.abs()<=16.)
+                    && matches!(args[5],OscType::Float(v) if v.is_finite() && v.abs()<=1e9)
+                    && integer(&args, 6, 0, 1)
             }
             "parameter" => {
                 args.len() == 7
@@ -154,6 +164,7 @@ struct Session {
     committed_outputs: VecDeque<(i32, i32)>,
     selected: i32,
     present_sequence: i32,
+    clock_sequence: Option<(i32, f32, f32, f32, i32)>,
     parameter_sequences: [Option<(i32, i32, f32)>; 4],
     upload: Option<Upload>,
     results: VecDeque<(i32, &'static str, String)>,
@@ -162,6 +173,7 @@ pub enum Preparation<'a> {
     Commit(usize, &'a ir::Program),
     Present(i32),
     Parameter(usize, u32, f32),
+    Clock(f32, f32, Option<f32>),
 }
 pub struct Transport {
     epoch: String,
@@ -238,7 +250,7 @@ impl Transport {
     pub fn execute(&mut self, r: Request, now: f64) -> Result<Reply, ErrorReply> {
         self.execute_with(r, now, |preparation| match preparation {
             Preparation::Commit(_, program) => compiler::compile(program).map(|_| ()),
-            Preparation::Present(_) | Preparation::Parameter(..) => Ok(()),
+            Preparation::Present(_) | Preparation::Clock(..) | Preparation::Parameter(..) => Ok(()),
         })
     }
     pub fn execute_with(
@@ -268,7 +280,7 @@ impl Transport {
                     0.into(),
                     OscType::Blob(limits.into_iter().flat_map(u32::to_be_bytes).collect()),
                     format!(
-                        "staging-ir-v1;wgsl-v1:{};output-o0-v1;outputs-temporal-v1;numeric-v1",
+                        "staging-ir-v1;wgsl-v1:{};output-o0-v1;outputs-temporal-v1;numeric-v1;clock-v1",
                         registry::supported()
                             .map(|s| s.name)
                             .collect::<Vec<_>>()
@@ -308,6 +320,7 @@ impl Transport {
                     selected: -1,
                     present_sequence: 0,
                     parameter_sequences: [None; 4],
+                    clock_sequence: None,
                     upload: None,
                     results: VecDeque::new(),
                 });
@@ -479,6 +492,29 @@ impl Transport {
                 }
                 reply.suffix = "aborted";
             }
+            "clock" => {
+                let (OscType::Float(bpm), OscType::Float(speed), OscType::Float(phase)) =
+                    (&r.args[3], &r.args[4], &r.args[5])
+                else {
+                    unreachable!()
+                };
+                let entry = (tx, *bpm, *speed, *phase, r.int(6));
+                if let Some(last) = session.clock_sequence {
+                    if entry == last {
+                        return Ok(reply);
+                    }
+                    if tx <= last.0 {
+                        return Err(failure(target, "E_HYDRA_STALE", "stale clock sequence"));
+                    }
+                }
+                prepare(Preparation::Clock(
+                    *bpm,
+                    *speed,
+                    if r.int(6) == 1 { Some(*phase) } else { None },
+                ))
+                .map_err(|m| failure(target, "E_HYDRA_CAPABILITY", m))?;
+                session.clock_sequence = Some(entry);
+            }
             "parameter" => {
                 let slot = r.int(3) as usize;
                 let id = r.int(5);
@@ -586,6 +622,29 @@ mod tests {
         let mut args = vec![t.epoch.clone().into(), 1.into()];
         args.extend(tail);
         args
+    }
+    #[test]
+    fn clock_retry_stale_and_failed_prepare() {
+        let mut t = Transport::default();
+        open(&mut t);
+        let args = scoped(
+            &t,
+            vec![5.into(), 120f32.into(), 1f32.into(), 0f32.into(), 1.into()],
+        );
+        let request =
+            Request::parse("clock", args.clone(), "127.0.0.1:57120".parse().unwrap()).unwrap();
+        assert!(
+            t.execute_with(request, 0., |_| Err("not open".into()))
+                .is_err()
+        );
+        assert!(t.session.as_ref().unwrap().clock_sequence.is_none());
+        run(&mut t, "clock", args.clone(), 0.).unwrap();
+        run(&mut t, "clock", args, 0.).unwrap();
+        let args = scoped(
+            &t,
+            vec![4.into(), 90f32.into(), 1f32.into(), 0f32.into(), 0.into()],
+        );
+        assert!(run(&mut t, "clock", args, 0.).is_err());
     }
     #[test]
     fn numeric_updates_guard_revision_sequence_and_failure() {

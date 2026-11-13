@@ -177,6 +177,7 @@ struct Vertex {{ @builtin(position) position:vec4<f32>, @location(0) uv:vec2<f32
             height,
         })
     }
+    #[allow(dead_code)] // Compatibility wrapper for fixed-clock GPU fixtures.
     pub fn encode_output(
         &self,
         queue: &wgpu::Queue,
@@ -185,25 +186,37 @@ struct Vertex {{ @builtin(position) position:vec4<f32>, @location(0) uv:vec2<f32
         delta: f32,
         frame: u32,
     ) {
+        self.encode_frame(
+            queue,
+            encoder,
+            super::parameters::Frame::new(time, delta, frame),
+        );
+    }
+    pub fn encode_frame(
+        &self,
+        queue: &wgpu::Queue,
+        encoder: &mut wgpu::CommandEncoder,
+        frame: super::parameters::Frame,
+    ) {
         if !self.parameters.is_empty() {
             let mut data = [0f32; 256];
             for p in &self.parameters {
-                data[(p.id - 1) as usize] = p.value(time);
+                data[(p.id - 1) as usize] = p.value_at(frame);
             }
             queue.write_buffer(&self.numbers, 0, bytemuck::cast_slice(&data));
         }
         let mut values = [0f32; 16];
         values[..8].copy_from_slice(&[
-            time,
-            1.,
-            30.,
-            delta,
+            frame.time,
+            frame.speed,
+            frame.bpm,
+            frame.delta,
             self.width as f32,
             self.height as f32,
             1. / self.width as f32,
             1. / self.height as f32,
         ]);
-        values[12] = f32::from_bits(frame);
+        values[12] = f32::from_bits(frame.frame);
         queue.write_buffer(&self.frame, 0, bytemuck::cast_slice(&values));
         let view = self.texture.create_view(&Default::default());
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

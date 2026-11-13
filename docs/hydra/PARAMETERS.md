@@ -38,8 +38,8 @@ interpolation interval about each step. `ease(\linear)` enables full smoothing.
 `ease(\easeInOutQuad)` matches the pinned piecewise quadratic easing; other easing names report an
 error. `fit(low,high)` maps the range and drops offset as the pinned upstream does;
 constant sequences are rejected because upstream range division is undefined.
-Sequences currently use the initial 30 BPM (time × speed × 0.5). Step 16 adds clock
-controls. Native discrete negative phases wrap safely; upstream's JavaScript
+Sequences use the session BPM, initially 30; [Step 16](CLOCK.md) adds clock
+controls and beat/frame/delta sources. Native discrete negative phases wrap safely; upstream's JavaScript
 remainder may produce an undefined array item. Smoothed phases wrap in both.
 
 Construct numeric sources and sequence modifiers before committing. Subsequent
@@ -63,7 +63,8 @@ for each output image. `parameter(epoch, session, sequence, output, revision,
 parameterID, value:f32)` is an immediate-only request returning the ordinary ack.
 Duplicate retries are idempotent; conflicting/older sequences and stale revisions
 are rejected before mutation. Invalid handles/values preserve accepted state.
-This is bounded stop-and-wait control traffic; timed parameter events are Step 16.
+Immediate set is bounded stop-and-wait control traffic; [Step 16](CLOCK.md) adds
+timed parameter events through the existing scheduler.
 Numeric values are retained in accepted CPU programs for recovery; numeric
 recovery injection has not been qualified in this step.
 

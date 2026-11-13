@@ -203,7 +203,7 @@ pub struct Renderer {
     hydra_output: Option<crate::hydra::outputs::Outputs>,
     hydra_program: [Option<crate::hydra::ir::Program>; 4],
     hydra_selected: i32,
-    hydra_clock: Option<Instant>,
+    hydra_clock: Option<crate::hydra::clock::Clock>,
     hydra_diagnostic: Option<String>,
     instance: wgpu::Instance,
     window: Arc<Window>,
@@ -253,6 +253,18 @@ pub struct Renderer {
 }
 
 impl Renderer {
+    pub fn configure_hydra_clock(
+        &mut self,
+        bpm: f32,
+        speed: f32,
+        phase: Option<f32>,
+    ) -> Result<(), String> {
+        self.hydra_clock
+            .as_mut()
+            .ok_or("Hydra clock not open")?
+            .configure(bpm, speed, phase);
+        Ok(())
+    }
     pub fn update_hydra_parameter(
         &mut self,
         slot: usize,
@@ -296,7 +308,8 @@ impl Renderer {
         self.hydra_diagnostic.take()
     }
     pub fn open_hydra(&mut self) {
-        self.hydra_clock.get_or_insert_with(Instant::now);
+        self.hydra_clock
+            .get_or_insert_with(crate::hydra::clock::Clock::new);
     }
     pub fn select_hydra(&mut self, mode: i32) -> Result<(), String> {
         if !(-1..=4).contains(&mode) {
@@ -1652,14 +1665,17 @@ impl Renderer {
 
         if self.hydra_selected >= 0 {
             if let Some(output) = &mut self.hydra_output {
-                output.encode_outputs(
-                    &self.device,
-                    &self.queue,
-                    self.hydra_clock
-                        .map_or(0., |clock| clock.elapsed().as_secs_f32()),
-                    time_delta,
-                    self.stats.frame_index as u32,
+                let frame = self.hydra_clock.map_or_else(
+                    || {
+                        crate::hydra::parameters::Frame::new(
+                            0.,
+                            time_delta,
+                            self.stats.frame_index as u32,
+                        )
+                    },
+                    |clock| clock.frame(Instant::now(), time_delta, self.stats.frame_index as u32),
                 );
+                output.encode_frame(&self.device, &self.queue, frame);
                 output.encode_present(
                     &mut encoder,
                     &view,

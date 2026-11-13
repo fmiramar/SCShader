@@ -194,6 +194,7 @@ impl Outputs {
             .map(|o| u64::from(o.width) * u64::from(o.height) * 4)
             .sum::<u64>()
     }
+    #[allow(dead_code)] // Compatibility wrapper for fixed-clock GPU fixtures.
     pub fn encode_outputs(
         &mut self,
         device: &wgpu::Device,
@@ -202,11 +203,23 @@ impl Outputs {
         delta: f32,
         frame: u32,
     ) {
+        self.encode_frame(
+            device,
+            queue,
+            super::parameters::Frame::new(time, delta, frame),
+        );
+    }
+    pub fn encode_frame(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        frame: super::parameters::Frame,
+    ) {
         let dst = 1 - self.last;
         for pair in self.slots.iter().flatten() {
             let output = &pair[dst];
             let mut encoder = device.create_command_encoder(&Default::default());
-            output.encode_output(queue, &mut encoder, time, delta, frame);
+            output.encode_frame(queue, &mut encoder, frame);
             // Retain the existing Metal split-submission boundary between passes.
             queue.submit(Some(encoder.finish()));
         }

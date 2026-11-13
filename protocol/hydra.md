@@ -5,8 +5,8 @@ output/temporal portion of [ADR 001](../docs/hydra/ARCHITECTURE.md). 50 procedur
 four paired output histories and presentation are available. Media sources remain unavailable. Step 15 adds the bounded numeric API below.
 
 All suffixes below use `/scshader/v1/hydra/`. Fields use ordinary OSC types:
-`i` = int32, `s` = string, `b` = blob. All requests must be immediate, including
-when nested in bundles. Reject timed structural packets before scheduling; a
+`i` = int32, `s` = string, `b` = blob. Clock and single numeric parameter controls may use inherited future timetags.
+Structural requests must be immediate, including when nested in bundles. Reject timed structural packets before scheduling; a
 malformed member rejects the whole packet. The receiver remains loopback-only.
 
 | Request | Arguments | Reply (after address) |
@@ -30,7 +30,7 @@ session; retrying a closed handle currently reports `E_HYDRA_SESSION`.
 
 `limits` is exactly five big-endian u32 values, in order: maximum IR bytes
 (65536), chunk bytes (2048), nodes (256), depth (64), expanded operations (4096).
-`features` is `staging-ir-v1;wgsl-v1:<comma-separated supported registry names>;output-o0-v1;outputs-temporal-v1;numeric-v1`. The 52 names and their defaults/types are in `renderer/src/hydra/registry.rs`; discovery order is not an ABI guarantee.
+`features` is `staging-ir-v1;wgsl-v1:<comma-separated supported registry names>;output-o0-v1;outputs-temporal-v1;numeric-v1;clock-v1`. The 52 names and their defaults/types are in `renderer/src/hydra/registry.rs`; discovery order is not an ABI guarantee.
 This narrower discovery payload supersedes the ADR's provisional full-limit
 payload for the staging feature only. Future compiler/source/presentation
 capabilities must explicitly document their additional fields before advertising.
@@ -96,3 +96,5 @@ Display resources are prepared before presentation sequence/mode changes. A prep
 Step 14: `SCHydra.clear(output, action)` is a client convenience using an ordinary transparent-solid commit. It increments only that output revision and retains selection. Hush uses four sequential clear calls. Matching live expression pipelines share compiled resources; no protocol fields change. See [live editing](../docs/hydra/LIVE_CODING.md).
 
 Step 15 advertises `numeric-v1`, accepts HYIR 1.1 numeric declarations and scalar tag 1, and implements `parameter(epoch:s,session:i,sequence:i,output:i,revision:i,parameterID:i,value:f)` with ack. [PARAMETERS.md](../docs/hydra/PARAMETERS.md) defines the bounded layout, supported operators, immediate control ordering and native differences. Earlier parameter-unavailable statements describe prior checkpoints.
+
+Step 16 adds `clock(epoch:s,session:i,sequence:i,bpm:f,speed:f,phase:f,setPhase:i)` returning ack, timed admission of clock/parameter controls, and HYIR 1.1 numeric kinds 4/5/6 for beat/frame/delta. [CLOCK.md](../docs/hydra/CLOCK.md) defines units, bounds, ordering, reset and application timing. Structural timed requests still fail atomically.

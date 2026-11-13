@@ -1,5 +1,12 @@
 # Milestone P1 — native desktop compatibility first
 
+Hydra Step 16: [session clock and scheduled controls](hydra/CLOCK.md) add BPM,
+continuous speed changes, explicit phase/reset and native beat/frame/delta values.
+Clock/parameter messages reuse the existing bounded OSC scheduler. The short
+installed eight-beat example passes with muted private audio; listening and
+physical audiovisual alignment remain manual checks.
+
+
 Hydra Step 15: [typed numeric sources](hydra/PARAMETERS.md) support named
 mutable values, native linear time/sine and bounded sequences for frequency,
 color and transforms. Numeric updates retain pipelines and history. The user

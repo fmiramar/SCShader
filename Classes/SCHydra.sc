@@ -40,6 +40,27 @@ SCHydra : Object {
         if(values.isSequenceableCollection.not or:{values.size<1 or:{values.size>64}}) {Error("Hydra sequence needs 1..64 values").throw};
         ^this.number(3,[1,0,0,0]++values.asArray)
     }
+    beat { |rate=1,bias=0| ^this.number(4,[rate,bias]) }
+    frame { |rate=1,bias=0| ^this.number(5,[rate,bias]) }
+    delta { |rate=1,bias=0| ^this.number(6,[rate,bias]) }
+    clockMessage { |bpm=30,speed=1,phase|
+        this.checkLive;
+        [bpm,speed,phase ? 0].do {|v|ShaderDef.validateValue(\float,v)};
+        if(isReady.not or:{bpm<0 or:{bpm>1000 or:{speed.abs>16 or:{(phase ? 0).abs>1e9}}}}) {Error("Invalid Hydra clock or session not ready").throw};
+        ^['/scshader/v1/hydra/clock',epoch,session,this.nextSequence,bpm.asFloat,speed.asFloat,(phase ? 0).asFloat,phase.notNil.if({1},{0})]
+    }
+    clock { |bpm=30,speed=1,phase| server.sendMsg(*this.clockMessage(bpm,speed,phase));^this }
+    reset { |seconds=0,bpm=30,speed=1| ^this.clock(bpm,speed,seconds) }
+    parameterMessage { |name,value,output=\o0|
+        var n=name.isKindOf(SCHydraNumber).if({name},{namedNumbers[name]}),slot=this.outputIndex(output);
+        this.checkLive;ShaderDef.validateValue(\float,value);
+        if(isReady.not or:{n.isNil or:{n.hydra!==this or:{n.kind!=0 or:{value.abs>1e6 or:{revisions[slot]==0}}}}}) {Error("Invalid committed Hydra parameter").throw};
+        ^['/scshader/v1/hydra/parameter',epoch,session,this.nextSequence,slot,revisions[slot],n.id,value.asFloat]
+    }
+    setAt { |name,value,delay=0,output=\o0,action|
+        ^server.scheduleMarker(delay,action,[this.parameterMessage(name,value,output)])
+    }
+
     set { |name,value,output=\o0,action|
         var n=name.isKindOf(SCHydraNumber).if({name},{namedNumbers[name]}),slot=this.outputIndex(output),tx;
         this.checkLive;ShaderDef.validateValue(\float,value);

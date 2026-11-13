@@ -1,4 +1,24 @@
 //! Bounded native numeric sources, evaluated at the common Hydra frame time.
+#[allow(dead_code)] // Compiler-only fixtures do not consume every frame field.
+#[derive(Clone, Copy)]
+pub struct Frame {
+    pub time: f32,
+    pub delta: f32,
+    pub frame: u32,
+    pub bpm: f32,
+    pub speed: f32,
+}
+impl Frame {
+    pub fn new(time: f32, delta: f32, frame: u32) -> Self {
+        Self {
+            time,
+            delta,
+            frame,
+            bpm: 30.,
+            speed: 1.,
+        }
+    }
+}
 #[derive(Debug, Clone, PartialEq)]
 pub struct Parameter {
     pub id: u32,
@@ -13,7 +33,10 @@ impl Parameter {
             return Err("invalid numeric source".into());
         }
         let n = self.values.len();
-        if !matches!((self.kind, n), (0, 1) | (1, 2) | (2, 4) | (3, 5..=68)) {
+        if !matches!(
+            (self.kind, n),
+            (0, 1) | (1 | 4 | 5 | 6, 2) | (2, 4) | (3, 5..=68)
+        ) {
             return Err("numeric source shape".into());
         }
         if self.kind == 3
@@ -25,15 +48,23 @@ impl Parameter {
     }
     #[allow(dead_code)] // Some compiler-only fixtures validate without rendering.
     pub fn value(&self, time: f32) -> f32 {
+        self.value_at(Frame::new(time, 0., 0))
+    }
+    #[allow(dead_code)] // Compiler-only fixtures do not draw frames.
+    pub fn value_at(&self, frame: Frame) -> f32 {
+        let time = frame.time;
         let v = &self.values;
         match self.kind {
             0 => v[0],
             1 => time * v[0] + v[1],
+            4 => time * frame.bpm / 60. * v[0] + v[1],
+            5 => frame.frame as f32 * v[0] + v[1],
+            6 => frame.delta * v[0] + v[1],
             2 => v[2] + (v[3] - v[2]) * (0.5 + 0.5 * (time * v[0] + v[1]).sin()),
             3 => {
                 let data = &v[4..];
                 let speed = if v[0] == 0. { 1. } else { v[0] };
-                let index = time * speed * 0.5 + v[1]; // Fixed initial BPM 30; Step 16 adds transport controls.
+                let index = time * speed * frame.bpm / 60. + v[1];
                 if v[2] == 0. {
                     return data[(index.floor() as i64).rem_euclid(data.len() as i64) as usize];
                 }

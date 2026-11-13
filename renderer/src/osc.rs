@@ -595,7 +595,9 @@ fn prepare_packet(
     match packet {
         OscPacket::Message(message) => {
             let command = parse_message(message, source)?;
-            if matches!(&command, Command::Hydra { .. }) && parent_time.is_some() {
+            if matches!(&command, Command::Hydra { request,.. } if !["parameter","clock"].contains(&request.operation.as_str()))
+                && parent_time.is_some()
+            {
                 return Err(bad(
                     "Hydra structural commands require immediate timetags".to_owned()
                 ));
@@ -817,6 +819,47 @@ mod tests {
         }
     }
 
+    #[test]
+    fn hydra_numeric_and_clock_accept_inherited_timetag() {
+        let source = "127.0.0.1:57120".parse().unwrap();
+        for (name, args) in [
+            (
+                "clock",
+                vec![
+                    "epoch".into(),
+                    1.into(),
+                    1.into(),
+                    120f32.into(),
+                    1f32.into(),
+                    0f32.into(),
+                    1.into(),
+                ],
+            ),
+            (
+                "parameter",
+                vec![
+                    "epoch".into(),
+                    1.into(),
+                    2.into(),
+                    0.into(),
+                    1.into(),
+                    1.into(),
+                    0.5f32.into(),
+                ],
+            ),
+        ] {
+            let message = OscPacket::Message(OscMessage {
+                addr: format!("/scshader/v1/hydra/{name}"),
+                args,
+            });
+            assert_eq!(
+                prepare_packet(message, source, None, Some(1.), Instant::now())
+                    .unwrap()
+                    .target_time,
+                Some(1.)
+            );
+        }
+    }
     #[test]
     fn hydra_structural_command_rejects_inherited_timetag() {
         let source = "127.0.0.1:57120".parse().unwrap();

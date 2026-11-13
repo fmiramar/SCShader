@@ -290,6 +290,39 @@ fn main() -> Result<(), Box<dyn Error>> {
             .chunks_exact(4)
             .all(|p| p[0].abs_diff(204) <= 1 && p[1] == 255)
     );
+    numeric.parameters[1].kind = 4;
+    numeric.parameters[1].values = vec![0.1, 0.];
+    numeric.parameters.push(parameters::Parameter {
+        id: 3,
+        kind: 5,
+        values: vec![0.01, 0.],
+    });
+    numeric.parameters.push(parameters::Parameter {
+        id: 4,
+        kind: 6,
+        values: vec![1., 0.],
+    });
+    numeric.nodes[0].arguments[2] = Argument::Parameter(3);
+    numeric.nodes[0].arguments[3] = Argument::Parameter(4);
+    set.prepare(&device, 0, &numeric)?;
+    for (bpm, green) in [(30., 13u8), (120., 51)] {
+        set.encode_frame(
+            &device,
+            &queue,
+            parameters::Frame {
+                time: 1.,
+                delta: 0.05,
+                frame: 10,
+                bpm,
+                speed: 1.,
+            },
+        );
+        let bytes = read(&device, &queue, &set.current(0).texture)?;
+        assert!(bytes.chunks_exact(4).all(|p| p[1].abs_diff(green) <= 1
+            && p[2].abs_diff(26) <= 1
+            && p[3].abs_diff(13) <= 1));
+    }
+    println!("beat/BPM, global frame and scaled delta uniform pixels PASS");
     drop(set);
     drop(pipeline);
     println!("mutable uniform and native wave pixels PASS; pipeline retained");

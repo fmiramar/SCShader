@@ -19,12 +19,13 @@ Updated: 2026-11-13
 | 13 — Temporal buffering and feedback | PASS (native pixels, installed SC/example and logical recovery) | [TEMPORAL_SEMANTICS.md](TEMPORAL_SEMANTICS.md): fixed numeric order, paired histories, legal cycles, native prev, resets and bounded accounting. Upstream callback trace agrees; browser GPU parity unverified. |
 | 14 — Live replacement and reclamation | PASS (native fixed-count GPU check; installed SC checks) | [LIVE_CODING.md](LIVE_CODING.md): active pipeline reuse, explicit clear, existing hush/disposal/mode contracts and 32 edits with resource ownership returning to baseline. |
 | 15 — Dynamic numeric representation | PASS in minimal numeric scope | [PARAMETERS.md](PARAMETERS.md): named uniform values, native time/wave/sequence evaluation, typed HYIR 1.1, revision/sequence guards and frequency/color/transform smoke. Dynamic arguments in five operations; full argument parity remains open. |
+| 16 — Clock and scheduling | PASS in native short-check scope | [CLOCK.md](CLOCK.md): continuous speed/pause/reverse, phase/reset, BPM/beat/frame/delta, scheduled numeric controls and muted eight-beat installed example. Physical audiovisual alignment remains manual. |
 
 Checkpoint A is available for one-output procedural visuals and live replacement.
 The user confirms `01_osc.scd` runs perfectly; new Step 09 visuals have automated
 native checks but await user observation. This is a development checkpoint.
 
-Checkpoint B is available in the documented native scope. Step 16 uses the same
-planned pair: `gpt-6.1-sol` / `high`. The user confirms Step 14 works; manual
-observation of `06_parameters.scd` remains pending. Media sampling and complete
-dynamic-argument/browser parity remain outside this checkpoint.
+Checkpoint B is available in the documented native scope. Next: Step 17,
+`gpt-6.1-sol` / `medium`, requiring the plan's reasoning-setting boundary.
+The new clock/audio example awaits manual listening and desktop observation.
+Full browser/media/dynamic-argument parity remains outside this checkpoint.
