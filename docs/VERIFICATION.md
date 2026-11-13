@@ -1,5 +1,19 @@
 # Verification
 
+## Hydra architecture preparation — 2026-11-12
+
+Source `94b9f1a03395d48b7b84a9386ad7c2951b44a137`: explicit
+`rustup run 1.97.1 cargo check --manifest-path renderer/Cargo.toml --locked` passes
+(dev profile, 0.17 seconds). This corrects the earlier Hydra baseline command,
+which used Homebrew Rust 1.98.1 from PATH despite the rustup configuration. The
+change consists of documentation; no Hydra classes or renderer features exist yet.
+
+[ADR 001](hydra/ARCHITECTURE.md) records source-derived output history semantics,
+typed IR, staged OSC commit, bounded resources and device recovery. The regl 1.7.0
+archive matches the SHA-512 integrity in the pinned Hydra lockfile. Browser pixels,
+SC class execution, native Hydra GPU behavior and cross-platform parity are
+**NOT RUN**. Existing native-release evidence below is not extended by this work.
+
 ## RTX-left eight-hour traffic check — 2026-10-06
 
 The exact 0.0.18 renderer SHA-256

@@ -66,6 +66,13 @@ Plans: [shared procedure](plans/COMMON.md), [Windows](plans/WINDOWS_X64.md),
 [the evidence template](plans/RESULT_TEMPLATE.md). A checklist tick needs an actual
 result, not the existence of implementation code or a future test command.
 
+## Separate Hydra development track
+
+2026-11-12: [Hydra Steps 01–03](hydra/PROGRESS.md) record a baseline, pinned behavior
+inventory and native architecture. This is an opt-in feature track; no Hydra
+runtime is implemented and no P1 platform check is marked complete by these
+documents. Continue with the minimal visual-slice specification before coding.
+
 ## Work after P1
 
 1. Finish remaining short interaction/stress coverage and authorized clean-checkout

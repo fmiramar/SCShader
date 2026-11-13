@@ -31,9 +31,10 @@ This is the Step 01 source and build baseline for the proposed opt-in Hydra subs
 - OS: macOS 26.6.2; process/host architecture: arm64 / `aarch64-apple-darwin`.
 - GPU reported by `system_profiler SPDisplaysDataType`: Apple M5, Metal 4. An external HP display and built-in Retina display were connected. This is inventory, not a Hydra or renderer visual qualification.
 - SuperCollider: `sclang 3.14.1`; executable entry on PATH is a shell launcher. Its final process architecture was not independently checked.
-- Pinned Rust toolchain: 1.97.1 (`rust-toolchain.toml`); active toolchain reported 1.97.1-aarch64-apple-darwin.
+- Pinned Rust toolchain: 1.97.1 (`rust-toolchain.toml`). Correction from Step 03: rustup reports that configured toolchain, but bare `cargo`/`rustc` on this host resolve to Homebrew 1.98.1. The original command below was not a pinned-toolchain check. Use `rustup run 1.97.1 cargo ...` here.
 - Git state after update: clean at the source commit above.
 - Command: `cargo check --manifest-path renderer/Cargo.toml --locked` — **PASS**, finished dev profile in 7.67 seconds. This is a compile check only; no Rust unit tests, SC integration tests, packaging, or GPU visual tests were run for this step.
+- Corrected check at source `94b9f1a03395d48b7b84a9386ad7c2951b44a137` (only documentation changes since the original source): `rustup run 1.97.1 cargo check --manifest-path renderer/Cargo.toml --locked` — **PASS**, dev profile finished in 0.17 seconds. `rustup run 1.97.1 rustc -V` confirms rustc 1.97.1. No linked build, unit suite or GPU run is implied.
 - `git pull --ff-only origin main` fast-forwarded `main` from `c90c9e9` to `48c31c4` before the check.
 
 ## Not established
