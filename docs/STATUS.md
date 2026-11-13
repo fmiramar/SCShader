@@ -5,7 +5,7 @@ Updated 2026-11-12. Current development version: **0.0.18**. Not a final v0.1.0 
 Hydra preparation (2026-11-12): the [baseline, pinned API inventory and native
 architecture](hydra/PROGRESS.md) are documented. No Hydra runtime feature is
 implemented yet. The explicit Rust 1.97.1 locked check passes; browser/native Hydra
-parity is not run. The next step specifies the small first visual slice. Existing
+parity is not run. The [first visual slice](hydra/VERTICAL_SLICE.md) is specified; the next step implements its SC expression front end. Existing
 platform qualification and remaining release gates below remain separate.
 
 **Latest RTX 3060 result:** the updated renderer (SHA-256
