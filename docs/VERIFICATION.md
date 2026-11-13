@@ -1,5 +1,32 @@
 # Verification
 
+## Ordered four-output visual diagnostics — 2026-11-13
+
+Follow-up to `47bfb3382f458e865d0e429360cf6477e7da270a`. The user reported gray
+from the original invert(0.5) sample, a possible quadrant-location mismatch, and
+a gray window after hush. Invert(0.5) necessarily yields RGB 0.5; the reported
+hush/window appearance and quadrant location remain under manual verification.
+
+The installed `02_four_outputs.scd` now has startup/cleanup instructions and nine
+ordered checks for quadrant identity, single-output selection, restored animation,
+visible invert(1) sampling, intentional invert(0.5) gray, transparent hush, and
+opaque black/white/black controls. It prints expected visuals and acknowledgements,
+and rejects skipped or overlapping steps. No renderer/class changes were needed.
+
+PASS: updated installed-example harness runs startup and all nine actual step
+functions, checks sequence progression and a rejected skipped step, allows time
+for display updates and cleans up its owned process. It uses port 57193 so the
+user's active demo on 57192 is untouched. Normal installed SuperCollider 3.14.1,
+Apple M5 / Metal, automatic renderer discovery; unchanged installed renderer hash
+`c9ace126b9f74a47bb03ec782b175455289e9523ba04007f33121cfa54b3c7ca`.
+The previous installed example was backed up outside Extensions and the updated
+file byte-compared with source. Evidence:
+`build/hydra-tests/outputs-12/ordered-example/`. Rust checks were not rerun for
+this SC example/harness/documentation-only change. Visual desktop results remain
+pending; these acknowledgements do not establish 100% visual correctness or prove
+that transparency caused the reported gray window.
+
+
 ## Four Hydra outputs and static sampling — 2026-11-13
 
 Source: Step 12 changes on parent `ceaa9470c9a7a4c027ce6b6a880c887a6f6c8a35`,

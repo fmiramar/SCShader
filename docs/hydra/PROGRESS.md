@@ -15,7 +15,7 @@ Updated: 2026-11-13
 | 09 — Procedural source/coordinate/color families | PASS for 32 procedural entries; full 34-entry acceptance DEFERRED | [FAMILIES.md](FAMILIES.md): all defaults/types, WGSL, SC methods; 32 native numerical reference cases and live chained commits pass. `src`/`prev` require later sampling/history work. |
 | 10 — Nested combine family | PASS (native automated/installed scope) | [COMBINE.md](COMBINE.md): seven operations, nested branch transforms, alpha, rollback pixels and live revision checks. User confirms Step 10 works perfectly. |
 | 11 — Spatial modulation | PASS (native automated/installed scope) | [MODULATION.md](MODULATION.md): all 11 operations, nested/current-UV evaluation, negative wrapping and rollback pixels; user confirms Step 11 works perfectly. |
-| 12 — Four outputs and static sampling | PASS (native automated/installed scope) | [OUTPUTS.md](OUTPUTS.md): independent revisions, quadrants, static src reads, cycle rejection, resize and hush. New demo awaits user observation. |
+| 12 — Four outputs and static sampling | PASS (native automated/installed scope) | [OUTPUTS.md](OUTPUTS.md): independent revisions, quadrants, static src reads, cycle rejection, resize and hush. Nine ordered visual checks now installed and command-tested; user reported gray/quadrant symptoms remain under manual verification. |
 
 Checkpoint A is available for one-output procedural visuals and live replacement.
 The user confirms `01_osc.scd` runs perfectly; new Step 09 visuals have automated

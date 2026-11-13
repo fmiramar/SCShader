@@ -64,10 +64,30 @@ continued use; `free` releases them. No new OSC command is introduced for hush.
 
 ## Evidence and use
 
-`examples/hydra/02_four_outputs.scd` starts four independent animated visuals,
-then offers presentation switches and a static o0-to-o3 sampling replacement.
-It uses its own names/port; recompile the SC class library after installation.
-Evaluate startup and each later block separately after the previous request.
+`examples/hydra/02_four_outputs.scd` now provides an ordered visual diagnostic.
+Run Step 0 to stop a previous copy and wait for STOPPED, then evaluate startup.
+Run Steps 1–9 one at a time, waiting for ACKNOWLEDGED and inspecting each result:
+
+1. Opaque quadrant identifiers: red o0 top left, green o1 bottom left, blue o2
+   top right and yellow o3 bottom right.
+2. Single-output o2: full-window blue.
+3. Restore all four original animated programs and quadrants.
+4. Sample o0 into o3 with invert(1): visible scaled inverted stripes, bottom right.
+5. Repeat with invert(0.5): flat mid-gray in o3, as required by the formula.
+6. Hush: transparent black in full-window o0; record its actual window appearance.
+7. Opaque black: the full window should be black.
+8. Opaque white: the full window should be white.
+9. Opaque black again, for comparison with transparent Step 6. Clean up with Step 0.
+
+Startup and each step print acknowledgements, while the runner rejects skipped
+or overlapping steps. An acknowledgement means the commands were accepted;
+visual PASS still requires observation. A gray Step 6 followed by correct opaque
+black/white changes distinguishes the symptom from a failure to replace the
+visible image, but does not by itself establish the compositor's cause. Record
+unexpected quadrant locations and Step 6–9 colors rather than assuming a pass.
+The installed example check executes all nine diagnostic functions serially on
+its own port, with a display interval between steps and a skipped-step rejection
+check. It verifies command completion/order; it does not measure desktop pixels.
 
 Native Apple M5/Metal tests use production output, compiler and presentation code:
 blank images, exact quadrant placement, single-output switching, gradient source

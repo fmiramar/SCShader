@@ -1,5 +1,10 @@
 # Implementation checkpoint
 
+Step 12 visual follow-up: the user reported gray/quadrant-location symptoms.
+The [four-output example](hydra/OUTPUTS.md) now has nine ordered diagnostics;
+all command/order checks pass on the installed Metal build. Desktop observation
+of quadrant positions and transparent versus opaque clears is still pending.
+
 Hydra Step 12 (2026-11-13): [four independent outputs and static sampling](hydra/OUTPUTS.md)
 pass native Metal/SC checks. Quadrants, per-output revisions, bounded targets,
 acyclic source reads and hush are available. The user visually confirms Step 11.
