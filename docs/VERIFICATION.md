@@ -1,5 +1,15 @@
 # Verification
 
+## Clock example version identification
+
+The user's later log shows the original Step 3/4 return values without the new
+VISUAL CLOCK messages, consistent with an older IDE tab or copied blocks. The
+installed file was verified byte-identical to reviewed source. Startup/performance
+now print CLOCK EXAMPLE v2 / CLOCK PERFORMANCE v2 so the executed example version
+is visible. Reopen the installed file; class recompilation does not replace open
+document contents. This is a banner/comment-only change with installed/source
+byte comparison and diff checks; native timing regressions were not repeated.
+
 ## Clock example repeat/late-wake follow-up
 
 The user reported ~250 ms E_LATE_EVENT warnings on a repeated performance, a

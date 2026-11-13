@@ -1,3 +1,4 @@
+// Clock example v2: reopen this file after updating; existing IDE tabs do not reload.
 // Recompile the SC class library after installation. Run Step 1 once.
 // Step 0 at the end stops only this example's visual server and musical clock.
 // Do not press Cmd-. between steps: ShaderServer uses it to quit renderers.
@@ -6,6 +7,7 @@
 (
 if(~hydraTimingServer.notNil) {Error("Run Step 0 and wait for CLOCK STOPPED before restarting Step 1.").throw};
 ~hydraTimingReady=false;~hydraTimingBusy=false;
+"CLOCK EXAMPLE v2: future-deadline guard enabled".postln;
 ~hydraTimingServer=ShaderServer.new(\hydraTiming,"127.0.0.1",57200);
 ~hydraTimingServer.rendererArgs_(["--shader",ShaderDef.filenameSymbol.asString.dirname.dirname +/+ "shaders/hydra_black.wgsl"]);
 ~hydraTimingServer.waitForBoot({|server|
@@ -30,6 +32,7 @@ if(~hydraTimingServer.notNil) {Error("Run Step 0 and wait for CLOCK STOPPED befo
 // and audio hardware latency still apply; this is not sample-accurate video.
 // BEGIN PERFORMANCE
 (
+"CLOCK PERFORMANCE v2: shared future deadlines".postln;
 if(~hydraTimingBusy==true) {Error("Wait for CLOCK EIGHT BEATS APPLIED before running Step 2 again.").throw};
 if(~hydraTimingReady!=true) {"Run Step 1 and wait for VISUAL READY.".warn} {
     ~hydraTimingBusy=true;
