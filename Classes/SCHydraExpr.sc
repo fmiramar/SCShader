@@ -20,6 +20,13 @@ SCHydraExpr : Object {
 
     blend { |other, amount = 0.5| ^this.append(\blend, [other, amount]) }
 
+    add { |other, amount = 1| ^this.append(\add, [other, amount]) }
+    sub { |other, amount = 1| ^this.append(\sub, [other, amount]) }
+    mult { |other, amount = 1| ^this.append(\mult, [other, amount]) }
+    layer { |other| ^this.append(\layer, [other]) }
+    diff { |other| ^this.append(\diff, [other]) }
+    mask { |other| ^this.append(\mask, [other]) }
+
     pixelate { |pixelX = 20, pixelY = 20| ^this.append(\pixelate, [pixelX, pixelY]) }
     repeat { |repeatX = 3, repeatY = 3, offsetX = 0, offsetY = 0| ^this.append(\repeat, [repeatX, repeatY, offsetX, offsetY]) }
     repeatX { |reps = 3, offset = 0| ^this.append(\repeatX, [reps, offset]) }
@@ -125,6 +132,12 @@ SCHydraExpr : Object {
             \g, { [\color, [\float, \float]] },
             \b, { [\color, [\float, \float]] },
             \a, { [\color, [\float, \float]] },
+            \add, { [\combine, [\expr, \float]] },
+            \sub, { [\combine, [\expr, \float]] },
+            \mult, { [\combine, [\expr, \float]] },
+            \layer, { [\combine, [\expr]] },
+            \diff, { [\combine, [\expr]] },
+            \mask, { [\combine, [\expr]] },
             \blend, { [\combine, [\expr, \float]] },
             { Error("Unsupported SCHydra operation: %".format(name)).throw })
     }

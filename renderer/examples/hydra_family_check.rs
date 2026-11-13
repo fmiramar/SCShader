@@ -29,6 +29,7 @@ fn defaults(spec: &registry::Spec) -> Vec<Argument> {
     spec.args
         .iter()
         .map(|kind| match kind {
+            registry::ValueType::Expression => Argument::Expression(6),
             registry::ValueType::Float => {
                 let value = spec._defaults[cursor];
                 cursor += 1;
@@ -39,7 +40,6 @@ fn defaults(spec: &registry::Spec) -> Vec<Argument> {
                 cursor += 4;
                 Argument::Vector(value)
             }
-            _ => unreachable!(),
         })
         .collect()
 }
@@ -81,19 +81,26 @@ fn reference(
                 "{} {}({} {}",
                 if spec.category == 1 { "vec2" } else { "vec4" },
                 n.name,
-                if spec.category == 2 { "vec4" } else { "vec2" },
-                if spec.category == 2 { "_c0" } else { "_st" }
+                if spec.category >= 2 { "vec4" } else { "vec2" },
+                if spec.category >= 2 { "_c0" } else { "_st" }
             )?;
             for (name, kind) in spec._names.iter().zip(spec.args) {
                 write!(
                     source,
                     ",{} {}",
-                    if *kind == registry::ValueType::Vector {
+                    if matches!(
+                        kind,
+                        registry::ValueType::Vector | registry::ValueType::Expression
+                    ) {
                         "vec4"
                     } else {
                         "float"
                     },
-                    name
+                    if *kind == registry::ValueType::Expression {
+                        "_c1"
+                    } else {
+                        name
+                    }
                 )?;
             }
             writeln!(source, "){{{function_body}}}")?;
@@ -110,7 +117,7 @@ fn reference(
                         .collect::<Vec<_>>()
                         .join(",")
                 ),
-                _ => unreachable!(),
+                Argument::Expression(id) => format!("ref{id}(p)"),
             })
             .collect::<Vec<_>>()
             .join(",");
@@ -310,9 +317,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("adapter={:?}", adapter.get_info());
     let (device, queue) = pollster::block_on(adapter.request_device(&Default::default()))?;
     let mut cached = None;
-    for spec in registry::PROCEDURAL {
+    for spec in registry::supported() {
         let mut args = defaults(spec);
         match spec.name {
+            "add" | "sub" | "mult" => args[1] = Argument::Float(0.35),
             "noise" => args = scalars(&[1.4, 0.3]),
             "voronoi" => args = scalars(&[3., 0.2, 0.4]),
             "shape" => args = scalars(&[5., 0.4, 0.08]),
@@ -326,7 +334,23 @@ fn main() -> Result<(), Box<dyn Error>> {
             "sum" => args = vec![Argument::Vector([0.1, 0.2, 0.3, 0.4])],
             _ => {}
         }
-        let nodes = if spec.category == 0 {
+        let nodes = if spec.category == 3 {
+            vec![
+                node(1, "osc", 0, scalars(&[10., 0.1, 0.])),
+                node(2, "shape", 0, scalars(&[4., 0.4, 0.01])),
+                node(3, "color", 2, scalars(&[0.7, 0.5, 0.3, 0.35])),
+                node(4, "solid", 0, scalars(&[0.1, 0.3, 0.8, 0.2])),
+                node(
+                    5,
+                    "blend",
+                    3,
+                    vec![Argument::Expression(4), Argument::Float(0.25)],
+                ),
+                node(6, "rotate", 5, scalars(&[0.2, 0.])),
+                node(7, spec.name, 1, args),
+                node(8, "rotate", 7, scalars(&[0.13, 0.02])),
+            ]
+        } else if spec.category == 0 {
             vec![node(1, spec.name, 0, args)]
         } else {
             vec![
@@ -352,7 +376,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             nodes,
         });
         gpu::Candidate::prepare(&device, &program, &mut cached)?;
-        let candidate = cached.as_ref().unwrap();
+        let candidate = cached.as_ref().unwrap().clone();
         let glsl = reference(&program, &functions, &utilities)?;
         let scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let vertex = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -410,6 +434,17 @@ fn main() -> Result<(), Box<dyn Error>> {
                 spec.name
             )
             .into());
+        }
+        if spec.category == 3 {
+            let mut bad = program.clone();
+            bad.nodes[1].arguments[0] = Argument::Float(0.0);
+            assert!(gpu::Candidate::prepare(&device, &bad, &mut cached).is_err());
+            let kept = cached.as_ref().unwrap();
+            assert_eq!(kept.source, candidate.source);
+            assert_eq!(
+                draw(&device, &queue, &kept._pipeline, &kept._layout)?,
+                native
+            );
         }
         println!("{} PASS max_channel_error={error}", spec.name);
     }

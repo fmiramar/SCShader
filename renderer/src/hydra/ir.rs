@@ -84,13 +84,9 @@ impl Program {
             }
             let receiver = input.word()?;
             use super::registry::ValueType;
-            let (expected_category, types) = if name == "blend" {
-                (3, &[ValueType::Expression, ValueType::Float][..])
-            } else {
-                let spec = super::registry::spec(&name)
-                    .ok_or_else(|| format!("unsupported operation {name}"))?;
-                (spec.category, spec.args)
-            };
+            let spec = super::registry::spec(&name)
+                .ok_or_else(|| format!("unsupported operation {name}"))?;
+            let (expected_category, types) = (spec.category, spec.args);
             if category != expected_category || argc != types.len() {
                 return Err("operation category/arity mismatch".into());
             }

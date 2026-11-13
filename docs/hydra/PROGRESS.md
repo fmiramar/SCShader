@@ -14,11 +14,13 @@ Updated: 2026-11-13
 | 08 — First output / presentation | PASS (automated native + installed example); user confirms 01_osc visual PASS | [OUTPUT.md](OUTPUT.md): o0 commits/replacements, presentation, resize, mode selection, cleanup and installed automatic discovery. Presenter pixels pass for linear/sRGB targets on Metal. |
 | 09 — Procedural source/coordinate/color families | PASS for 32 procedural entries; full 34-entry acceptance DEFERRED | [FAMILIES.md](FAMILIES.md): all defaults/types, WGSL, SC methods; 32 native numerical reference cases and live chained commits pass. `src`/`prev` require later sampling/history work. |
 
+| 10 — Nested combine family | PASS (native automated/installed scope) | [COMBINE.md](COMBINE.md): seven operations, nested branch transforms, alpha, rollback pixels and live revision checks. Manual observation pending. |
+
 Checkpoint A is available for one-output procedural visuals and live replacement.
 The user confirms `01_osc.scd` runs perfectly; new Step 09 visuals have automated
 native checks but await user observation. This is a development checkpoint.
 
-Next: Step 10, `gpt-6.1-sol` / `high`. The plan requires a user model/effort
-selection at this boundary: `/model gpt-6.1-sol --reasoning=high`, then `/status`.
-Do not treat the plan text as proof the runtime changed. `src`/`prev`, temporal
-feedback, other platforms and broader parity remain open.
+Next: Step 11, `gpt-6.1-sol` / `high` (same requested pair as Step 10).
+No further model/effort change is prescribed at this boundary. The user's
+proceed message authorized Step 10; no runtime model switch is inferred from
+plan text. `src`/`prev`, feedback and other-platform parity remain open.

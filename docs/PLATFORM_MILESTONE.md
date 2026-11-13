@@ -1,5 +1,11 @@
 # Milestone P1 — native desktop compatibility first
 
+Hydra Step 10 (2026-11-13): all [seven nested combines](hydra/COMBINE.md)
+pass native Metal reference and SC checks. They execute in one procedural pass,
+including branch transforms and alpha composition. Bad nested edits preserve the
+previous candidate. Step 11 spatial modulation is next; release/platform gates
+and user visual observation remain separate.
+
 Hydra update (2026-11-13): [32 procedural operations](hydra/FAMILIES.md) now
 pass native Metal numerical checks and source SC chains. The user confirms
 `01_osc.scd` visually. Checkpoint A procedural scope is available; full Step 09

@@ -1,5 +1,42 @@
 # Verification
 
+## Hydra nested combines — 2026-11-13
+
+Source: Step 10 changes on parent `7637708aad106b30c460a67a89c4821e6b8564ae`,
+identified by the commit containing this record. Target aarch64-apple-darwin,
+Apple M5 / Metal, SuperCollider 3.14.1; pinned Rust 1.97.1 binaries first in PATH.
+Lockfile/dependencies unchanged. Production release renderer SHA-256:
+`153c8e559a046b815b84849aadd77ec6af0ecdb87132c5f19c1db0a33b6a7110`.
+
+- PASS: strict Clippy all targets/features and formatting; Rust tests:
+  72 renderer, six each compiler/reference example module tests, two overlay.
+  New checks cover every combine signature, invalid dependencies/types and
+  exponential expansion of shared branches.
+- PASS: 39 native 3x3 RGBA8 reference comparisons at time 0.37 (32 previous
+  procedural cases plus all seven combines). Max channel error zero. Combine
+  cases include another blend inside the transformed second branch, fractional
+  alpha, a transform after composition and amount 0.35 for add/sub/mult. Rejecting
+  an invalid nested shape leaves the cached source and readback pixels unchanged
+  for each combine. This is Naga shader-reference coverage, not browser parity.
+- PASS: six isolated source SC checks (combine unit/live, family unit, output,
+  AST and existing graph). Seven normal installed checks pass: those six plus
+  `hydra_combine_example_smoke`, which interprets installed `03_combine.scd`
+  startup text and uses automatic renderer discovery. Live combine checks cover
+  all seven functions, a failed nested scale edit and next revision 8, retaining
+  the prior accepted revision through rejection. All live suites run serially.
+- PASS: ordinary native arm64 release package built, installed in normal Extensions
+  after backing up the previous extension outside Extensions. ZIP executable mode
+  restored and installed renderer hash verified. Existing user demo not stopped.
+- NOT RUN: manual visual observation of `03_combine.scd`, other backend/native
+  platforms and broad browser runtime parity. No release/version/tag changes.
+
+Evidence: ignored `build/hydra-tests/combine-10/{rust-final.log,pixels-weighted.log,
+sc/,installed/,package.log}`. Negative evidence: initial `pixels.log` reference
+harness failed to name its implicit second GLSL argument `_c1`; fixed the harness,
+then `pixels-retry.log`, `pixels-final.log` and final weighted comparisons pass.
+No production assertion was removed. See [COMBINE.md](hydra/COMBINE.md) for scope.
+
+
 ## Hydra procedural families — 2026-11-13
 
 Source: Step 09 changes on parent `7b6c86313ae223c8b9590e4c44d5f98d7c2ed3cc`,

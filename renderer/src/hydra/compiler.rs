@@ -28,13 +28,28 @@ struct VertexOutput {
 
 #[derive(Debug)]
 enum Operation {
+    Combine {
+        name: String,
+        receiver: u32,
+        other: u32,
+        amount: f32,
+    },
     Builtin(super::families::Builtin),
     Solid([f32; 4]),
     Osc([f32; 3]),
     Gradient(f32),
-    Rotate { receiver: u32, args: [f32; 2] },
-    Scale { receiver: u32, args: [f32; 5] },
-    Color { receiver: u32, args: [f32; 4] },
+    Rotate {
+        receiver: u32,
+        args: [f32; 2],
+    },
+    Scale {
+        receiver: u32,
+        args: [f32; 5],
+    },
+    Color {
+        receiver: u32,
+        args: [f32; 4],
+    },
 }
 fn scalars<const N: usize>(args: &[Argument]) -> Result<[f32; N], String> {
     if args.len() != N {
@@ -59,17 +74,24 @@ fn lower(program: &Program) -> Result<Vec<(u32, Operation)>, String> {
         if node.id == 0 || node.id > i32::MAX as u32 || known.contains_key(&node.id) {
             return Err("compiler invalid node ID".into());
         }
-        let depth = if node.receiver == 0 {
-            1
-        } else {
-            known
-                .get(&node.receiver)
-                .copied()
-                .ok_or("compiler missing receiver")?
-                + 1
-        };
-        if depth > 64 {
-            return Err("compiler expression depth exceeds 64".into());
+        let mut depth = 1usize;
+        let mut expanded = 1usize;
+        for dependency in std::iter::once(node.receiver).filter(|id| *id != 0).chain(
+            node.arguments.iter().filter_map(|arg| match arg {
+                Argument::Expression(id) => Some(*id),
+                _ => None,
+            }),
+        ) {
+            let &(child_depth, cost) = known
+                .get(&dependency)
+                .ok_or("compiler missing dependency")?;
+            depth = depth.max(child_depth + 1);
+            expanded = expanded
+                .checked_add(cost)
+                .ok_or("compiler expansion overflow")?;
+        }
+        if depth > 64 || expanded > 4096 {
+            return Err("compiler depth or expansion limit".into());
         }
         let (category, operation) = match node.name.as_str() {
             "solid" => (0, Operation::Solid(scalars(&node.arguments)?)),
@@ -114,6 +136,29 @@ fn lower(program: &Program) -> Result<Vec<(u32, Operation)>, String> {
                     args: scalars(&node.arguments)?,
                 },
             ),
+            "add" | "sub" | "blend" | "mult" | "layer" | "diff" | "mask" => {
+                let spec = super::registry::spec(&node.name).unwrap();
+                if node.arguments.len() != spec.args.len() {
+                    return Err("combine arity mismatch".into());
+                }
+                let Argument::Expression(other) = node.arguments[0] else {
+                    return Err("combine requires expression".into());
+                };
+                let amount = if node.arguments.len() == 2 {
+                    scalars::<1>(&node.arguments[1..])?[0]
+                } else {
+                    1.0
+                };
+                (
+                    3,
+                    Operation::Combine {
+                        name: node.name.clone(),
+                        receiver: node.receiver,
+                        other,
+                        amount,
+                    },
+                )
+            }
             _ => {
                 let builtin = super::families::Builtin::lower(node)?;
                 (node.category, Operation::Builtin(builtin))
@@ -122,7 +167,7 @@ fn lower(program: &Program) -> Result<Vec<(u32, Operation)>, String> {
         if category != node.category || (category == 0) != (node.receiver == 0) {
             return Err("compiler category/receiver mismatch".into());
         }
-        known.insert(node.id, depth);
+        known.insert(node.id, (depth, expanded));
         result.push((node.id, operation));
     }
     if !known.contains_key(&program.root) {
@@ -153,6 +198,34 @@ pub fn compile(program: &Program) -> Result<String, String> {
     for (id, operation) in nodes {
         writeln!(source, "fn n{id}(uv: vec2<f32>) -> vec4<f32> {{").unwrap();
         match operation {
+            Operation::Combine {
+                name,
+                receiver,
+                other,
+                amount,
+            } => {
+                writeln!(
+                    source,
+                    "let left=n{receiver}(uv); let right=n{other}(uv); let weight={};",
+                    literal(amount)
+                )
+                .unwrap();
+                let result = match name.as_str() {
+                    "add" => "(left+right)*weight + left*(1.0-weight)",
+                    "sub" => "(left-right)*weight + left*(1.0-weight)",
+                    "blend" => "left*(1.0-weight)+right*weight",
+                    "mult" => "left*(1.0-weight)+(left*right)*weight",
+                    "diff" => "vec4<f32>(abs(left.rgb-right.rgb),max(left.a,right.a))",
+                    "layer" => {
+                        "vec4<f32>(mix(left.rgb,right.rgb,right.a),clamp(left.a+right.a,0.0,1.0))"
+                    }
+                    "mask" => {
+                        "vec4<f32>(left.rgb*h_luminance(right.rgb),left.a*h_luminance(right.rgb))"
+                    }
+                    _ => unreachable!(),
+                };
+                writeln!(source, "return {result};").unwrap();
+            }
             Operation::Builtin(builtin) => builtin.emit(&mut source),
             Operation::Solid(args) => {
                 writeln!(source, "return {};", vector(&args)).unwrap();
@@ -322,6 +395,45 @@ mod tests {
             });
             compile(&Program { nodes, root: id }).unwrap_or_else(|e| panic!("{}: {e}", spec.name));
         }
+    }
+    #[test]
+    fn nested_combines_validate_types_dependencies_and_bounds() {
+        for spec in super::super::registry::COMBINE {
+            let mut nodes = vec![
+                node(1, "osc", 0, 0, &[10., 0.1, 0.]),
+                node(2, "shape", 0, 0, &[4., 0.4, 0.01]),
+                node(3, "rotate", 1, 2, &[0.2, 0.]),
+            ];
+            let mut args = vec![Argument::Expression(3)];
+            if let Some(value) = spec._defaults.first() {
+                args.push(Argument::Float(*value));
+            }
+            nodes.push(Node {
+                id: 4,
+                name: spec.name.into(),
+                category: 3,
+                receiver: 1,
+                arguments: args,
+            });
+            let mut program = Program { nodes, root: 4 };
+            let source = compile(&program).unwrap();
+            assert_eq!(source.matches("@fragment").count(), 1);
+            program.nodes[3].arguments[0] = Argument::Expression(9);
+            assert!(compile(&program).is_err());
+            program.nodes[3].arguments[0] = Argument::Float(0.5);
+            assert!(compile(&program).is_err());
+        }
+        let mut nodes = vec![node(1, "solid", 0, 0, &[0.1, 0.2, 0.3, 0.4])];
+        for id in 2..=13 {
+            nodes.push(Node {
+                id,
+                name: "blend".into(),
+                category: 3,
+                receiver: id - 1,
+                arguments: vec![Argument::Expression(id - 1), Argument::Float(0.5)],
+            });
+        }
+        assert!(compile(&Program { nodes, root: 13 }).is_err());
     }
     #[test]
     fn malformed_and_undefined_inputs_fail_before_gpu() {

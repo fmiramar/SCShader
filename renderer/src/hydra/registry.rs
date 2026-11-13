@@ -269,6 +269,60 @@ pub const PROCEDURAL: &[Spec] = &[
         _defaults: &[1.0, 0.0],
     },
 ];
+pub const COMBINE: &[Spec] = &[
+    Spec {
+        name: "add",
+        category: 3,
+        args: &[ValueType::Expression, ValueType::Float],
+        _names: &["texture", "amount"],
+        _defaults: &[1.0],
+    },
+    Spec {
+        name: "sub",
+        category: 3,
+        args: &[ValueType::Expression, ValueType::Float],
+        _names: &["texture", "amount"],
+        _defaults: &[1.0],
+    },
+    Spec {
+        name: "layer",
+        category: 3,
+        args: &[ValueType::Expression],
+        _names: &["texture"],
+        _defaults: &[],
+    },
+    Spec {
+        name: "blend",
+        category: 3,
+        args: &[ValueType::Expression, ValueType::Float],
+        _names: &["texture", "amount"],
+        _defaults: &[0.5],
+    },
+    Spec {
+        name: "mult",
+        category: 3,
+        args: &[ValueType::Expression, ValueType::Float],
+        _names: &["texture", "amount"],
+        _defaults: &[1.0],
+    },
+    Spec {
+        name: "diff",
+        category: 3,
+        args: &[ValueType::Expression],
+        _names: &["texture"],
+        _defaults: &[],
+    },
+    Spec {
+        name: "mask",
+        category: 3,
+        args: &[ValueType::Expression],
+        _names: &["texture"],
+        _defaults: &[],
+    },
+];
+pub fn supported() -> impl Iterator<Item = &'static Spec> {
+    PROCEDURAL.iter().chain(COMBINE)
+}
 pub fn spec(name: &str) -> Option<&'static Spec> {
-    PROCEDURAL.iter().find(|s| s.name == name)
+    supported().find(|s| s.name == name)
 }

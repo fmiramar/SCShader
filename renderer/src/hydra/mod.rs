@@ -247,8 +247,7 @@ impl Transport {
                     OscType::Blob(limits.into_iter().flat_map(u32::to_be_bytes).collect()),
                     format!(
                         "staging-ir-v1;wgsl-v1:{};output-o0-v1",
-                        registry::PROCEDURAL
-                            .iter()
+                        registry::supported()
                             .map(|s| s.name)
                             .collect::<Vec<_>>()
                             .join(",")
