@@ -20,13 +20,13 @@ Updated: 2026-11-13
 | 14 — Live replacement and reclamation | PASS (native fixed-count GPU check; installed SC checks) | [LIVE_CODING.md](LIVE_CODING.md): active pipeline reuse, explicit clear, existing hush/disposal/mode contracts and 32 edits with resource ownership returning to baseline. |
 | 15 — Dynamic numeric representation | PASS in minimal numeric scope | [PARAMETERS.md](PARAMETERS.md): named uniform values, native time/wave/sequence evaluation, typed HYIR 1.1, revision/sequence guards and frequency/color/transform smoke. Dynamic arguments in five operations; full argument parity remains open. |
 | 16 — Clock and scheduling | PASS in native short-check scope | [CLOCK.md](CLOCK.md): continuous speed/pause/reverse, phase/reset, BPM/beat/frame/delta, scheduled numeric controls and muted eight-beat installed example. Physical audiovisual alignment remains manual. |
+| 17 — Audio analysis bridge | PASS in installed native short-check scope | [AUDIO.md](AUDIO.md): bounded ShaderBus mappings, existing amplitude/onset analysis and FFT/waveform scalar accessors; looping PlayBuf test and legacy regressions. Manual example observation pending. |
 
 Checkpoint A is available for one-output procedural visuals and live replacement.
 The user confirms `01_osc.scd` runs perfectly; new Step 09 visuals have automated
 native checks but await user observation. This is a development checkpoint.
 
-Checkpoint B is available in the documented native scope. Next: Step 17,
-`gpt-6.1-sol` / `medium`, requiring the plan's reasoning-setting boundary.
+Checkpoint B is available in the documented native scope. Next: Step 18, `gpt-6.1-sol` / `medium` (same planned pair).
 The user confirms clock v2 looks correct; their log shows all eight events,
 speed/reset and cleanup without late warnings. Physical audio/display alignment
 remains unqualified.

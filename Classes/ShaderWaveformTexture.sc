@@ -1,7 +1,7 @@
 ShaderWaveformTexture : Object {
     classvar nextID;
     var <audioServer, <source, <points, <window, <rate, <shaderServer, <buffer, <synth, <isFreed;
-    var responder, replyID, defName;
+    var responder, replyID, defName, scalarBuses;
 
     *initClass { nextID = 7000 }
 
@@ -23,13 +23,23 @@ ShaderWaveformTexture : Object {
         rate = argRate.asFloat;
         shaderServer = argShaderServer;
         buffer = ShaderBuffer.float(points, shaderServer);
-        isFreed = false;
+        isFreed = false;scalarBuses=Dictionary.new;
         ^this
     }
 
     *nextID {
         nextID = (nextID + 1).wrap(7000, 2147483647);
         ^nextID
+    }
+
+    pointBus { |index,smoothing=0|
+        if(isFreed) {Error("Cannot read a freed analysis stream").throw};
+        buffer.value(index); // Existing buffer performs index validation.
+        if(scalarBuses[index].isNil) {
+            if(scalarBuses.size>=64){Error("Analysis scalar bus limit is 64").throw};
+            scalarBuses[index]=ShaderBus.control(1,smoothing);scalarBuses[index].set(buffer.value(index));
+        };
+        ^scalarBuses[index]
     }
 
     start {
@@ -46,6 +56,7 @@ ShaderWaveformTexture : Object {
         responder = OSCdef(key, { |message|
             if(message.size == (buffer.length + 3) and: { message[2].asInteger == replyID }) {
                 buffer.setn(0, message.copyRange(3, message.size - 1));
+                scalarBuses.keysValuesDo {|index,bus|bus.set(buffer.value(index))};
             };
         }, '/scshader/waveform', audioServer.addr);
         SynthDef(defName, { |inputBus = 0, replyRate = 30, captureWindow = 0.05|
@@ -70,6 +81,7 @@ ShaderWaveformTexture : Object {
             responder = nil;
             synth.tryPerform(\free);
             synth = nil;
+            scalarBuses.values.do(_.free);scalarBuses.clear;
             buffer.free;
         };
         ^this

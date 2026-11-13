@@ -1,4 +1,5 @@
 ShaderBus : Object {
+    var hydraTargets;
     var <channels, <smoothing, values, desiredValues, targets, pending, scheduled, isFreed;
 
     *control { |channels = 1, smoothing = 0.0|
@@ -20,7 +21,7 @@ ShaderBus : Object {
         smoothing = argSmoothing.asFloat;
         values = Array.fill(channels, 0.0);
         desiredValues = Array.fill(channels, 0.0);
-        targets = List.new;
+        targets = List.new;hydraTargets=List.new;
         pending = false;
         scheduled = false;
         isFreed = false;
@@ -58,6 +59,22 @@ ShaderBus : Object {
         ^this
     }
 
+    hydraMappingCount { |hydra| ^hydraTargets.count {|t|t[0]===hydra} }
+
+    mapHydra { |hydra,parameter,channel=0,scale=1,bias=0,cutoff=0,output=\o0|
+        if(isFreed) {Error("Cannot map a freed ShaderBus").throw};
+        this.channelIndex(channel);
+        [scale,bias,cutoff].do {|v|ShaderDef.validateValue(\float,v);if(v.abs>1e6){Error("Hydra mapping exceeds bound").throw}};
+        hydra.parameterMessage(parameter,bias.clip(-1e6,1e6),output); // Validate committed handle.
+        this.unmapHydra(hydra,parameter,output);
+        if(hydraTargets.size>=64){Error("ShaderBus Hydra target limit is 64").throw};
+        hydraTargets.add([hydra,parameter,channel,scale,bias,cutoff,output,nil,0.0]);
+        pending=true;this.scheduleFlush(0);^this
+    }
+    unmapHydra { |hydra,parameter,output|
+        hydraTargets=hydraTargets.reject {|t|t[0]===hydra and:{parameter.isNil or:{t[1]==parameter and:{output.isNil or:{t[6]==output}}}}};^this
+    }
+
     unmap { |shader, uniform|
         targets = targets.reject { |target| target[0] === shader and: { target[1] == uniform.asSymbol } };
         ^this
@@ -77,7 +94,21 @@ ShaderBus : Object {
         groups.keysValuesDo { |shader, pairs|
             if(shader.isFreed.not) { shader.setAt(latency ? shader.server.latency, *pairs) };
         };
+        hydraTargets=hydraTargets.reject {|t|t[0].isFreed or:{t[0].server.isRunning.not}};
+        hydraTargets.do {|t|
+            var value=((values[t[2]]-t[5]).max(0)*t[3]+t[4]).clip(-1e6,1e6),now=Main.elapsedTime;
+            if(t[7].isNil or:{(value-t[7]).abs>0.000001}) {
+                if(t[0].canStream and:{(now-t[8]) >= (1/30)}) {
+                    t[0].server.sendMsg(*t[0].parameterMessage(t[1],value,t[6]));
+                    t[7]=value;t[8]=now;
+                };
+            };
+        };
         pending = values.any { |value, index| (desiredValues[index] - value).abs > 0.000001 };
+        pending=pending or:{hydraTargets.any {|t|
+            var value=((values[t[2]]-t[5]).max(0)*t[3]+t[4]).clip(-1e6,1e6);
+            t[7].isNil or:{(value-t[7]).abs>0.000001}
+        }};
         if(pending) { this.scheduleFlush(1.0 / 60.0) };
         ^this
     }
@@ -96,7 +127,7 @@ ShaderBus : Object {
 
     free {
         isFreed = true;
-        targets.clear;
+        targets.clear;hydraTargets.clear;
         pending = false;
         ^this
     }

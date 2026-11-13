@@ -1,5 +1,11 @@
 # Milestone P1 — native desktop compatibility first
 
+Hydra Step 17: [audio bus mappings](hydra/AUDIO.md) connect existing ShaderAnalysis
+and ShaderBus values to named Hydra controls. FFT-bin and waveform-point buses
+reuse existing streams. The looping PlayBuf example drives amplitude/scale and
+onset/red without a new analysis engine; manual listening/visual checks remain.
+
+
 Clock example follow-up: repeated runs and late SC wake-ups are now covered by a
 two-run regression with injected 450 ms stalls. The example uses shared future
 audio/video deadlines, black startup, visible colored motion and overlap guards.

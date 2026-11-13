@@ -1,5 +1,30 @@
 # Verification
 
+## Hydra audio bridge — Step 17
+
+Parent `d656c09`; source identified by the commit containing this record. Native
+Apple M5 / Metal and SC 3.14.1. Renderer unchanged (SHA-256
+`7a820cef8f99db0bac312d832f24b9017f9e2d47e5bcf37babd5489da7f01ad2`),
+version 0.0.18 and dependencies unchanged. Installed ordinary arm64 package with
+prior extension backed up outside Extensions.
+
+PASS: installed actual looping PlayBuf example, amplitude/onset range checks,
+accepted mappings to two Hydra parameters, FFT-bin/waveform-point live scalar
+values, and unmapping on controller free. The muted four-second analysis trace
+has amplitude from near zero to about 0.16 and onset peaks about 0.97–0.99; FFT and
+waveform scalar values are nonzero. Legacy analysis and ShaderBus mapping smokes,
+Hydra parameter and output/cycle/hush smokes also pass (five installed checks).
+Mappings coalesce changed scalar values, cap updates at 30 Hz each and retain
+existing analysis/texture producers. No new UGen implementation or loudness work.
+
+Evidence: `build/hydra-tests/audio-17/installed-final/`, earlier successful
+`installed-02/` and `installed-reviewed/`, and package logs. The first harness
+attempt incorrectly replaced the substring Server.default inside defaultGroup;
+its parse failure is retained in `installed/` and was corrected with an exact
+assignment replacement. No renderer code changed, so Rust/GPU suites were not
+repeated. Listening/visual response, full WebAudio equivalence, direct Hydra FFT
+texture sampling and other backends remain unqualified. See [AUDIO.md](hydra/AUDIO.md).
+
 ## Clock v2 user confirmation
 
 The user reports the updated example looks correct. Their supplied SC log shows

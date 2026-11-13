@@ -1,6 +1,6 @@
 SCHydra : Object {
     classvar all;
-    var numbers, namedNumbers;
+    var numbers, namedNumbers, mappedBuses;
     var <server, <isFreed, <isReady, <lastError, epoch, session, sequence, startupTask, uploadTask;
     var readyAction, failureAction, responders, uploading, revisions, presentTask, presenting;
 
@@ -18,11 +18,21 @@ SCHydra : Object {
         server = argServer;
         if(server.notNil) { all[server] = this };
         isFreed = false; isReady = false; sequence = 0; uploading = false; presenting = false;
+        mappedBuses=IdentitySet.new;
         numbers=List.new;namedNumbers=IdentityDictionary.new;
         responders = IdentitySet.new; revisions = [0,0,0,0];
         if(server.notNil and: { server.isRunning }) { this.negotiate };
         ^this
     }
+
+    canStream { ^isFreed.not and:{isReady and:{server.isRunning and:{uploading.not and:{presenting.not}}}} }
+    mapBus { |bus,parameter,channel=0,scale=1,bias=0,cutoff=0,output=\o0|
+        this.checkLive;if(bus.isKindOf(ShaderBus).not){Error("Hydra mapBus requires ShaderBus").throw};
+        mappedBuses=mappedBuses.select {|b|b.hydraMappingCount(this)>0};
+        if(mappedBuses.sum {|b|b.hydraMappingCount(this)}>=64){Error("Hydra bus mapping limit is 64").throw};
+        bus.mapHydra(this,parameter,channel,scale,bias,cutoff,output);mappedBuses.add(bus);^this
+    }
+    unmapBus { |bus,parameter,output| bus.unmapHydra(this,parameter,output);if(bus.hydraMappingCount(this)==0){mappedBuses.remove(bus)};^this }
 
     number { |kind, values|
         var n;this.checkLive;
@@ -267,6 +277,7 @@ SCHydra : Object {
 
     free {
         if(isFreed.not) {
+            mappedBuses.do {|bus|bus.unmapHydra(this)};mappedBuses.clear;
             if(presentTask !== thisThread) { presentTask.tryPerform(\stop) };
             if(startupTask !== thisThread) { startupTask.tryPerform(\stop) };
             if(uploadTask !== thisThread) { uploadTask.tryPerform(\stop) };

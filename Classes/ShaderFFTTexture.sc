@@ -1,7 +1,7 @@
 ShaderFFTTexture : Object {
     classvar nextID;
     var <audioServer, <source, <fftSize, <rate, <shaderServer, <buffer, <synth, <isFreed;
-    var responder, replyID, defName;
+    var responder, replyID, defName, scalarBuses;
 
     *initClass { nextID = 5000 }
 
@@ -21,13 +21,23 @@ ShaderFFTTexture : Object {
         rate = argRate.asFloat;
         shaderServer = argShaderServer;
         buffer = ShaderBuffer.float(fftSize div: 2, shaderServer);
-        isFreed = false;
+        isFreed = false;scalarBuses=Dictionary.new;
         ^this
     }
 
     *nextID {
         nextID = (nextID + 1).wrap(5000, 2147483647);
         ^nextID
+    }
+
+    binBus { |index,smoothing=0|
+        if(isFreed) {Error("Cannot read a freed analysis stream").throw};
+        buffer.value(index); // Existing buffer performs index validation.
+        if(scalarBuses[index].isNil) {
+            if(scalarBuses.size>=64){Error("Analysis scalar bus limit is 64").throw};
+            scalarBuses[index]=ShaderBus.control(1,smoothing);scalarBuses[index].set(buffer.value(index));
+        };
+        ^scalarBuses[index]
     }
 
     start {
@@ -44,6 +54,7 @@ ShaderFFTTexture : Object {
         responder = OSCdef(key, { |message|
             if(message.size == (buffer.length + 3) and: { message[2].asInteger == replyID }) {
                 buffer.setn(0, message.copyRange(3, message.size - 1));
+                scalarBuses.keysValuesDo {|index,bus|bus.set(buffer.value(index))};
             };
         }, '/scshader/fft', audioServer.addr);
         SynthDef(defName, { |inputBus = 0, replyRate = 30|
@@ -74,6 +85,7 @@ ShaderFFTTexture : Object {
             responder = nil;
             synth.tryPerform(\free);
             synth = nil;
+            scalarBuses.values.do(_.free);scalarBuses.clear;
             buffer.free;
         };
         ^this
