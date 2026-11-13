@@ -28,6 +28,7 @@ struct VertexOutput {
 
 #[derive(Debug)]
 enum Operation {
+    Sample(u8),
     Combine {
         name: String,
         receiver: u32,
@@ -95,6 +96,15 @@ fn lower(program: &Program) -> Result<Vec<(u32, Operation)>, String> {
             return Err("compiler depth or expansion limit".into());
         }
         let (category, operation) = match node.name.as_str() {
+            "src" => {
+                let [Argument::Output(slot)] = node.arguments.as_slice() else {
+                    return Err("src requires output slot".into());
+                };
+                if *slot > 3 {
+                    return Err("invalid output slot".into());
+                }
+                (0, Operation::Sample(*slot))
+            }
             "solid" => (0, Operation::Solid(scalars(&node.arguments)?)),
             "osc" => {
                 let args = scalars(&node.arguments)?;
@@ -200,9 +210,26 @@ pub fn compile(program: &Program) -> Result<String, String> {
     let nodes = lower(program)?;
     let mut source = String::from(PRELUDE);
     source.push_str(include_str!("procedural.wgsl"));
+    if program.nodes.iter().any(|node| node.name == "src") {
+        source.push_str("@group(1) @binding(4) var output_sampler: sampler;\n");
+        for slot in 0..4 {
+            writeln!(
+                source,
+                "@group(1) @binding({slot}) var output{slot}: texture_2d<f32>;"
+            )
+            .unwrap();
+        }
+    }
     for (id, operation) in nodes {
         writeln!(source, "fn n{id}(uv: vec2<f32>) -> vec4<f32> {{").unwrap();
         match operation {
+            Operation::Sample(slot) => {
+                writeln!(
+                    source,
+                    "return textureSampleLevel(output{slot},output_sampler,vec2<f32>(fract(uv.x),1.0-fract(uv.y)),0.0);"
+                )
+                .unwrap();
+            }
             Operation::Combine {
                 name,
                 receiver,

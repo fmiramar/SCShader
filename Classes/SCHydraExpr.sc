@@ -74,7 +74,9 @@ SCHydraExpr : Object {
                     Error("SCHydra nested expression belongs to another session or is invalid.").throw;
                 };
             } {
-                ShaderDef.validateValue(spec[1][index], value);
+                if(spec[1][index] == \output) {
+                    if(value.isInteger.not or: { value < 0 or: { value > 3 } }) { Error("Invalid output slot").throw };
+                } { ShaderDef.validateValue(spec[1][index], value) };
             };
         };
         if(operations.isEmpty and: { spec[0] != \src }) {
@@ -112,6 +114,7 @@ SCHydraExpr : Object {
 
     spec { |name|
         ^switch(name,
+            \src, { [\src, [\output]] },
             \noise, { [\src, [\float, \float]] },
             \voronoi, { [\src, [\float, \float, \float]] },
             \osc, { [\src, [\float, \float, \float]] },
@@ -187,7 +190,7 @@ SCHydraExpr : Object {
             var name = operation[0], args = operation[1], spec = this.spec(name), encodedArgs;
             encodedArgs = args.collect { |value, index|
                 value.isKindOf(SCHydraExpr).if({ [\expr, value.collectNodes(nodes, visiting, memo, depth + 1)] },
-                    { [spec[1][index], ShaderDef.validateValue(spec[1][index], value)] });
+                    { [spec[1][index], (spec[1][index] == \output).if({ value }, { ShaderDef.validateValue(spec[1][index], value) })] });
             };
             if(nodes.size >= 256) { Error("SCHydra snapshot exceeds 256 nodes.").throw };
             first = (id: nodes.size + 1, name: name, category: spec[0], receiver: receiver,
@@ -221,8 +224,12 @@ SCHydraExpr : Object {
                     this.writeInteger(bytes, 2, 1);
                     this.writeInteger(bytes, argument[1], 4);
                 } {
-                    this.writeInteger(bytes, (argument[0] == \vec4).if({ 5 }, { 0 }), 1);
-                    ShaderDef.encodeValue(argument[0], argument[1]).do { |byte| bytes.add(byte.bitAnd(255)) };
+                    if(argument[0] == \output) {
+                        this.writeInteger(bytes, 4, 1); this.writeInteger(bytes, argument[1], 1);
+                    } {
+                        this.writeInteger(bytes, (argument[0] == \vec4).if({ 5 }, { 0 }), 1);
+                        ShaderDef.encodeValue(argument[0], argument[1]).do { |byte| bytes.add(byte.bitAnd(255)) };
+                    };
                 };
             };
         };

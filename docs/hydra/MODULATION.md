@@ -49,6 +49,6 @@ followed by rejection and successful revision 12. See [verification](../VERIFICA
 `examples/hydra/04_modulation.scd` supplies two chained demos on a separate port.
 Recompile the SC class library after installation, then evaluate startup and the
 replacement separately. Step 10's example is visually confirmed by the user;
-manual observation of this new modulation example remains open. Step 12 handles
+the user also confirms the modulation example works perfectly. Step 12 handles
 multiple outputs and sampling. Other platforms and full browser parity remain
 unqualified.

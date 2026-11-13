@@ -1,9 +1,9 @@
-# Hydra single-output protocol — implementation checkpoint
+# Hydra output protocol — implementation checkpoint
 
 2026-11-13. Additive to [SCShader v1](protocol.md) and implementing the first
-single-output portion of [ADR 001](../docs/hydra/ARCHITECTURE.md). 50 compiled
-operators and `o0` activation/presentation are available. Other output/source and
-parameter features remain explicitly unavailable.
+single-output portion of [ADR 001](../docs/hydra/ARCHITECTURE.md). 50 procedural operators plus output-only `src` sampling, four output targets
+and presentation are available. Media sources, temporal feedback and parameters
+remain unavailable.
 
 All suffixes below use `/scshader/v1/hydra/`. Fields use ordinary OSC types:
 `i` = int32, `s` = string, `b` = blob. All requests must be immediate, including
@@ -19,7 +19,7 @@ malformed member rejects the whole packet. The receiver remains loopback-only.
 | commit | epoch, session, tx | committed(epoch, session, tx, output:i, revision:i) after successful installation |
 | abort | epoch, session, tx | aborted(epoch, session, tx) |
 | status | epoch, session, request, queriedTx:i | status.reply(epoch, session, request, mode:i, revisions:b, state:s, code:s, message:s) |
-| present | epoch, session, sequence:i, mode:i (-1 Legacy, 0 o0) | presented(epoch, session, sequence, mode) |
+| present | epoch, session, sequence:i, mode:i (-1 Legacy, 0..3 output, 4 quadrants) | presented(epoch, session, sequence, mode) |
 | close | epoch, session, request | closed(epoch, session, request) |
 
 IDs/requests/transaction numbers are positive signed int32, output is 0..3,
@@ -31,12 +31,11 @@ session; retrying a closed handle currently reports `E_HYDRA_SESSION`.
 
 `limits` is exactly five big-endian u32 values, in order: maximum IR bytes
 (65536), chunk bytes (2048), nodes (256), depth (64), expanded operations (4096).
-`features` is `staging-ir-v1;wgsl-v1:<comma-separated supported registry names>;output-o0-v1`. The 50 names and their defaults/types are in `renderer/src/hydra/registry.rs`; their order follows the pinned inventory.
+`features` is `staging-ir-v1;wgsl-v1:<comma-separated supported registry names>;output-o0-v1;outputs-static-v1`. The 51 names and their defaults/types are in `renderer/src/hydra/registry.rs`; their order follows the pinned inventory.
 This narrower discovery payload supersedes the ADR's provisional full-limit
 payload for the staging feature only. Future compiler/source/presentation
 capabilities must explicitly document their additional fields before advertising.
-Revisions blob is four big-endian int32 values ordered o0..o3 (only o0 can be
-nonzero). Mode -1 is Legacy and 0 is o0. `state` is uploading, committed, failed
+Revisions blob is four big-endian int32 values ordered o0..o3 (independent revisions). Mode -1 is Legacy, 0..3 selects an output and 4 selects quadrants. `state` is uploading, committed, failed
 or unknown. For a committed transaction, message contains its decimal revision. Status does not claim that an evicted
 transaction never executed; it reports unknown.
 
@@ -66,12 +65,12 @@ errors use `E_PROTOCOL`. Query status to reconcile lost/suppressed commit errors
 replies are bounded. The ADR's richer Hydra error tuple is reserved for later
 node/output diagnostics; clients must not assume it exists yet.
 
-The IR layout is HYIR 1.0 from ADR 001. The decoder accepts 32 procedural, seven combine and eleven combineCoord
+The IR layout is HYIR 1.0 from ADR 001. The decoder accepts 32 procedural, seven combine, eleven combineCoord and output-only src
 operations with scalar arguments (tag 0,
 f32) and the literal vec4 argument for `sum` (tag 5, four f32 components),
 encoded in network order. Combine arguments begin with an expression reference (tag 2, earlier node ID
 as u32). All seven combine and eleven combineCoord operations compile, including nested branches. Parameter declarations,
-source sampling and other argument forms/operators fail explicitly.
+media sampling and other argument forms/operators fail explicitly. `src` accepts tag 4 followed by a u8 output slot 0..3.
 The decoder verifies size/version, category/arity/types,
 finite f32 inputs, unique positive node IDs, earlier-node references, root reachability,
 no trailing data, depth and expansion bounds before any candidate installation.
@@ -84,9 +83,13 @@ queries status; unknown outcomes report `E_HYDRA_UNKNOWN`. One upload is allowed
 per controller; local snapshots remain available offline. `free` stops only the
 controller's tasks/responders and sends close without stopping the ShaderServer.
 
-`params`, `hush`, o1..o3, source sampling and feedback remain unimplemented.
-See [first output semantics and limitations](../docs/hydra/OUTPUT.md). The SC
+`params`, media sampling and feedback remain unimplemented. SC hush uses four sequential ordinary commits and a presentation request.
+See [four-output semantics and limitations](../docs/hydra/OUTPUTS.md). The SC
 client maintains accepted revisions and reconciles a timed-out commit through
 status. `present` is immediate-only at this stage. A new output is only made
-visible after explicit presentation selection; an accepted replacement of selected
-o0 becomes visible on its next frame. Close releases the output and selects Legacy.
+visible after explicit presentation selection; an accepted replacement of a selected
+output becomes visible on its next frame. Close releases the output and selects Legacy.
+
+Static output references are cycle-checked before commit. Producers run before consumers; blank slots sample transparent black. Blank selection is allowed. This mode is explicitly provisional until Step 13 establishes temporal semantics.
+
+Display resources are prepared before presentation sequence/mode changes. A preparation failure returns E_HYDRA_LIMIT and retains the previous selection and sequence.

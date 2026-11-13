@@ -1,5 +1,60 @@
 # Verification
 
+## Four Hydra outputs and static sampling — 2026-11-13
+
+Source: Step 12 changes on parent `ceaa9470c9a7a4c027ce6b6a880c887a6f6c8a35`,
+identified by the commit containing this record. Native aarch64-apple-darwin,
+Apple M5 / Metal, SuperCollider 3.14.1; pinned Rust 1.97.1 tool binaries first in
+PATH, unchanged dependencies/lockfile. Installed ordinary release renderer SHA-256:
+`c9ace126b9f74a47bb03ec782b175455289e9523ba04007f33121cfa54b3c7ca`.
+
+- PASS: formatting, strict all-target/all-feature Clippy; Rust tests: 76 renderer,
+  seven each compiler/family example module tests, eight four-output example
+  module tests and two overlay tests. New transport tests cover independent
+  revisions, retried destination identity and selection/sequence preservation
+  after rejected display preparation. Static graph tests reject self/cross cycles.
+- PASS: production four-output native helper on linear and sRGB 8x8 targets:
+  transparent blanks, column-order quadrants, every single-output selection,
+  oriented gradient sampling, chained reads, CPU-checked bilinear scale sampling,
+  rejected-cycle image rollback and reverse-numbered dependencies. Valid 16x12
+  resize preserves programs, recomputes expected pixels and passes texture-byte
+  accounting; 4097-wide resize rejects before allocation. No GPU validation errors.
+  Debug helper SHA-256:
+  `bf1969fd132c40f9298e6b62bb76dac1a18afb133cb60324eb8c96529ff0b4c7`.
+- PASS: all fifty previous 3x3 numerical shader-reference cases, max channel
+  difference zero. Family helper SHA-256:
+  `31345952f31256460c6949315eb4970467edf9483d64f8ab075faa3c57b28a20`.
+- PASS: six isolated source SC checks and seven normal installed checks: output
+  AST/live, modulation unit, previous output, AST and legacy graph smokes. Installed
+  scope adds startup of `02_four_outputs.scd` from interpreted text with automatic
+  renderer discovery. Live tests cover four revisions, source chains, blank view,
+  all presentation modes, rejected cycle, hush and the next o3 revision. Tests
+  run serially with owned processes; existing user demos were not stopped.
+- PASS: native arm64 package/install, verified executable mode and exact renderer
+  bytes/hash; previous extension backed up outside Extensions. Current installed
+  package prefix is `fmiramar-hydra12-reviewed`; no GPU test hooks or release tags.
+- User confirms Step 11 works perfectly. NOT RUN/unqualified: manual observation
+  of the new four-output demo, other platforms, maximum-size memory stress,
+  recovery injection, feedback and browser temporal parity. Reconstruction code
+  preserves accepted dimensions even after a rejected oversized surface resize;
+  its integration was reviewed but no device-loss/recovery test is claimed here.
+
+Ignored evidence: `build/hydra-tests/outputs-12/` contains `clippy-complete.log`,
+`rust-complete.log`, `pixels-complete.log`, `families.log`, `sc/`,
+`installed-reviewed/`, `package-reviewed.log`, and the installed hash record.
+Initial `outputs12-first.log` (in the parent evidence directory) exposed a
+callback arity mismatch and an unused new layout field in standalone examples;
+fixed before strict checks. Early successful suites/packages remain as intermediate
+records. Final review moved display preparation before transport selection changes
+and added the failing-preparation regression, then rebuilt/reinstalled and passed
+all seven checks. No assertion was weakened to obtain a pass.
+
+See [OUTPUTS.md](hydra/OUTPUTS.md): same-frame topological sampling is deliberately
+limited to acyclic references pending Step 13's temporal semantics; `prev` and
+media sources remain unavailable. Hush is four sequential acknowledged commits,
+not an atomic four-target transaction. Closing releases the complete output set.
+
+
 ## Hydra spatial modulation — 2026-11-13
 
 Source: Step 11 changes on parent `9bfaab18c716674dacd3c26314b4660f5fd5e513`,

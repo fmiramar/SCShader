@@ -200,10 +200,9 @@ pub enum HotReload {
 }
 
 pub struct Renderer {
-    hydra_candidate: Option<crate::hydra::gpu::Candidate>,
-    hydra_output: Option<crate::hydra::output::Output>,
-    hydra_program: Option<crate::hydra::ir::Program>,
-    hydra_selected: bool,
+    hydra_output: Option<crate::hydra::outputs::Outputs>,
+    hydra_program: [Option<crate::hydra::ir::Program>; 4],
+    hydra_selected: i32,
     hydra_clock: Option<Instant>,
     hydra_diagnostic: Option<String>,
     instance: wgpu::Instance,
@@ -254,24 +253,30 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub fn prepare_hydra(&mut self, program: &crate::hydra::ir::Program) -> Result<(), String> {
-        crate::hydra::gpu::Candidate::prepare(&self.device, program, &mut self.hydra_candidate)?;
-        let output = crate::hydra::output::Output::new(
-            &self.device,
-            self.hydra_candidate.as_ref().unwrap().clone(),
-            self.config.width,
-            self.config.height,
-            self.config.format,
-        )?;
-        self.hydra_output = Some(output);
-        self.hydra_program = Some(program.clone());
+    pub fn prepare_hydra(
+        &mut self,
+        index: usize,
+        program: &crate::hydra::ir::Program,
+    ) -> Result<(), String> {
+        if self.hydra_output.is_none() {
+            self.hydra_output = Some(crate::hydra::outputs::Outputs::new(
+                &self.device,
+                self.config.width,
+                self.config.height,
+                self.config.format,
+            )?);
+        }
+        self.hydra_output
+            .as_mut()
+            .unwrap()
+            .prepare(&self.device, index, program)?;
+        self.hydra_program[index] = Some(program.clone());
         Ok(())
     }
     pub fn clear_hydra_candidate(&mut self) {
-        self.hydra_candidate = None;
         self.hydra_output = None;
-        self.hydra_program = None;
-        self.hydra_selected = false;
+        self.hydra_program = std::array::from_fn(|_| None);
+        self.hydra_selected = -1;
         self.hydra_clock = None;
     }
     pub fn take_hydra_diagnostic(&mut self) -> Option<String> {
@@ -281,10 +286,18 @@ impl Renderer {
         self.hydra_clock.get_or_insert_with(Instant::now);
     }
     pub fn select_hydra(&mut self, mode: i32) -> Result<(), String> {
-        if mode == 0 && self.hydra_output.is_none() {
-            return Err("commit o0 before selecting it".into());
+        if !(-1..=4).contains(&mode) {
+            return Err("invalid Hydra display mode".into());
         }
-        self.hydra_selected = mode == 0;
+        if mode >= 0 && self.hydra_output.is_none() {
+            self.hydra_output = Some(crate::hydra::outputs::Outputs::new(
+                &self.device,
+                self.config.width,
+                self.config.height,
+                self.config.format,
+            )?);
+        }
+        self.hydra_selected = mode;
         Ok(())
     }
 
@@ -603,10 +616,9 @@ impl Renderer {
             shaders,
             active_shader_id: RESOURCE_ID,
             graph_nodes: Vec::new(),
-            hydra_candidate: None,
             hydra_output: None,
-            hydra_program: None,
-            hydra_selected: false,
+            hydra_program: std::array::from_fn(|_| None),
+            hydra_selected: -1,
             hydra_clock: None,
             hydra_diagnostic: None,
             last_reload_check: Instant::now(),
@@ -715,6 +727,7 @@ impl Renderer {
             self.hydra_program.clone(),
             self.hydra_selected,
             self.hydra_clock,
+            self.hydra_output.as_ref().map(|output| output.dimensions()),
         );
         let shaders: Vec<_> = self
             .shaders
@@ -850,10 +863,21 @@ impl Renderer {
             restored.scheduled_events,
             restored.late_events,
         ) = state;
-        if let Some(program) = hydra_state.0 {
-            restored.prepare_hydra(&program)?;
+        if let Some((width, height)) = hydra_state.3 {
+            // A rejected resize may leave valid Hydra dimensions different from the surface.
+            restored.hydra_output = Some(crate::hydra::outputs::Outputs::new(
+                &restored.device,
+                width,
+                height,
+                restored.config.format,
+            )?);
         }
-        restored.hydra_selected = hydra_state.1;
+        for (i, program) in hydra_state.0.iter().enumerate() {
+            if let Some(program) = program {
+                restored.prepare_hydra(i, program)?;
+            }
+        }
+        restored.select_hydra(hydra_state.1)?;
         restored.hydra_clock = hydra_state.2;
         restored.queue.submit([]);
         restored.poll_gpu();
@@ -889,10 +913,7 @@ impl Renderer {
 
     /// Owned texture allocation estimate; excludes swapchain/driver allocation.
     pub fn texture_bytes(&self) -> u64 {
-        let hydra_bytes = self
-            .hydra_output
-            .as_ref()
-            .map_or(0, |o| u64::from(o.width) * u64::from(o.height) * 4);
+        let hydra_bytes = self.hydra_output.as_ref().map_or(0, |o| o.texture_bytes());
 
         let bytes = |texture: &wgpu::Texture| {
             u64::from(texture.width())
@@ -1413,18 +1434,11 @@ impl Renderer {
         });
         self.surface.configure(&self.device, &self.config);
         if let Some(output) = &self.hydra_output {
-            match crate::hydra::output::Output::new(
-                &self.device,
-                output.candidate.clone(),
-                size.width,
-                size.height,
-                self.config.format,
-            ) {
+            match output.resized(&self.device, size.width, size.height) {
                 Ok(output) => self.hydra_output = Some(output),
                 Err(error) => {
                     self.hydra_diagnostic = Some(format!(
-                        "resize retained {}x{}: {error}",
-                        output.width, output.height
+                        "Hydra resize retained previous dimensions: {error}"
                     ))
                 }
             }
@@ -1614,18 +1628,24 @@ impl Renderer {
                 label: Some("SCShader frame encoder"),
             });
 
-        if self.hydra_selected {
+        if self.hydra_selected >= 0 {
             if let Some(output) = &self.hydra_output {
-                output.encode_output(
+                output.encode_outputs(
+                    &self.device,
                     &self.queue,
-                    &mut encoder,
                     self.hydra_clock
                         .map_or(0., |clock| clock.elapsed().as_secs_f32()),
                     time_delta,
                     self.stats.frame_index as u32,
                 );
                 self.submit_intermediate_pass(&mut encoder);
-                output.encode_present(&mut encoder, &view);
+                output.encode_present(
+                    &mut encoder,
+                    &view,
+                    self.hydra_selected,
+                    self.config.width,
+                    self.config.height,
+                );
             }
         } else {
             let graph_nodes = if self.graph_nodes.is_empty() {
@@ -1727,7 +1747,7 @@ impl Renderer {
                 })
                 .map_err(|error| format!("diagnostic GPU wait failed: {error}"))?;
         }
-        if !self.hydra_selected {
+        if self.hydra_selected < 0 {
             self.feedback_targets.swap();
         }
         if reconfigure_after_present {

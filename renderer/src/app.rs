@@ -307,11 +307,16 @@ impl App {
                 match self.hydra.execute_with(
                     request,
                     self.started_at.elapsed().as_secs_f64(),
-                    |program| {
-                        renderer
+                    |preparation| {
+                        let renderer = renderer
                             .as_mut()
-                            .ok_or_else(|| "renderer is not initialized".to_owned())?
-                            .prepare_hydra(program)
+                            .ok_or_else(|| "renderer is not initialized".to_owned())?;
+                        match preparation {
+                            crate::hydra::Preparation::Commit(output, program) => {
+                                renderer.prepare_hydra(output, program)
+                            }
+                            crate::hydra::Preparation::Present(mode) => renderer.select_hydra(mode),
+                        }
                     },
                 ) {
                     Ok(reply) => {
@@ -319,17 +324,6 @@ impl App {
                             && let Some(renderer) = &mut self.renderer
                         {
                             renderer.open_hydra();
-                        }
-                        if reply.suffix == "presented"
-                            && let Some(renderer) = &mut self.renderer
-                        {
-                            let rosc::OscType::Int(mode) = reply.args[3] else {
-                                unreachable!()
-                            };
-                            if let Err(error) = renderer.select_hydra(mode) {
-                                self.send_error(ErrorReply::protocol(reply.target, error));
-                                return;
-                            }
                         }
                         if closing && let Some(renderer) = &mut self.renderer {
                             renderer.clear_hydra_candidate();

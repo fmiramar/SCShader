@@ -3,6 +3,7 @@ use super::gpu::Candidate;
 // One o0 image plus a presentation pass. Source expressions execute once per frame.
 pub struct Output {
     pub candidate: Candidate,
+    pub inputs: Option<wgpu::BindGroup>,
     pub texture: wgpu::Texture,
     frame: wgpu::Buffer,
     bindings: wgpu::BindGroup,
@@ -137,6 +138,7 @@ struct Vertex {{ @builtin(position) position:vec4<f32>, @location(0) uv:vec2<f32
         }
         Ok(Self {
             candidate,
+            inputs: None,
             texture,
             frame,
             bindings,
@@ -183,9 +185,20 @@ struct Vertex {{ @builtin(position) position:vec4<f32>, @location(0) uv:vec2<f32
         });
         pass.set_pipeline(&self.candidate._pipeline);
         pass.set_bind_group(0, &self.bindings, &[]);
+        if let Some(inputs) = &self.inputs {
+            pass.set_bind_group(1, inputs, &[]);
+        }
         pass.draw(0..3, 0..1);
     }
     pub fn encode_present(&self, encoder: &mut wgpu::CommandEncoder, view: &wgpu::TextureView) {
+        self.encode_present_region(encoder, view, None);
+    }
+    pub fn encode_present_region(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        view: &wgpu::TextureView,
+        region: Option<[f32; 4]>,
+    ) {
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Hydra presentation"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -193,12 +206,19 @@ struct Vertex {{ @builtin(position) position:vec4<f32>, @location(0) uv:vec2<f32
                 depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    load: if region.is_some() {
+                        wgpu::LoadOp::Load
+                    } else {
+                        wgpu::LoadOp::Clear(wgpu::Color::BLACK)
+                    },
                     store: wgpu::StoreOp::Store,
                 },
             })],
             ..Default::default()
         });
+        if let Some([x, y, w, h]) = region {
+            pass.set_viewport(x, y, w, h, 0., 1.);
+        }
         pass.set_pipeline(&self.presenter);
         pass.set_bind_group(0, &self.presentation, &[]);
         pass.draw(0..3, 0..1);

@@ -2,6 +2,7 @@
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ValueType {
     Float,
+    Output,
     Vector,
     Expression,
 }
@@ -405,8 +406,19 @@ pub const MODULATION: &[Spec] = &[
         _defaults: &[1.0],
     },
 ];
+pub const SAMPLING: &[Spec] = &[Spec {
+    name: "src",
+    category: 0,
+    args: &[ValueType::Output],
+    _names: &["tex"],
+    _defaults: &[],
+}];
 pub fn supported() -> impl Iterator<Item = &'static Spec> {
-    PROCEDURAL.iter().chain(COMBINE).chain(MODULATION)
+    PROCEDURAL
+        .iter()
+        .chain(COMBINE)
+        .chain(MODULATION)
+        .chain(SAMPLING)
 }
 pub fn spec(name: &str) -> Option<&'static Spec> {
     supported().find(|s| s.name == name)

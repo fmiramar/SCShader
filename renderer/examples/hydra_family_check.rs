@@ -31,6 +31,7 @@ fn defaults(spec: &registry::Spec) -> Vec<Argument> {
     spec.args
         .iter()
         .map(|kind| match kind {
+            registry::ValueType::Output => unreachable!(),
             registry::ValueType::Expression => Argument::Expression(6),
             registry::ValueType::Float => {
                 let value = spec._defaults[cursor];
@@ -131,6 +132,7 @@ fn reference(
                         .collect::<Vec<_>>()
                         .join(",")
                 ),
+                Argument::Output(_) => unreachable!(),
                 Argument::Expression(id) => format!("ref{id}(p)"),
             })
             .collect::<Vec<_>>()
@@ -280,6 +282,9 @@ fn checked(program: Program) -> Program {
                         bytes.extend(value.to_be_bytes());
                     }
                 }
+                Argument::Output(slot) => {
+                    bytes.extend([4, slot]);
+                }
                 Argument::Expression(id) => {
                     bytes.push(2);
                     bytes.extend(id.to_be_bytes());
@@ -331,7 +336,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("adapter={:?}", adapter.get_info());
     let (device, queue) = pollster::block_on(adapter.request_device(&Default::default()))?;
     let mut cached = None;
-    for spec in registry::supported() {
+    for spec in registry::supported().filter(|spec| spec.name != "src") {
         let mut args = defaults(spec);
         match spec.name {
             "add" | "sub" | "mult" => args[1] = Argument::Float(0.35),

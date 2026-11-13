@@ -7,6 +7,7 @@ pub const MAX_NODES: usize = 256;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Argument {
     Float(f32),
+    Output(u8),
     Vector([f32; 4]),
     Expression(u32),
 }
@@ -101,6 +102,13 @@ impl Program {
             let mut arguments = Vec::with_capacity(argc);
             for expected_type in types {
                 match input.byte()? {
+                    4 if *expected_type == ValueType::Output => {
+                        let slot = input.byte()?;
+                        if slot > 3 {
+                            return Err("invalid output slot".into());
+                        }
+                        arguments.push(Argument::Output(slot));
+                    }
                     0 if *expected_type == ValueType::Float => {
                         let value = f32::from_bits(input.word()?);
                         if !value.is_finite() {

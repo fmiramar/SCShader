@@ -4,6 +4,7 @@ use super::{compiler, ir::Program};
 #[derive(Clone)]
 pub struct Candidate {
     pub source: String,
+    pub _inputs: Option<wgpu::BindGroupLayout>,
     pub _pipeline: wgpu::RenderPipeline,
     pub _layout: wgpu::BindGroupLayout,
 }
@@ -34,9 +35,41 @@ impl Candidate {
                 count: None,
             }],
         });
+        let inputs = program
+            .nodes
+            .iter()
+            .any(|node| node.name == "src")
+            .then(|| {
+                let mut entries = (0..4)
+                    .map(|binding| wgpu::BindGroupLayoutEntry {
+                        binding,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    })
+                    .collect::<Vec<_>>();
+                entries.push(wgpu::BindGroupLayoutEntry {
+                    binding: 4,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                });
+                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Hydra output inputs"),
+                    entries: &entries,
+                })
+            });
+        let mut layouts = vec![Some(&layout)];
+        if let Some(inputs) = &inputs {
+            layouts.push(Some(inputs));
+        }
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Hydra candidate layout"),
-            bind_group_layouts: &[Some(&layout)],
+            bind_group_layouts: &layouts,
             immediate_size: 0,
         });
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -73,6 +106,7 @@ impl Candidate {
         }
         *current = Some(Self {
             source,
+            _inputs: inputs,
             _pipeline: pipeline,
             _layout: layout,
         });

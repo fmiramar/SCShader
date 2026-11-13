@@ -43,6 +43,20 @@ SCHydra : Object {
     voronoi { |scale = 5, speed = 0.3, blending = 0.3| this.checkLive; ^SCHydraExpr.new(this, \voronoi, [scale, speed, blending]) }
     shape { |sides = 3, radius = 0.3, smoothing = 0.01| this.checkLive; ^SCHydraExpr.new(this, \shape, [sides, radius, smoothing]) }
 
+    src { |output = \o0| ^SCHydraExpr.new(this, \src, [this.outputIndex(output)]) }
+
+    hush { |action|
+        var clear;
+        clear = { |index|
+            this.solid(0,0,0,0).out([\o0,\o1,\o2,\o3][index], { |result|
+                if(result[\ok].not) { action.value(result) } {
+                    if(index < 3) { clear.value(index+1) } { this.render(\o0, action) };
+                };
+            });
+        };
+        clear.value(0); ^this
+    }
+
     snapshot { |expression, output = \o0|
         this.checkLive;
         if(expression.isKindOf(SCHydraExpr).not or: { expression.hydra !== this }) {
@@ -176,13 +190,12 @@ SCHydra : Object {
         ^this
     }
 
-    render { |output = \o0, action|
+    render { |output, action|
         var mode, id;
         this.checkLive;
         if(isReady.not) { Error("SCHydra session is not ready.").throw };
         if(uploading or: { presenting }) { Error("SCHydra already has a request in flight.").throw };
-        mode = (output == \legacy).if({ -1 }, { this.outputIndex(output) });
-        if(mode > 0) { Error("Only Hydra o0 is implemented.").throw };
+        mode = output.isNil.if({ 4 }, { (output == \legacy).if({ -1 }, { this.outputIndex(output) }) });
         id = this.nextSequence;
         presenting = true;
         presentTask = Routine({

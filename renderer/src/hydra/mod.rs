@@ -5,6 +5,7 @@ pub mod gpu;
 pub mod ir;
 pub mod modulation;
 pub mod output;
+pub mod outputs;
 pub mod registry;
 use crate::protocol::{ErrorReply, ReplyTarget};
 use rosc::OscType;
@@ -67,7 +68,7 @@ impl Request {
                 args.len() == 4
                     && scoped
                     && integer(&args, 2, 1, i32::MAX)
-                    && integer(&args, 3, -1, 0)
+                    && integer(&args, 3, -1, 4)
             }
             "status" => {
                 args.len() == 4
@@ -139,11 +140,16 @@ struct Session {
     target: ReplyTarget,
     nonce: String,
     high_water: i32,
-    revision: i32,
+    revision: [i32; 4],
+    committed_outputs: VecDeque<(i32, i32)>,
     selected: i32,
     present_sequence: i32,
     upload: Option<Upload>,
     results: VecDeque<(i32, &'static str, String)>,
+}
+pub enum Preparation<'a> {
+    Commit(usize, &'a ir::Program),
+    Present(i32),
 }
 pub struct Transport {
     epoch: String,
@@ -218,13 +224,16 @@ impl Transport {
     }
     #[cfg(test)]
     pub fn execute(&mut self, r: Request, now: f64) -> Result<Reply, ErrorReply> {
-        self.execute_with(r, now, |program| compiler::compile(program).map(|_| ()))
+        self.execute_with(r, now, |preparation| match preparation {
+            Preparation::Commit(_, program) => compiler::compile(program).map(|_| ()),
+            Preparation::Present(_) => Ok(()),
+        })
     }
     pub fn execute_with(
         &mut self,
         r: Request,
         now: f64,
-        mut prepare: impl FnMut(&ir::Program) -> Result<(), String>,
+        mut prepare: impl FnMut(Preparation<'_>) -> Result<(), String>,
     ) -> Result<Reply, ErrorReply> {
         self.expire(now);
         let target = r.reply_target();
@@ -247,7 +256,7 @@ impl Transport {
                     0.into(),
                     OscType::Blob(limits.into_iter().flat_map(u32::to_be_bytes).collect()),
                     format!(
-                        "staging-ir-v1;wgsl-v1:{};output-o0-v1",
+                        "staging-ir-v1;wgsl-v1:{};output-o0-v1;outputs-static-v1",
                         registry::supported()
                             .map(|s| s.name)
                             .collect::<Vec<_>>()
@@ -282,7 +291,8 @@ impl Transport {
                     target,
                     nonce: r.text(2).into(),
                     high_water: 0,
-                    revision: 0,
+                    revision: [0; 4],
+                    committed_outputs: VecDeque::new(),
                     selected: -1,
                     present_sequence: 0,
                     upload: None,
@@ -341,14 +351,7 @@ impl Transport {
                         "transaction ID is stale; query status",
                     ));
                 }
-                if r.int(3) != 0 {
-                    return Err(failure(
-                        target,
-                        "E_HYDRA_CAPABILITY",
-                        "only o0 is supported",
-                    ));
-                }
-                if r.int(4) != session.revision {
+                if r.int(4) != session.revision[r.int(3) as usize] {
                     return Err(failure(target, "E_HYDRA_STALE", "output revision mismatch"));
                 }
                 session.high_water = tx;
@@ -397,9 +400,16 @@ impl Transport {
                 {
                     if code.is_empty() {
                         reply.suffix = "committed";
-                        reply
-                            .args
-                            .extend([0.into(), message.parse::<i32>().unwrap().into()]);
+                        reply.args.extend([
+                            session
+                                .committed_outputs
+                                .iter()
+                                .find(|entry| entry.0 == tx)
+                                .unwrap()
+                                .1
+                                .into(),
+                            message.parse::<i32>().unwrap().into(),
+                        ]);
                         return Ok(reply);
                     }
                     return Err(failure(target, code, message.clone()));
@@ -412,15 +422,15 @@ impl Transport {
                 if u.chunks.iter().any(Option::is_none) {
                     return Err(failure(target, "E_HYDRA_UPLOAD", "upload incomplete"));
                 }
-                if u.expected != session.revision {
+                if u.expected != session.revision[u.output as usize] {
                     return Err(failure(
                         target,
                         "E_HYDRA_STALE",
                         "output changed before commit",
                     ));
                 }
-                let next_revision = session
-                    .revision
+                let output = u.output;
+                let next_revision = session.revision[output as usize]
                     .checked_add(1)
                     .ok_or_else(|| failure(target, "E_HYDRA_LIMIT", "revision exhausted"))?;
                 let bytes: Vec<u8> = u
@@ -430,12 +440,16 @@ impl Transport {
                     .collect();
                 session.upload = None;
                 let (code, message) = match ir::Program::decode(&bytes) {
-                    Ok(program) => match prepare(&program) {
+                    Ok(program) => match prepare(Preparation::Commit(output as usize, &program)) {
                         Ok(()) => {
-                            session.revision = next_revision;
+                            session.revision[output as usize] = next_revision;
+                            if session.committed_outputs.len() == 32 {
+                                session.committed_outputs.pop_front();
+                            }
+                            session.committed_outputs.push_back((tx, output));
                             remember(session, tx, "", &next_revision.to_string());
                             reply.suffix = "committed";
-                            reply.args.extend([0.into(), next_revision.into()]);
+                            reply.args.extend([output.into(), next_revision.into()]);
                             return Ok(reply);
                         }
                         Err(message) => ("E_HYDRA_COMPILE", message),
@@ -453,13 +467,6 @@ impl Transport {
                 reply.suffix = "aborted";
             }
             "present" => {
-                if r.int(3) == 0 && session.revision == 0 {
-                    return Err(failure(
-                        target,
-                        "E_HYDRA_STALE",
-                        "commit o0 before rendering",
-                    ));
-                }
                 if tx == session.present_sequence && r.int(3) == session.selected {
                     reply.suffix = "presented";
                     reply.args.push(session.selected.into());
@@ -472,6 +479,8 @@ impl Transport {
                         "stale presentation sequence",
                     ));
                 }
+                prepare(Preparation::Present(r.int(3)))
+                    .map_err(|message| failure(target, "E_HYDRA_LIMIT", message))?;
                 session.present_sequence = tx;
                 session.selected = r.int(3);
                 reply.suffix = "presented";
@@ -493,7 +502,8 @@ impl Transport {
                 reply.args.extend([
                     session.selected.into(),
                     OscType::Blob(
-                        [session.revision, 0, 0, 0]
+                        session
+                            .revision
                             .into_iter()
                             .flat_map(i32::to_be_bytes)
                             .collect(),
@@ -627,7 +637,7 @@ mod tests {
             "committed"
         );
         assert_eq!(run(&mut t, "commit", args, 0.).unwrap().suffix, "committed");
-        assert_eq!(t.session.as_ref().unwrap().revision, 1);
+        assert_eq!(t.session.as_ref().unwrap().revision[0], 1);
         let args = scoped(&t, vec![2.into(), 0.into(), 0.into(), 1.into()]);
         assert_eq!(
             run(&mut t, "begin", args, 0.).err().unwrap().code,
@@ -639,13 +649,76 @@ mod tests {
         run(&mut t, "chunk", args, 0.).unwrap();
         let args = scoped(&t, vec![2.into()]);
         assert!(run(&mut t, "commit", args, 0.).is_err());
-        assert_eq!(t.session.as_ref().unwrap().revision, 1);
+        assert_eq!(t.session.as_ref().unwrap().revision[0], 1);
         let args = scoped(&t, vec![10.into(), 0.into()]);
         run(&mut t, "present", args.clone(), 0.).unwrap();
         run(&mut t, "present", args, 0.).unwrap();
         let args = scoped(&t, vec![9.into(), (-1).into()]);
         assert!(run(&mut t, "present", args, 0.).is_err());
         assert_eq!(t.session.as_ref().unwrap().selected, 0);
+    }
+    #[test]
+    fn four_revisions_and_duplicate_commit_destination() {
+        let mut t = Transport::default();
+        open(&mut t);
+        let mut bytes = b"HYIR\0\x01\0\0".to_vec();
+        for word in [1u32, 0, 1, 1] {
+            bytes.extend(word.to_be_bytes());
+        }
+        bytes.extend([0, 4, 0, 5]);
+        bytes.extend(b"solid");
+        bytes.extend(0u32.to_be_bytes());
+        for value in [0f32, 0., 0., 1.] {
+            bytes.push(0);
+            bytes.extend(value.to_be_bytes());
+        }
+        for slot in 0..4 {
+            let tx = slot + 1;
+            let args = scoped(
+                &t,
+                vec![
+                    tx.into(),
+                    slot.into(),
+                    0.into(),
+                    (bytes.len() as i32).into(),
+                ],
+            );
+            run(&mut t, "begin", args, 0.).unwrap();
+            let args = scoped(&t, vec![tx.into(), 0.into(), OscType::Blob(bytes.clone())]);
+            run(&mut t, "chunk", args, 0.).unwrap();
+            let args = scoped(&t, vec![tx.into()]);
+            let reply = run(&mut t, "commit", args.clone(), 0.).unwrap();
+            assert_eq!(reply.args[3], OscType::Int(slot));
+            assert_eq!(run(&mut t, "commit", args, 0.).unwrap().args, reply.args);
+        }
+        assert_eq!(t.session.as_ref().unwrap().revision, [1; 4]);
+        let args = scoped(&t, vec![20.into(), 4.into()]);
+        run(&mut t, "present", args, 0.).unwrap();
+        let args = scoped(&t, vec![21.into(), 0.into()]);
+        let reply = run(&mut t, "status", args, 0.).unwrap();
+        assert_eq!(
+            reply.args[4],
+            OscType::Blob([1i32; 4].into_iter().flat_map(i32::to_be_bytes).collect())
+        );
+    }
+    #[test]
+    fn rejected_display_preparation_keeps_selection_and_sequence() {
+        let mut t = Transport::default();
+        open(&mut t);
+        let args = scoped(&t, vec![5.into(), 4.into()]);
+        let request =
+            Request::parse("present", args.clone(), "127.0.0.1:57120".parse().unwrap()).unwrap();
+        assert_eq!(
+            t.execute_with(request, 0., |_| Err("dimension limit".into()))
+                .err()
+                .unwrap()
+                .code,
+            "E_HYDRA_LIMIT"
+        );
+        assert_eq!(t.session.as_ref().unwrap().selected, -1);
+        assert_eq!(t.session.as_ref().unwrap().present_sequence, 0);
+        run(&mut t, "present", args, 0.).unwrap();
+        assert_eq!(t.session.as_ref().unwrap().selected, 4);
     }
     #[test]
     fn ownership_and_parser_limits() {
