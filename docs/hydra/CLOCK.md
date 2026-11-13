@@ -74,7 +74,14 @@ refresh, scan-out, audio device latency and OS scheduling remain separate.
 `examples/hydra/07_clock.scd` provides visual startup, an opt-in eight-beat audio
 performance, tempo/speed change, explicit reset and cleanup. A dedicated
 TempoClock/Routine consumes a Pseq at 120 BPM and sends both SC synth creation
-and Hydra controls with a shared 0.1-second logical delay. Tick Synths free
+and Hydra controls with one captured future deadline. Normally it is 0.3 seconds after the logical
+beat; after a late SC wake-up, both targets move together to at least 0.1 seconds
+after wall time. That recovery shifts a late musical beat rather than sending
+expired bundles. Repeated performance runs stop the old musical clock, while
+overlapping runs are rejected. After eight beats, brightness returns to one and
+the native visual clock continues. The startup shader is black; the Hydra pattern
+uses a nonzero color offset and visibly rotating/scaling geometry. Steps 3–4
+change that visual motion independently of the finite musical Routine. Tick Synths free
 themselves; cleanup stops this example's visual server/clock and keeps the user's
 audio server available. Re-run the performance block after its prior run finishes.
 
@@ -85,3 +92,9 @@ Separate checks cover speed continuity/pause/reverse/reset, retry/failure guards
 timed-control versus structural admission, actual beat/BPM/frame/delta pixels and
 TempoClock/Routine/Pseq control. See VERIFICATION.md for actual error samples,
 hashes, passed checks and remaining manual observations.
+
+Follow-up: the actual installed performance now runs twice with an injected
+450 ms SC stall per run, rejects overlaps, and reports no renderer errors. Both
+clock control steps still apply after the musical Routine finishes. Do not use
+Cmd-. between steps: ShaderServer deliberately quits local renderers on Cmd-.
+A stopped renderer now produces an explicit restart error from clockMessage.

@@ -1,5 +1,24 @@
 # Verification
 
+## Clock example repeat/late-wake follow-up
+
+The user reported ~250 ms E_LATE_EVENT warnings on a repeated performance, a
+colored startup flash followed by grayscale, and visually ineffective speed/reset
+steps. The original osc used offset zero (equal RGB channels) and the renderer
+showed its default shader during negotiation. The example now boots with a black
+shader, uses colored stripes with conspicuous rotation/scaling, and restores
+brightness after the finite musical Routine. The native clock remains independent.
+
+Both audio/video deadlines are captured once per beat: normally logical time +
+0.3 seconds, or wall time + 0.1 seconds if the language wakes late. This explicitly
+rebases a late musical beat; renderer late diagnostics remain enabled. Two actual
+installed performances pass with a 450 ms language stall injected per run, eight
+markers each, no renderer errors, and rejected overlapping starts. Startup must
+be cleaned up before restarting; old TempoClocks are stopped on repeat. The
+existing renderer binary is unchanged. Evidence is under
+`build/hydra-tests/clock-16-followup/`. Physical listening/desktop appearance
+remain user checks. Clock message construction now rejects a stopped renderer.
+
 ## Hydra clock and scheduled controls — Step 16
 
 Parent `fb3959f`; source identified by the commit containing this record. Native

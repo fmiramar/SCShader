@@ -1,5 +1,12 @@
 # Milestone P1 — native desktop compatibility first
 
+Clock example follow-up: repeated runs and late SC wake-ups are now covered by a
+two-run regression with injected 450 ms stalls. The example uses shared future
+audio/video deadlines, black startup, visible colored motion and overlap guards.
+Clock commands reject a stopped renderer; Cmd-. closes renderers between steps.
+See [the updated example](../examples/hydra/07_clock.scd).
+
+
 Hydra Step 16: [session clock and scheduled controls](hydra/CLOCK.md) add BPM,
 continuous speed changes, explicit phase/reset and native beat/frame/delta values.
 Clock/parameter messages reuse the existing bounded OSC scheduler. The short

@@ -45,6 +45,7 @@ SCHydra : Object {
     delta { |rate=1,bias=0| ^this.number(6,[rate,bias]) }
     clockMessage { |bpm=30,speed=1,phase|
         this.checkLive;
+        if(server.isNil or:{server.isRunning.not}) {Error("Hydra renderer is not running; restart the example startup.").throw};
         [bpm,speed,phase ? 0].do {|v|ShaderDef.validateValue(\float,v)};
         if(isReady.not or:{bpm<0 or:{bpm>1000 or:{speed.abs>16 or:{(phase ? 0).abs>1e9}}}}) {Error("Invalid Hydra clock or session not ready").throw};
         ^['/scshader/v1/hydra/clock',epoch,session,this.nextSequence,bpm.asFloat,speed.asFloat,(phase ? 0).asFloat,phase.notNil.if({1},{0})]
