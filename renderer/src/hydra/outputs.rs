@@ -69,7 +69,16 @@ impl Outputs {
         if index > 3 {
             return Err("invalid destination output".into());
         }
-        let mut candidate = None;
+        // Reuse only currently live pipelines, keyed by normalized generated WGSL.
+        // No inactive cache survives output replacement or session disposal.
+        let source = super::compiler::compile(program)?;
+        let mut candidate = self
+            .slots
+            .iter()
+            .flatten()
+            .map(|pair| &pair[0].candidate)
+            .find(|candidate| candidate.source == source)
+            .cloned();
         Candidate::prepare(device, program, &mut candidate)?;
         let candidate = candidate.unwrap();
         // Construct both images before replacing any accepted state. New WebGPU

@@ -93,3 +93,5 @@ output becomes visible on its next frame. Close releases the output and selects 
 Output cycles are valid temporal reads. Fixed numeric output order gives self/lower-index reads the previous image and higher-index reads the older image (n−2 during uninterrupted rendering). Blank slots sample transparent black and blank selection is allowed. Native `prev` reads the destination’s previous image. Successful replacements reset that output’s paired history; resize/recovery reset all histories. See [the temporal contract and native differences](../docs/hydra/TEMPORAL_SEMANTICS.md).
 
 Display resources are prepared before presentation sequence/mode changes. A preparation failure returns E_HYDRA_LIMIT and retains the previous selection and sequence.
+
+Step 14: `SCHydra.clear(output, action)` is a client convenience using an ordinary transparent-solid commit. It increments only that output revision and retains selection. Hush uses four sequential clear calls. Matching live expression pipelines share compiled resources; no protocol fields change. See [live editing](../docs/hydra/LIVE_CODING.md).

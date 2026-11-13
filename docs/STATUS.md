@@ -1,5 +1,12 @@
 # Implementation checkpoint
 
+Hydra Step 14: [live output replacement](hydra/LIVE_CODING.md) reuses matching
+active expression pipelines and adds explicit per-output clear. A native fixed
+32-edit check verifies unrelated pixels, failed-edit rollback and allocation
+ownership returning to baseline after disposal. Checkpoint B is available within
+the documented native scope; successful edits continue to reset destination history.
+
+
 Hydra Step 13 (2026-11-13): [paired output histories and feedback](hydra/TEMPORAL_SEMANTICS.md)
 pass native Metal pixel checks and source SC checks. Self-feedback, cross-output
 cycles and native prev are implemented. Logical-device recovery clears all four

@@ -14,7 +14,7 @@ select={ |n|
             if(cycle[\ok].not or: {cycle[\revision]!=2}) {finish.value(false,cycle)} {
                 h.hush({ |quiet|
                     if(quiet[\ok].not) {finish.value(false,quiet)} {
-                        h.solid(0.1,0.2,0.3).out(\o3,{ |good|finish.value(good[\ok] and: {good[\revision]==3},"Four outputs, sampling, switches, cyclic feedback and hush revisions pass")});
+                        h.solid(0.1,0.2,0.3).out(\o3,{ |good|if(good[\ok].not or: {good[\revision]!=3}) {finish.value(false,good)} { h.clear(\o3,{ |cleared| finish.value(cleared[\ok] and: {cleared[\revision]==4},"Four outputs, cycles, switches, hush and explicit clear revisions pass") }) }});
                     };
                 });
             };

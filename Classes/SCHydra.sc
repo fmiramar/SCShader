@@ -47,10 +47,14 @@ SCHydra : Object {
 
     src { |output = \o0| ^SCHydraExpr.new(this, \src, [this.outputIndex(output)]) }
 
+    clear { |output = \o0, action|
+        this.solid(0,0,0,0).out(output, action); ^this
+    }
+
     hush { |action|
         var clear;
         clear = { |index|
-            this.solid(0,0,0,0).out([\o0,\o1,\o2,\o3][index], { |result|
+            this.clear([\o0,\o1,\o2,\o3][index], { |result|
                 if(result[\ok].not) { action.value(result) } {
                     if(index < 3) { clear.value(index+1) } { this.render(\o0, action) };
                 };

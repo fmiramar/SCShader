@@ -252,6 +252,58 @@ fn main() -> Result<(), Box<dyn Error>> {
         );
     }
     temporal(&device, &queue)?;
+    let counts = || {
+        let h = instance.generate_report().unwrap().hub;
+        [
+            h.textures,
+            h.texture_views,
+            h.buffers,
+            h.bind_groups,
+            h.render_pipelines,
+            h.pipeline_layouts,
+            h.bind_group_layouts,
+            h.samplers,
+        ]
+        .map(|r| (r.num_allocated, r.num_kept_from_user))
+    };
+    device.poll(wgpu::PollType::Wait {
+        submission_index: None,
+        timeout: Some(Duration::from_secs(5)),
+    })?;
+    let baseline = counts();
+    {
+        let mut edits = outputs::Outputs::new(&device, 8, 8, wgpu::TextureFormat::Rgba8Unorm)?;
+        edits.prepare(&device, 1, &solid(0., 1., 0.))?;
+        edits.prepare(&device, 0, &solid(0., 1., 0.))?;
+        assert_eq!(
+            edits.current(0).candidate._pipeline,
+            edits.current(1).candidate._pipeline
+        );
+        edits.encode_outputs(&device, &queue, 0., 0., 0);
+        for n in 0..32 {
+            edits.prepare(&device, 0, &solid(n as f32 / 32., 0., 0.))?;
+            edits.encode_outputs(&device, &queue, 0., 0., n);
+            let pixels = read(&device, &queue, &edits.current(1).texture)?;
+            assert!(pixels.chunks_exact(4).all(|p| p == [0, 255, 0, 255]));
+            assert_eq!(edits.texture_bytes(), 4 + 4 * 8 * 8 * 4);
+            assert!(
+                edits
+                    .prepare(&device, 0, &program("osc", vec![Argument::Float(0.); 3]))
+                    .is_err()
+            );
+        }
+    }
+    device.poll(wgpu::PollType::Wait {
+        submission_index: None,
+        timeout: Some(Duration::from_secs(5)),
+    })?;
+    let after = counts();
+    assert_eq!(
+        baseline, after,
+        "GPU resource ownership did not return to baseline"
+    );
+    println!("resource baseline={baseline:?}\nafter disposal={after:?}");
+    println!("32 edits: unrelated pixels, rejected edits, bounded images and disposal completed");
     println!("SCSHADER_HYDRA_OUTPUTS_GPU_OK");
     Ok(())
 }

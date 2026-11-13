@@ -18,12 +18,14 @@ Updated: 2026-11-13
 | 12 — Four outputs and static sampling | PASS (native automated/installed scope) | [OUTPUTS.md](OUTPUTS.md): independent revisions, quadrants, static src reads, cycle rejection, resize and hush. Nine ordered visual checks installed and command-tested; user confirms black hush and gray bottom-right invert(0.5). Step 13 supersedes static scheduling. |
 | 13 — Temporal buffering and feedback | PASS (native pixels, installed SC/example and logical recovery) | [TEMPORAL_SEMANTICS.md](TEMPORAL_SEMANTICS.md): fixed numeric order, paired histories, legal cycles, native prev, resets and bounded accounting. Upstream callback trace agrees; browser GPU parity unverified. |
 
+| 14 — Live replacement and reclamation | PASS (native fixed-count GPU check; installed SC checks) | [LIVE_CODING.md](LIVE_CODING.md): active pipeline reuse, explicit clear, existing hush/disposal/mode contracts and 32 edits with resource ownership returning to baseline. |
+
 Checkpoint A is available for one-output procedural visuals and live replacement.
 The user confirms `01_osc.scd` runs perfectly; new Step 09 visuals have automated
 native checks but await user observation. This is a development checkpoint.
 
-Next: Step 14, `gpt-6.1-sol` / `medium`. Stop at the plan's model/effort
-boundary: `/model gpt-6.1-sol --reasoning=medium`, then `/status`.
+Checkpoint B reached in the documented native scope. Next: Step 15, `gpt-6.1-sol` / `high`. Stop at the plan's model/effort
+boundary: `/model gpt-6.1-sol --reasoning=high`, then `/status`.
 The user authorized Step 13 continuation after the prior switch request; no
 in-session tool independently reports the running model/effort pair. No automatic
 model change is claimed. Media sources and complete browser/runtime parity remain

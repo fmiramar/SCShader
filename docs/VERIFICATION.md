@@ -1,5 +1,29 @@
 # Verification
 
+## Hydra live replacement — Step 14
+
+Parent `5da7e89`, source identified by the commit containing this record. Native
+Apple M5 / Metal, aarch64-apple-darwin, Rust 1.97.1, SC 3.14.1; version 0.0.18 and
+lockfile unchanged. Installed ordinary renderer SHA-256 `a22758a882ed8d6ac2deb6c3086dd4b40fa17dc5ea1fe7e31c15408c4b3c5f9e`.
+
+PASS: formatting, strict all-target/all-feature Clippy and Rust suites (75 renderer,
+three seven-test helper suites and two overlay tests). The production output
+helper passes the retained temporal/presentation cases plus 32 edits, rejected
+compilation and unrelated-pixel preservation. Identical live expression pipelines
+compare equal. After disposal and bounded GPU wait, eight tracked wgpu registries
+(textures/views, buffers, bind groups/layouts, pipelines/layouts and samplers)
+return to their zero allocation/ownership baseline. Released registry slots are
+not interpreted as live resources. This does not measure driver VRAM retirement.
+
+Eight installed SC checks pass, including explicit clear revision 4 following
+hush/redefinition, both installed examples, AST and legacy graph checks. Ordinary
+arm64 package/notice checks pass; the previous extension is backed up outside
+Extensions. Evidence: `build/hydra-tests/live-14/` (`pixels-reviewed.log`, `rust.log`,
+`clippy.log`, `installed/`, package logs). No Python changes; Python suite not
+repeated. Other backends, long-duration stress and browser GPU parity not run.
+Successful output edits still reset destination history. Checkpoint B is reached
+within [the documented native scope](hydra/LIVE_CODING.md).
+
 ## Hydra temporal outputs and feedback — 2026-11-13
 
 Source: Step 13 changes on parent `852bb11afe5834e15a86c495022acc2787decbfd`,
