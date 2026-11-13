@@ -1,8 +1,10 @@
 //! Opt-in Hydra transport. Graph activation is gated on the native compiler.
 pub mod compiler;
+pub mod families;
 pub mod gpu;
 pub mod ir;
 pub mod output;
+pub mod registry;
 use crate::protocol::{ErrorReply, ReplyTarget};
 use rosc::OscType;
 use std::{
@@ -243,8 +245,15 @@ impl Transport {
                     1.into(),
                     0.into(),
                     OscType::Blob(limits.into_iter().flat_map(u32::to_be_bytes).collect()),
-                    "staging-ir-v1;wgsl-v1:solid,osc,gradient,rotate,scale,color;output-o0-v1"
-                        .into(),
+                    format!(
+                        "staging-ir-v1;wgsl-v1:{};output-o0-v1",
+                        registry::PROCEDURAL
+                            .iter()
+                            .map(|s| s.name)
+                            .collect::<Vec<_>>()
+                            .join(",")
+                    )
+                    .into(),
                 ],
             });
         }

@@ -1,5 +1,50 @@
 # Verification
 
+## Hydra procedural families — 2026-11-13
+
+Source: Step 09 changes on parent `7b6c86313ae223c8b9590e4c44d5f98d7c2ed3cc`,
+identified by the commit containing this record. Target aarch64-apple-darwin,
+Apple M5 / Metal, SuperCollider 3.14.1. Rust 1.97.1 toolchain binaries were
+prepended to PATH for Cargo, rustc and Clippy. Dependencies/lockfile unchanged.
+Production release renderer SHA-256:
+`b9fd8f803ac2fc84b8bdc6739b64a72453bb8e180f2ba969a18ef076c3194fd6`.
+
+- PASS: strict Clippy across all targets/features; all-target/all-feature Rust
+  tests (71 renderer, 5 + 5 compiler/reference example module tests, 2 overlay).
+- PASS: 32 native differential shader cases, 3x3 RGBA8 at time 0.37;
+  max channel error zero, including negative repeat/scroll wrapping and vec4 sum.
+  This compares pinned GLSL compiled via Naga to independent production WGSL,
+  not browser/runtime parity. See [scope and provenance](hydra/FAMILIES.md).
+- PASS: six isolated source SC checks and the same six normal installed checks:
+  family defaults/vector validation, family live commits, output, AST, existing
+  compile and legacy graph smokes. Live suites run serially with owned processes.
+- PASS: installed `02_procedural.scd` startup interpreted from text with automatic
+  renderer discovery (`installed-example-retry/`); clean owned shutdown.
+- PASS: native arm64 development package built and installed in normal Extensions,
+  executable mode restored from ZIP metadata and exact renderer hash checked.
+  Previous extension backed up outside Extensions; no unrelated process stopped.
+- User observation: `01_osc.scd` is running perfectly (user statement before
+  Step 09). New family example visual observation and other backends NOT RUN.
+
+Evidence under ignored `build/hydra-tests/families-09/`: `rust-all.log`,
+`reference-final.log`, `sc/`, `installed-retry/`, `package.log`. Negative evidence
+is retained: `reference-first.log` caught a test reference parser matching an
+argument name instead of an operation (fixed by anchoring the operation marker).
+Initial strict Clippy exposed an unused import/range iterator (fixed). The first
+installed attempt used the wrong ZIP folder level; installation stopped before
+replacement, and the shell then ran tests against the old extension. Two new
+family checks failed on absent methods in `installed/`; four legacy checks passed.
+After correcting the extraction path, all six installed checks pass in
+`installed-retry/`. These failures were harness/install issues, not qualified
+passes. The initial example harness also used unavailable SC `takeWhile`
+(`installed-example/`, timed out); replaced with string slicing, then the
+installed startup passes. The release package uses ordinary features, without
+GPU test hooks.
+
+The [progress record](hydra/PROGRESS.md) explicitly defers `src`/`prev` until
+sampling/history prerequisites. Full 34-entry Step 09 acceptance is not claimed.
+
+
 ## Hydra first output and installed example — 2026-11-12
 
 Pinned Rust 1.97.1 strict Clippy, 70 binary unit tests plus six example-module

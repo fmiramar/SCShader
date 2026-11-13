@@ -20,6 +20,31 @@ SCHydraExpr : Object {
 
     blend { |other, amount = 0.5| ^this.append(\blend, [other, amount]) }
 
+    pixelate { |pixelX = 20, pixelY = 20| ^this.append(\pixelate, [pixelX, pixelY]) }
+    repeat { |repeatX = 3, repeatY = 3, offsetX = 0, offsetY = 0| ^this.append(\repeat, [repeatX, repeatY, offsetX, offsetY]) }
+    repeatX { |reps = 3, offset = 0| ^this.append(\repeatX, [reps, offset]) }
+    repeatY { |reps = 3, offset = 0| ^this.append(\repeatY, [reps, offset]) }
+    kaleid { |nSides = 4| ^this.append(\kaleid, [nSides]) }
+    scroll { |scrollX = 0.5, scrollY = 0.5, speedX = 0, speedY = 0| ^this.append(\scroll, [scrollX, scrollY, speedX, speedY]) }
+    scrollX { |scrollX = 0.5, speed = 0| ^this.append(\scrollX, [scrollX, speed]) }
+    scrollY { |scrollY = 0.5, speed = 0| ^this.append(\scrollY, [scrollY, speed]) }
+
+    posterize { |bins = 3, gamma = 0.6| ^this.append(\posterize, [bins, gamma]) }
+    shift { |r = 0.5, g = 0, b = 0, a = 0| ^this.append(\shift, [r, g, b, a]) }
+    invert { |amount = 1| ^this.append(\invert, [amount]) }
+    contrast { |amount = 1.6| ^this.append(\contrast, [amount]) }
+    brightness { |amount = 0.4| ^this.append(\brightness, [amount]) }
+    luma { |threshold = 0.5, tolerance = 0.1| ^this.append(\luma, [threshold, tolerance]) }
+    thresh { |threshold = 0.5, tolerance = 0.04| ^this.append(\thresh, [threshold, tolerance]) }
+    saturate { |amount = 2| ^this.append(\saturate, [amount]) }
+    hue { |hue = 0.4| ^this.append(\hue, [hue]) }
+    colorama { |amount = 0.005| ^this.append(\colorama, [amount]) }
+    sum { |scale = #[1, 1, 1, 1]| ^this.append(\sum, [scale]) }
+    r { |scale = 1, offset = 0| ^this.append(\r, [scale, offset]) }
+    g { |scale = 1, offset = 0| ^this.append(\g, [scale, offset]) }
+    b { |scale = 1, offset = 0| ^this.append(\b, [scale, offset]) }
+    a { |scale = 1, offset = 0| ^this.append(\a, [scale, offset]) }
+
     append { |name, args|
         var spec = this.spec(name);
         hydra.checkLive;
@@ -30,7 +55,7 @@ SCHydraExpr : Object {
                     Error("SCHydra nested expression belongs to another session or is invalid.").throw;
                 };
             } {
-                ShaderDef.validateValue(\float, value);
+                ShaderDef.validateValue(spec[1][index], value);
             };
         };
         if(operations.isEmpty and: { spec[0] != \src }) {
@@ -40,7 +65,7 @@ SCHydraExpr : Object {
             Error("SCHydra source operations start new expressions.").throw;
         };
         if(operations.size >= 256) { Error("SCHydra expression exceeds 256 operations.").throw };
-        operations.add([name, args.copy]);
+        operations.add([name, args.collect { |value| value.isSequenceableCollection.if({ value.copy }, { value }) }]);
         ^this
     }
 
@@ -58,7 +83,7 @@ SCHydraExpr : Object {
         operations.do { |operation, index|
             if(index > 0) {
                 clone.append(operation[0], operation[1].collect { |value|
-                    value.isKindOf(SCHydraExpr).if({ value.copyWithMemo(memo, visiting) }, { value })
+                    value.isKindOf(SCHydraExpr).if({ value.copyWithMemo(memo, visiting) }, { value.isSequenceableCollection.if({ value.copy }, { value }) })
                 });
             };
         };
@@ -68,13 +93,38 @@ SCHydraExpr : Object {
 
     spec { |name|
         ^switch(name,
-            \osc, { [\src, [\float, \float, \float]] },
-            \solid, { [\src, [\float, \float, \float, \float]] },
-            \gradient, { [\src, [\float]] },
-            \scale, { [\coord, [\float, \float, \float, \float, \float]] },
-            \color, { [\color, [\float, \float, \float, \float]] },
             \noise, { [\src, [\float, \float]] },
+            \voronoi, { [\src, [\float, \float, \float]] },
+            \osc, { [\src, [\float, \float, \float]] },
+            \shape, { [\src, [\float, \float, \float]] },
+            \gradient, { [\src, [\float]] },
+            \solid, { [\src, [\float, \float, \float, \float]] },
             \rotate, { [\coord, [\float, \float]] },
+            \scale, { [\coord, [\float, \float, \float, \float, \float]] },
+            \pixelate, { [\coord, [\float, \float]] },
+            \posterize, { [\color, [\float, \float]] },
+            \shift, { [\color, [\float, \float, \float, \float]] },
+            \repeat, { [\coord, [\float, \float, \float, \float]] },
+            \repeatX, { [\coord, [\float, \float]] },
+            \repeatY, { [\coord, [\float, \float]] },
+            \kaleid, { [\coord, [\float]] },
+            \scroll, { [\coord, [\float, \float, \float, \float]] },
+            \scrollX, { [\coord, [\float, \float]] },
+            \scrollY, { [\coord, [\float, \float]] },
+            \invert, { [\color, [\float]] },
+            \contrast, { [\color, [\float]] },
+            \brightness, { [\color, [\float]] },
+            \luma, { [\color, [\float, \float]] },
+            \thresh, { [\color, [\float, \float]] },
+            \color, { [\color, [\float, \float, \float, \float]] },
+            \saturate, { [\color, [\float]] },
+            \hue, { [\color, [\float]] },
+            \colorama, { [\color, [\float]] },
+            \sum, { [\color, [\vec4]] },
+            \r, { [\color, [\float, \float]] },
+            \g, { [\color, [\float, \float]] },
+            \b, { [\color, [\float, \float]] },
+            \a, { [\color, [\float, \float]] },
             \blend, { [\combine, [\expr, \float]] },
             { Error("Unsupported SCHydra operation: %".format(name)).throw })
     }
@@ -99,9 +149,9 @@ SCHydraExpr : Object {
         visiting.add(this);
         operations.do { |operation|
             var name = operation[0], args = operation[1], spec = this.spec(name), encodedArgs;
-            encodedArgs = args.collect { |value|
+            encodedArgs = args.collect { |value, index|
                 value.isKindOf(SCHydraExpr).if({ [\expr, value.collectNodes(nodes, visiting, memo, depth + 1)] },
-                    { [\float, ShaderDef.validateValue(\float, value)] });
+                    { [spec[1][index], ShaderDef.validateValue(spec[1][index], value)] });
             };
             if(nodes.size >= 256) { Error("SCHydra snapshot exceeds 256 nodes.").throw };
             first = (id: nodes.size + 1, name: name, category: spec[0], receiver: receiver,
@@ -135,8 +185,8 @@ SCHydraExpr : Object {
                     this.writeInteger(bytes, 2, 1);
                     this.writeInteger(bytes, argument[1], 4);
                 } {
-                    this.writeInteger(bytes, 0, 1);
-                    ShaderDef.encodeValue(\float, argument[1]).do { |byte| bytes.add(byte.bitAnd(255)) };
+                    this.writeInteger(bytes, (argument[0] == \vec4).if({ 5 }, { 0 }), 1);
+                    ShaderDef.encodeValue(argument[0], argument[1]).do { |byte| bytes.add(byte.bitAnd(255)) };
                 };
             };
         };

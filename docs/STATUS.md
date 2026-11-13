@@ -1,5 +1,11 @@
 # Implementation checkpoint
 
+Hydra update (2026-11-13): [32 procedural operations](hydra/FAMILIES.md) now
+pass native Metal numerical checks and source SC chains. The user confirms
+`01_osc.scd` visually. Checkpoint A procedural scope is available; full Step 09
+inventory acceptance remains deferred for `src`/`prev`. Step 10 is next after
+the plan's model/effort boundary. Existing release/platform gates are separate.
+
 Updated 2026-11-12. Current development version: **0.0.18**. Not a final v0.1.0 release.
 
 Hydra development (2026-11-12): the [first o0 output](hydra/OUTPUT.md) now commits

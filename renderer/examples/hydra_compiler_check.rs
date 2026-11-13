@@ -1,12 +1,16 @@
 //! Short native offscreen pixel proof for the initial independently implemented compiler.
 #[path = "../src/hydra/compiler.rs"]
 mod compiler;
+#[path = "../src/hydra/families.rs"]
+mod families;
 #[path = "../src/hydra/gpu.rs"]
 mod gpu;
 #[path = "../src/hydra/ir.rs"]
 mod ir;
 #[path = "../src/hydra/output.rs"]
 mod output;
+#[path = "../src/hydra/registry.rs"]
+mod registry;
 use ir::{Argument, Node, Program};
 use std::{error::Error, sync::mpsc, time::Duration};
 fn node(id: u32, name: &str, category: u8, receiver: u32, args: &[f32]) -> Node {

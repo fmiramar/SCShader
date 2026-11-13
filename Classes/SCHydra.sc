@@ -40,6 +40,9 @@ SCHydra : Object {
         ^SCHydraExpr.new(this, \noise, [scale, offset])
     }
 
+    voronoi { |scale = 5, speed = 0.3, blending = 0.3| this.checkLive; ^SCHydraExpr.new(this, \voronoi, [scale, speed, blending]) }
+    shape { |sides = 3, radius = 0.3, smoothing = 0.01| this.checkLive; ^SCHydraExpr.new(this, \shape, [sides, radius, smoothing]) }
+
     snapshot { |expression, output = \o0|
         this.checkLive;
         if(expression.isKindOf(SCHydraExpr).not or: { expression.hydra !== this }) {

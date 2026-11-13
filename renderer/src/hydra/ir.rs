@@ -7,6 +7,7 @@ pub const MAX_NODES: usize = 256;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Argument {
     Float(f32),
+    Vector([f32; 4]),
     Expression(u32),
 }
 #[derive(Debug, Clone, PartialEq)]
@@ -82,18 +83,15 @@ impl Program {
                 return Err("operation name must be ASCII".into());
             }
             let receiver = input.word()?;
-            let (expected_category, expected_args, nested) = match name.as_str() {
-                "osc" => (0, 3, false),
-                "solid" => (0, 4, false),
-                "gradient" => (0, 1, false),
-                "scale" => (1, 5, false),
-                "color" => (2, 4, false),
-                "noise" => (0, 2, false),
-                "rotate" => (1, 2, false),
-                "blend" => (3, 2, true),
-                _ => return Err(format!("unsupported operation {name}")),
+            use super::registry::ValueType;
+            let (expected_category, types) = if name == "blend" {
+                (3, &[ValueType::Expression, ValueType::Float][..])
+            } else {
+                let spec = super::registry::spec(&name)
+                    .ok_or_else(|| format!("unsupported operation {name}"))?;
+                (spec.category, spec.args)
             };
-            if category != expected_category || argc != expected_args {
+            if category != expected_category || argc != types.len() {
                 return Err("operation category/arity mismatch".into());
             }
             let mut dependencies = Vec::new();
@@ -105,19 +103,29 @@ impl Program {
                 dependencies.push(receiver);
             }
             let mut arguments = Vec::with_capacity(argc);
-            for index in 0..argc {
+            for expected_type in types {
                 match input.byte()? {
-                    0 if !(nested && index == 0) => {
+                    0 if *expected_type == ValueType::Float => {
                         let value = f32::from_bits(input.word()?);
                         if !value.is_finite() {
                             return Err("nonfinite argument".into());
                         }
                         arguments.push(Argument::Float(value));
                     }
-                    2 if nested && index == 0 => {
+                    2 if *expected_type == ValueType::Expression => {
                         let reference = input.word()?;
                         dependencies.push(reference);
                         arguments.push(Argument::Expression(reference));
+                    }
+                    5 if *expected_type == ValueType::Vector => {
+                        let mut values = [0.; 4];
+                        for value in &mut values {
+                            *value = f32::from_bits(input.word()?);
+                            if !value.is_finite() {
+                                return Err("nonfinite vector argument".into());
+                            }
+                        }
+                        arguments.push(Argument::Vector(values));
                     }
                     _ => return Err("argument type mismatch or unsupported tag".into()),
                 }

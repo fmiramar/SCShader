@@ -1,6 +1,6 @@
 # Hydra implementation progress
 
-Updated: 2026-11-12
+Updated: 2026-11-13
 
 | Step | Status | Evidence |
 | --- | --- | --- |
@@ -11,10 +11,14 @@ Updated: 2026-11-12
 | 05 — sclang AST front end | PASS (offline scope) | `Classes/SCHydra.sc`, `Classes/SCHydraExpr.sc`, `tests/sc/hydra_ast_unit.scd`: 4 registry operations, nested snapshots, bounded network-order IR, copy isolation and validation. Both offline AST and existing compile smoke pass with isolated class config. `.out` reports transport unavailable until Step 06; no renderer/GPU run. |
 | 06 — Safe transport / atomic replacement | PASS (one output) | [Implemented staging protocol](../../protocol/hydra.md), bounded IR decoder and SC acknowledged upload. Pinned-toolchain Rust tests/Clippy and native Metal transport/legacy graph smokes pass. Step 08 now verifies committed revisions, rejected edits and native output/Legacy coexistence. |
 | 07 — Typed WGSL compiler | PASS (compiler/offscreen; live path verified in Step 08) | [COMPILER.md](COMPILER.md): six operation variants, Naga validation, one GPU candidate cache and three 3x3 native Metal pixel cases. SC compiler/rollback path and legacy graph smoke pass. |
-| 08 — First output / presentation | PASS (automated native + installed example); manual observation NOT RUN | [OUTPUT.md](OUTPUT.md): o0 commits/replacements, presentation, resize, mode selection, cleanup and installed automatic discovery. Presenter pixels pass for linear/sRGB targets on Metal. |
+| 08 — First output / presentation | PASS (automated native + installed example); user confirms 01_osc visual PASS | [OUTPUT.md](OUTPUT.md): o0 commits/replacements, presentation, resize, mode selection, cleanup and installed automatic discovery. Presenter pixels pass for linear/sRGB targets on Metal. |
+| 09 — Procedural source/coordinate/color families | PASS for 32 procedural entries; full 34-entry acceptance DEFERRED | [FAMILIES.md](FAMILIES.md): all defaults/types, WGSL, SC methods; 32 native numerical reference cases and live chained commits pass. `src`/`prev` require later sampling/history work. |
 
-Current next step: Step 09 (remaining generator/coordinate/color families), the
-same recommended `gpt-6.1-sol` / `medium` pair; no model change is needed.
-The installed development build now runs the first slice. Keep manual visual,
-feedback/recovery, other-platform and full-parity claims separate from this
-short native/installed acceptance. Step 13 still owns temporal feedback proof.
+Checkpoint A is available for one-output procedural visuals and live replacement.
+The user confirms `01_osc.scd` runs perfectly; new Step 09 visuals have automated
+native checks but await user observation. This is a development checkpoint.
+
+Next: Step 10, `gpt-6.1-sol` / `high`. The plan requires a user model/effort
+selection at this boundary: `/model gpt-6.1-sol --reasoning=high`, then `/status`.
+Do not treat the plan text as proof the runtime changed. `src`/`prev`, temporal
+feedback, other platforms and broader parity remain open.

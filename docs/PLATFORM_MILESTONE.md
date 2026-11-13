@@ -1,5 +1,11 @@
 # Milestone P1 — native desktop compatibility first
 
+Hydra update (2026-11-13): [32 procedural operations](hydra/FAMILIES.md) now
+pass native Metal numerical checks and source SC chains. The user confirms
+`01_osc.scd` visually. Checkpoint A procedural scope is available; full Step 09
+inventory acceptance remains deferred for `src`/`prev`. Step 10 is next after
+the plan's model/effort boundary. Existing release/platform gates are separate.
+
 Decision recorded 2026-09-25 at the user's request. Baseline: development 0.0.16.
 This supersedes the older ordering that placed additional Mac-only stress work
 and notice cleanup before native platform qualification. It does not remove any

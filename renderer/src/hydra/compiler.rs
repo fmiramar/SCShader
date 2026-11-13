@@ -28,6 +28,7 @@ struct VertexOutput {
 
 #[derive(Debug)]
 enum Operation {
+    Builtin(super::families::Builtin),
     Solid([f32; 4]),
     Osc([f32; 3]),
     Gradient(f32),
@@ -114,10 +115,8 @@ fn lower(program: &Program) -> Result<Vec<(u32, Operation)>, String> {
                 },
             ),
             _ => {
-                return Err(format!(
-                    "operation {} is not supported by the initial WGSL compiler",
-                    node.name
-                ));
+                let builtin = super::families::Builtin::lower(node)?;
+                (node.category, Operation::Builtin(builtin))
             }
         };
         if category != node.category || (category == 0) != (node.receiver == 0) {
@@ -132,7 +131,7 @@ fn lower(program: &Program) -> Result<Vec<(u32, Operation)>, String> {
     Ok(result)
 }
 // Exact IEEE bits avoid decimal formatting overflow/underflow at the f32 limits.
-fn literal(value: f32) -> String {
+pub(super) fn literal(value: f32) -> String {
     format!("bitcast<f32>(0x{:08x}u)", value.to_bits())
 }
 fn vector(values: &[f32]) -> String {
@@ -150,9 +149,11 @@ fn vector(values: &[f32]) -> String {
 pub fn compile(program: &Program) -> Result<String, String> {
     let nodes = lower(program)?;
     let mut source = String::from(PRELUDE);
+    source.push_str(include_str!("procedural.wgsl"));
     for (id, operation) in nodes {
         writeln!(source, "fn n{id}(uv: vec2<f32>) -> vec4<f32> {{").unwrap();
         match operation {
+            Operation::Builtin(builtin) => builtin.emit(&mut source),
             Operation::Solid(args) => {
                 writeln!(source, "return {};", vector(&args)).unwrap();
             }
@@ -285,11 +286,49 @@ mod tests {
         }
     }
     #[test]
+    fn every_procedural_default_compiles() {
+        use super::super::registry::{PROCEDURAL, ValueType};
+        assert_eq!(PROCEDURAL.len(), 32);
+        for spec in PROCEDURAL {
+            let mut cursor = 0;
+            let args = spec
+                .args
+                .iter()
+                .map(|kind| match kind {
+                    ValueType::Float => {
+                        let value = spec._defaults[cursor];
+                        cursor += 1;
+                        Argument::Float(value)
+                    }
+                    ValueType::Vector => {
+                        let values = spec._defaults[cursor..cursor + 4].try_into().unwrap();
+                        cursor += 4;
+                        Argument::Vector(values)
+                    }
+                    _ => panic!("unexpected procedural argument"),
+                })
+                .collect();
+            let mut nodes = Vec::new();
+            if spec.category != 0 {
+                nodes.push(node(1, "solid", 0, 0, &[0.17, 0.38, 0.63, 0.72]));
+            }
+            let id = nodes.len() as u32 + 1;
+            nodes.push(Node {
+                id,
+                name: spec.name.into(),
+                category: spec.category,
+                receiver: if spec.category == 0 { 0 } else { 1 },
+                arguments: args,
+            });
+            compile(&Program { nodes, root: id }).unwrap_or_else(|e| panic!("{}: {e}", spec.name));
+        }
+    }
+    #[test]
     fn malformed_and_undefined_inputs_fail_before_gpu() {
         for n in [
             node(1, "osc", 0, 0, &[0., 0.1, 0.]),
             node(1, "solid", 0, 0, &[f32::NAN, 0., 0., 1.]),
-            node(1, "noise", 0, 0, &[3., 0.1]),
+            node(1, "unsupported", 0, 0, &[3., 0.1]),
             node(1, "rotate", 1, 9, &[0., 0.]),
         ] {
             assert!(
