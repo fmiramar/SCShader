@@ -27,6 +27,14 @@ SCHydra : Object {
         ^SCHydraExpr.new(this, \osc, [frequency, sync, offset])
     }
 
+    solid { |r = 0, g = 0, b = 0, a = 1|
+        this.checkLive; ^SCHydraExpr.new(this, \solid, [r, g, b, a])
+    }
+
+    gradient { |speed = 0|
+        this.checkLive; ^SCHydraExpr.new(this, \gradient, [speed])
+    }
+
     noise { |scale = 10, offset = 0.1|
         this.checkLive;
         ^SCHydraExpr.new(this, \noise, [scale, offset])

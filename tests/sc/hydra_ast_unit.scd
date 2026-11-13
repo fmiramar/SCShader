@@ -23,6 +23,8 @@ try {
     copied = expr.copy;
     copied.rotate(0.4);
     check.value(expr.snapshot[\nodes].size == 3 and: { copied.snapshot[\nodes].size == 4 }, "copy shared mutable builder state");
+    check.value(h.solid.snapshot[\nodes][0][\args][3][1] == 1, "solid alpha default");
+    check.value(h.gradient.scale.color.snapshot[\nodes].size == 3, "initial compiler family serialization");
     nested = h.osc(10).blend(h.noise(3), 0.4).snapshot;
     check.value(nested[\nodes].size == 3 and: { nested[\nodes].last[\category] == \combine }, "nested branch missing");
     shared = h.noise(3);

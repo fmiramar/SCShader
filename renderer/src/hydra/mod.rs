@@ -1,4 +1,6 @@
 //! Opt-in Hydra transport. Graph activation is gated on the native compiler.
+pub mod compiler;
+pub mod gpu;
 pub mod ir;
 use crate::protocol::{ErrorReply, ReplyTarget};
 use rosc::OscType;
@@ -170,7 +172,14 @@ fn remember(session: &mut Session, tx: i32, code: &'static str, message: &str) {
     if session.results.len() == 32 {
         session.results.pop_front();
     }
-    session.results.push_back((tx, code, message.to_owned()));
+    // Leave room for the OSC envelope in the <=4 KiB status response.
+    let mut end = message.len().min(3072);
+    while !message.is_char_boundary(end) {
+        end -= 1;
+    }
+    session
+        .results
+        .push_back((tx, code, message[..end].to_owned()));
 }
 impl Transport {
     pub fn abort_pending(&mut self, reason: &str) {
@@ -191,7 +200,16 @@ impl Transport {
             remember(session, tx, "E_HYDRA_UPLOAD", "upload expired");
         }
     }
+    #[cfg(test)]
     pub fn execute(&mut self, r: Request, now: f64) -> Result<Reply, ErrorReply> {
+        self.execute_with(r, now, |program| compiler::compile(program).map(|_| ()))
+    }
+    pub fn execute_with(
+        &mut self,
+        r: Request,
+        now: f64,
+        mut prepare: impl FnMut(&ir::Program) -> Result<(), String>,
+    ) -> Result<Reply, ErrorReply> {
         self.expire(now);
         let target = r.reply_target();
         if r.operation == "capabilities" {
@@ -212,7 +230,7 @@ impl Transport {
                     1.into(),
                     0.into(),
                     OscType::Blob(limits.into_iter().flat_map(u32::to_be_bytes).collect()),
-                    "staging-ir-v1;activation-unavailable".into(),
+                    "staging-ir-v1;wgsl-v1:solid,osc,gradient,rotate,scale,color;activation-unavailable".into(),
                 ],
             });
         }
@@ -365,11 +383,10 @@ impl Transport {
                     .collect();
                 session.upload = None;
                 let (code, message) = match ir::Program::decode(&bytes) {
-                    Ok(_) => (
-                        "E_HYDRA_CAPABILITY",
-                        "IR validated; native compiler activation is not implemented yet"
-                            .to_owned(),
-                    ),
+                    Ok(program) => match prepare(&program) {
+                        Ok(()) => ("E_HYDRA_CAPABILITY", "WGSL pipeline compiled and cached; presentation activation is not implemented yet".to_owned()),
+                        Err(message) => ("E_HYDRA_COMPILE", message),
+                    },
                     Err(message) => ("E_HYDRA_IR", message),
                 };
                 remember(session, tx, code, &message);
@@ -481,6 +498,21 @@ mod tests {
         );
         assert!(t.session.as_ref().unwrap().upload.is_none());
         assert_eq!(t.session.as_ref().unwrap().results.len(), 1);
+    }
+    #[test]
+    fn retained_compiler_diagnostics_fit_status_without_splitting_utf8() {
+        let mut transport = Transport::default();
+        open(&mut transport);
+        let session = transport.session.as_mut().unwrap();
+        let message = format!("x{}", "🔥".repeat(2048));
+        remember(session, 1, "E_HYDRA_COMPILE", &message);
+        let args = scoped(&transport, vec![2.into(), 1.into()]);
+        let reply = run(&mut transport, "status", args, 0.).unwrap();
+        let OscType::String(reason) = &reply.args[7] else {
+            panic!("expected status reason")
+        };
+        assert!(reason.len() <= 3072);
+        assert!(message.starts_with(reason));
     }
     #[test]
     fn ownership_and_parser_limits() {

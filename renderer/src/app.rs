@@ -287,11 +287,22 @@ impl App {
 
         match command {
             Command::Hydra { request, .. } => {
-                match self
-                    .hydra
-                    .execute(request, self.started_at.elapsed().as_secs_f64())
-                {
+                let closing = request.operation == "close";
+                let renderer = &mut self.renderer;
+                match self.hydra.execute_with(
+                    request,
+                    self.started_at.elapsed().as_secs_f64(),
+                    |program| {
+                        renderer
+                            .as_mut()
+                            .ok_or_else(|| "renderer is not initialized".to_owned())?
+                            .prepare_hydra(program)
+                    },
+                ) {
                     Ok(reply) => {
+                        if closing && let Some(renderer) = &mut self.renderer {
+                            renderer.clear_hydra_candidate();
+                        }
                         if let Err(error) = self.osc.replies().send(
                             reply.target,
                             &format!("/scshader/v1/hydra/{}", reply.suffix),

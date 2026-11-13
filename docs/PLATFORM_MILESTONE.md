@@ -68,10 +68,11 @@ result, not the existence of implementation code or a future test command.
 
 ## Separate Hydra development track
 
-2026-11-12: [Hydra Steps 01–06](hydra/PROGRESS.md) record a baseline, pinned behavior
+2026-11-12: [Hydra Steps 01–07](hydra/PROGRESS.md) record a baseline, pinned behavior
 inventory, native architecture, first visual slice and offline SC expression
-classes plus bounded OSC staging. Compilation and GPU output remain pending. These documents
-do not complete a P1 platform check. The next step implements the native compiler and activation dependency.
+classes, bounded OSC staging and a typed native compiler with offscreen pixel
+proof on Metal. Window activation is pending Step 08. This does not complete
+a P1 platform check or qualify Hydra on other platforms.
 
 ## Work after P1
 

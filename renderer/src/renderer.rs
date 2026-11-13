@@ -200,6 +200,7 @@ pub enum HotReload {
 }
 
 pub struct Renderer {
+    hydra_candidate: Option<crate::hydra::gpu::Candidate>,
     instance: wgpu::Instance,
     window: Arc<Window>,
     surface: wgpu::Surface<'static>,
@@ -248,6 +249,13 @@ pub struct Renderer {
 }
 
 impl Renderer {
+    pub fn prepare_hydra(&mut self, program: &crate::hydra::ir::Program) -> Result<(), String> {
+        crate::hydra::gpu::Candidate::prepare(&self.device, program, &mut self.hydra_candidate)
+    }
+    pub fn clear_hydra_candidate(&mut self) {
+        self.hydra_candidate = None;
+    }
+
     pub fn new(
         window: Arc<Window>,
         custom_shader: Option<&str>,
@@ -563,6 +571,7 @@ impl Renderer {
             shaders,
             active_shader_id: RESOURCE_ID,
             graph_nodes: Vec::new(),
+            hydra_candidate: None,
             last_reload_check: Instant::now(),
             last_uniform_time: 0.0,
             mouse_position: [0.0; 2],

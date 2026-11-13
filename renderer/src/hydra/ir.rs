@@ -84,6 +84,10 @@ impl Program {
             let receiver = input.word()?;
             let (expected_category, expected_args, nested) = match name.as_str() {
                 "osc" => (0, 3, false),
+                "solid" => (0, 4, false),
+                "gradient" => (0, 1, false),
+                "scale" => (1, 5, false),
+                "color" => (2, 4, false),
                 "noise" => (0, 2, false),
                 "rotate" => (1, 2, false),
                 "blend" => (3, 2, true),

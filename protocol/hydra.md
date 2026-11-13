@@ -1,9 +1,11 @@
 # Hydra staging protocol — implementation checkpoint
 
 2026-11-12. Additive to [SCShader v1](protocol.md). This is the implemented
-**staging subset** of [ADR 001](../docs/hydra/ARCHITECTURE.md), pending compiler
-and GPU output activation. It does not advertise Hydra shader operators or emit
-`committed`. Every complete valid IR currently fails with `E_HYDRA_CAPABILITY`;
+**staging subset** of [ADR 001](../docs/hydra/ARCHITECTURE.md). The initial compiler
+is available; GPU output activation is pending. It
+advertises compiler operators separately from active synthesis and emits no
+`committed` reply. Supported programs compile/cache a GPU pipeline and return
+`E_HYDRA_CAPABILITY`;
 existing shader resources and presentation remain intact.
 
 All suffixes below use `/scshader/v1/hydra/`. Fields use ordinary OSC types:
@@ -31,7 +33,7 @@ session; retrying a closed handle currently reports `E_HYDRA_SESSION`.
 
 `limits` is exactly five big-endian u32 values, in order: maximum IR bytes
 (65536), chunk bytes (2048), nodes (256), depth (64), expanded operations (4096).
-`features` is exactly `staging-ir-v1;activation-unavailable` at this checkpoint.
+`features` is `staging-ir-v1;wgsl-v1:solid,osc,gradient,rotate,scale,color;activation-unavailable`.
 This narrower discovery payload supersedes the ADR's provisional full-limit
 payload for the staging feature only. Future compiler/source/presentation
 capabilities must explicitly document their additional fields before advertising.
@@ -54,15 +56,19 @@ An incomplete commit keeps staging so missing chunks can still arrive.
 
 Errors currently use the existing `/scshader/v1/error` schema with subsystem
 `hydra`, resourceID 0, stable codes `E_HYDRA_VERSION`, `E_HYDRA_SESSION`,
-`E_HYDRA_STALE`, `E_HYDRA_LIMIT`, `E_HYDRA_UPLOAD`, `E_HYDRA_IR`, and
-`E_HYDRA_CAPABILITY`. They share existing diagnostic rate/message limits. Parse
+`E_HYDRA_STALE`, `E_HYDRA_LIMIT`, `E_HYDRA_UPLOAD`, `E_HYDRA_IR`,
+`E_HYDRA_CAPABILITY`, and `E_HYDRA_COMPILE`. They share existing diagnostic
+rate/message limits. Retained status reasons are bounded to 3072 UTF-8 bytes
+without splitting a character, so the reply stays within 4 KiB. Parse
 errors use `E_PROTOCOL`. Query status to reconcile lost/suppressed commit errors;
-replies are bounded. The ADR's richer Hydra error tuple is pending the compiler's
+replies are bounded. The ADR's richer Hydra error tuple is reserved for later
 node/output diagnostics; clients must not assume it exists yet.
 
 The IR layout is HYIR 1.0 from ADR 001. The decoder currently accepts scalar
-osc/noise/rotate and nested blend; all parameter declarations and other argument
-forms/operators fail explicitly. It verifies size/version, category/arity/types,
+solid/osc/gradient/rotate/scale/color, plus noise/nested blend for AST validation.
+The compiler lowers the first six; noise/blend currently return E_HYDRA_COMPILE.
+All parameter declarations and other argument forms/operators fail explicitly.
+The decoder verifies size/version, category/arity/types,
 finite f32 inputs, unique positive node IDs, earlier-node references, root reachability,
 no trailing data, depth and expansion bounds before any candidate installation.
 
@@ -74,7 +80,8 @@ queries status; unknown outcomes report `E_HYDRA_UNKNOWN`. One upload is allowed
 per controller; local snapshots remain available offline. `free` stops only the
 controller's tasks/responders and sends close without stopping the ShaderServer.
 
-`params`, `present`, `hush`, revision increments, successful pipeline validation
-and committed activation are **not implemented**. Step 06's full acceptance gate
-remains pending those compiler/activation dependencies in Steps 07–08; this staging
+`params`, `present`, `hush`, revision increments and committed activation are
+**not implemented**. Pipeline validation/caching is now available as described in
+[the compiler checkpoint](../docs/hydra/COMPILER.md). Step 06's full acceptance gate
+remains pending activation/presentation in Step 08; this staging
 checkpoint must not be used as evidence of rendered Hydra output.

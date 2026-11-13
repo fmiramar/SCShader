@@ -9,11 +9,12 @@ Updated: 2026-11-12
 | 03 — Architecture and ABI boundary | PASS (design/source inspection) | [ARCHITECTURE.md](ARCHITECTURE.md): bounded binary IR/OSC transactions, ownership/rollback, fixed-order output history, native `prev` difference and recovery. Pinned regl 1.7.0 package integrity checked; GPU/browser parity NOT RUN. |
 | 04 — Minimal vertical slice | PASS (specification) | [VERTICAL_SLICE.md](VERTICAL_SLICE.md): startup/commit contract, pinned math and three focused checks; all implementation and GPU checks NOT RUN. |
 | 05 — sclang AST front end | PASS (offline scope) | `Classes/SCHydra.sc`, `Classes/SCHydraExpr.sc`, `tests/sc/hydra_ast_unit.scd`: 4 registry operations, nested snapshots, bounded network-order IR, copy isolation and validation. Both offline AST and existing compile smoke pass with isolated class config. `.out` reports transport unavailable until Step 06; no renderer/GPU run. |
-| 06 — Safe transport / atomic replacement | Transport PASS; activation pending | [Implemented staging protocol](../../protocol/hydra.md), bounded IR decoder and SC acknowledged upload. Pinned-toolchain Rust tests/Clippy and native Metal transport/legacy graph smokes pass. No committed graph/pipeline yet; full gate depends on Steps 07–08. |
+| 06 — Safe transport / atomic replacement | Transport PASS; activation pending | [Implemented staging protocol](../../protocol/hydra.md), bounded IR decoder and SC acknowledged upload. Pinned-toolchain Rust tests/Clippy and native Metal transport/legacy graph smokes pass. No committed output yet; Step 07 adds a candidate pipeline cache and Step 08 closes the activation gate. |
+| 07 — Typed WGSL compiler | Compiler + native offscreen PASS; window display pending | [COMPILER.md](COMPILER.md): six operation variants, Naga validation, one GPU candidate cache and three 3x3 native Metal pixel cases. SC compiler/rollback path and legacy graph smoke pass. |
 
-Current next step: Step 07 compiler, then Step 08 activation/presentation to close
-Step 06's full atomic-replacement gate. Step 07 uses the same recommended
-`gpt-6.1-sol` / `high` pair; no model change is requested at this checkpoint.
-Step 05 ran on `gpt-6-sol`, as recorded in that turn. Step 06 runs on the session's
-reported `gpt-6.1-sol`. No WGSL or Hydra GPU output exists yet. Transport readiness
-means the staging session is open; it does not claim synthesis support.
+Current next step: Step 08 (output activation and window presentation), recommended
+`gpt-6.1-sol` / `medium`. Request that effort switch before Step 08. Step 07 ran
+on the reported `gpt-6.1-sol`; pipeline compilation and offscreen GPU pixels pass,
+but the window still shows Legacy. Step 06's complete commit/revision rollback
+gate remains pending Step 08. Do not label transport readiness or cached pipelines
+as an accepted/running Hydra output.

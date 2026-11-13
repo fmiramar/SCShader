@@ -1,5 +1,36 @@
 # Verification
 
+## Hydra native compiler — 2026-11-12
+
+At the commit containing this entry, the fully pinned Rust 1.97.1 environment
+passes strict Clippy, 69 binary unit tests and six example-module tests (four
+repeat the compiler/IR checks), and an ordinary debug build. Command options:
+`cargo clippy --manifest-path renderer/Cargo.toml --locked --all-targets --all-features -- -D warnings`
+and `cargo test --manifest-path renderer/Cargo.toml --locked --all-targets --all-features`.
+
+`cargo run --manifest-path renderer/Cargo.toml --locked --example hydra_compiler_check -- metal`
+passes three 3x3 Rgba8Unorm readbacks on Apple M5 / native Metal: signed
+solid/color, oscillator/rotation, and gradient with asymmetric scale/off-center
+origin and rotation. All 27 pixels / 108 RGBA components match an independent
+f64 reference within two 8-bit values; an invalid compile preserves the cached
+candidate before each readback. This is offscreen hardware evidence, not manual
+window observation or cross-platform parity. The example selects Metal explicitly
+and refuses a CPU adapter.
+
+The SC source-class harness passes `hydra_transport_smoke`, `hydra_ast_unit`,
+`compile_check` and `graph_smoke`. The transport smoke observes the compiled/cache
+message, then E_HYDRA_COMPILE for an invalid oscillator, and a retained legacy
+shader. Valid compilation still returns E_HYDRA_CAPABILITY because activation
+is pending Step 08. Window presentation, committed revisions and full Step 06
+rollback/resize/recovery acceptance are NOT RUN.
+
+Renderer SHA-256: `48029b63d3dd8b86a9daa74114973b7b209bb28a0356f951dea4123b032fc271`.
+Pixel-check executable SHA-256: `0dff4ff8f1e163d4b1703dbd8e32586dd1796adf28aa780aeb8b9ad90c01d39c`.
+Ignored evidence: `build/hydra-tests/compiler-07/rust-final2.log`, `gpu-final.log` and
+`sc-final3/`. Initial example compilation needed correction for wgpu 30 instance
+construction and mapped-range Result handling; final lint/build/readback pass.
+See [compiler ABI and limitations](hydra/COMPILER.md).
+
 ## Hydra transport staging — 2026-11-12
 
 At the commit containing this entry, Rust 1.97.1 **with its full bin directory

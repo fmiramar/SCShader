@@ -12,6 +12,12 @@ SCHydraExpr : Object {
 
     rotate { |angle = 10, speed = 0| ^this.append(\rotate, [angle, speed]) }
 
+    scale { |amount = 1.5, xMult = 1, yMult = 1, offsetX = 0.5, offsetY = 0.5|
+        ^this.append(\scale, [amount, xMult, yMult, offsetX, offsetY])
+    }
+
+    color { |r = 1, g = 1, b = 1, a = 1| ^this.append(\color, [r, g, b, a]) }
+
     blend { |other, amount = 0.5| ^this.append(\blend, [other, amount]) }
 
     append { |name, args|
@@ -63,6 +69,10 @@ SCHydraExpr : Object {
     spec { |name|
         ^switch(name,
             \osc, { [\src, [\float, \float, \float]] },
+            \solid, { [\src, [\float, \float, \float, \float]] },
+            \gradient, { [\src, [\float]] },
+            \scale, { [\coord, [\float, \float, \float, \float, \float]] },
+            \color, { [\color, [\float, \float, \float, \float]] },
             \noise, { [\src, [\float, \float]] },
             \rotate, { [\coord, [\float, \float]] },
             \blend, { [\combine, [\expr, \float]] },

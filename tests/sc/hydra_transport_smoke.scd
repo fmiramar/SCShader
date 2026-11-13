@@ -17,10 +17,16 @@ server.waitForBoot({
     hydra = SCHydra.new(server);
     hydra.waitForReady({
         hydra.osc(10).rotate(0.2).out(\o0, { |result|
-            if(result[\ok].not and: { result[\code] == "E_HYDRA_CAPABILITY" }) {
-                server.status { |receiver, status|
-                    finish.value(status[\shaderCount] == 1, "Hydra IR roundtrip rejected activation; legacy shader retained");
-                };
+            if(result[\ok].not and: { result[\code] == "E_HYDRA_CAPABILITY" and: {
+                result[\message].find("pipeline compiled and cached").notNil
+            } }) {
+                hydra.osc(0).out(\o0, { |invalid|
+                    if(invalid[\ok].not and: { invalid[\code] == "E_HYDRA_COMPILE" }) {
+                        server.status { |receiver, status|
+                            finish.value(status[\shaderCount] == 1, "Hydra pipeline compiled; bad candidate rejected; legacy shader retained");
+                        };
+                    } { finish.value(false, "Expected compile failure: %".format(invalid)) };
+                });
             } { finish.value(false, "Unexpected Hydra upload result: %".format(result)) };
         });
     }, { |receiver, error| finish.value(false, "Hydra negotiation failed: %".format(error)) });

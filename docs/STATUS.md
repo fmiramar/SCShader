@@ -2,13 +2,12 @@
 
 Updated 2026-11-12. Current development version: **0.0.18**. Not a final v0.1.0 release.
 
-Hydra development (2026-11-12): the [offline AST and bounded OSC staging
-transport](hydra/PROGRESS.md) are implemented. Native Metal roundtrip and legacy
-graph smokes pass; valid IR currently returns an explicit compiler-unavailable
-capability error and leaves Legacy presentation intact. Graph compilation and
-activation are pending Steps 07–08; Step 06's full replacement gate remains open.
-Pinned Rust 1.97.1 build, strict Clippy and Rust tests pass with the complete pinned
-bin directory first on PATH. Existing platform/release claims below remain separate.
+Hydra development (2026-11-12): the [typed WGSL compiler](hydra/COMPILER.md) now
+lowers solid/osc/gradient/rotate/scale/color and caches a validated GPU candidate.
+Three native Metal offscreen pixel cases, SC upload/compiler-error handling and
+legacy graph smoke pass. Window activation/presentation remain pending Step 08;
+no successful Hydra commit/revision is reported yet. Full pinned Rust 1.97.1
+strict checks pass. Existing platform/release claims below remain separate.
 
 **Latest RTX 3060 result:** the updated renderer (SHA-256
 `a65c5d5f97301c17347e170ffeee0623904368ef5276916a898d8cc7653cd8c2`) passes an
