@@ -31,7 +31,7 @@ session; retrying a closed handle currently reports `E_HYDRA_SESSION`.
 
 `limits` is exactly five big-endian u32 values, in order: maximum IR bytes
 (65536), chunk bytes (2048), nodes (256), depth (64), expanded operations (4096).
-`features` is `staging-ir-v1;wgsl-v1:<comma-separated procedural registry names>;output-o0-v1`. The 39 names and their defaults/types are in `renderer/src/hydra/registry.rs`; their order follows the pinned inventory.
+`features` is `staging-ir-v1;wgsl-v1:<comma-separated supported registry names>;output-o0-v1`. The 39 names and their defaults/types are in `renderer/src/hydra/registry.rs`; their order follows the pinned inventory.
 This narrower discovery payload supersedes the ADR's provisional full-limit
 payload for the staging feature only. Future compiler/source/presentation
 capabilities must explicitly document their additional fields before advertising.

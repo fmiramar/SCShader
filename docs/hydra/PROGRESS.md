@@ -13,7 +13,6 @@ Updated: 2026-11-13
 | 07 — Typed WGSL compiler | PASS (compiler/offscreen; live path verified in Step 08) | [COMPILER.md](COMPILER.md): six operation variants, Naga validation, one GPU candidate cache and three 3x3 native Metal pixel cases. SC compiler/rollback path and legacy graph smoke pass. |
 | 08 — First output / presentation | PASS (automated native + installed example); user confirms 01_osc visual PASS | [OUTPUT.md](OUTPUT.md): o0 commits/replacements, presentation, resize, mode selection, cleanup and installed automatic discovery. Presenter pixels pass for linear/sRGB targets on Metal. |
 | 09 — Procedural source/coordinate/color families | PASS for 32 procedural entries; full 34-entry acceptance DEFERRED | [FAMILIES.md](FAMILIES.md): all defaults/types, WGSL, SC methods; 32 native numerical reference cases and live chained commits pass. `src`/`prev` require later sampling/history work. |
-
 | 10 — Nested combine family | PASS (native automated/installed scope) | [COMBINE.md](COMBINE.md): seven operations, nested branch transforms, alpha, rollback pixels and live revision checks. Manual observation pending. |
 
 Checkpoint A is available for one-output procedural visuals and live replacement.
