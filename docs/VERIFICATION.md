@@ -1,5 +1,43 @@
 # Verification
 
+## Hydra spatial modulation — 2026-11-13
+
+Source: Step 11 changes on parent `9bfaab18c716674dacd3c26314b4660f5fd5e513`,
+identified by the commit containing this record. Native aarch64-apple-darwin,
+Apple M5 / Metal, SuperCollider 3.14.1, pinned Rust 1.97.1 binaries first in PATH.
+Dependencies and lockfile unchanged. Ordinary release renderer SHA-256:
+`1a506d18da0827cbc6d48a4dde7dfd740e20469b1b4f1d9dc4f485b3b4fbe7ee`.
+
+- PASS: strict all-target/all-feature Clippy and formatting. Rust tests:
+  73 renderer, seven each compiler/reference example module tests, two overlay.
+  New checks cover eleven signatures/defaults, bad types/references, nonfinite
+  parameters and identically zero divisor rejection.
+- PASS: 50 native 3x3 RGBA8 reference comparisons at time 0.37, maximum channel
+  difference zero. Eleven new cases include nested displacement, shared composite
+  modulators sampled at distinct UVs, rotations before/inside/after modulation,
+  negative repeat/scroll wrapping and resolution-dependent modulateHue. Rejected
+  candidate edits retain the cached shader and exact readback pixels. Naga
+  shader-reference evidence is distinct from Hydra browser/runtime parity.
+- PASS: six isolated source SC checks and seven normal installed SC checks:
+  modulation unit/live, previous combine unit, output, AST and legacy graph;
+  installed scope adds startup of `04_modulation.scd` interpreted from text with
+  automatic renderer discovery. All eleven live cases commit/present; a bad
+  kaleid edit is rejected and the next good commit is revision 12. Suites ran
+  serially with owned processes. The existing user demo was not stopped.
+- PASS: native arm64 development package built and installed in normal Extensions;
+  prior extension backed up outside Extensions, executable modes restored from ZIP
+  metadata, installed renderer bytes matched the release build and hash above.
+- User observation: Step 10 example works perfectly (user confirmation before
+  Step 11). New modulation example visual observation, other backends, dynamic
+  zero-extent domains and full browser parity NOT RUN/unqualified.
+
+Evidence under ignored `build/hydra-tests/modulate-11/`: `rust-retry.log`,
+`pixels.log`, `sc-retry/`, `installed/`, `package.log`. Negative evidence retained:
+`rust.log` and `sc/` exposed reserved WGSL identifier `target` in generated code.
+Renamed it to `warped`; tests and live compilation pass without weakening any
+assertion. No release/tag/version changes. See [MODULATION.md](hydra/MODULATION.md).
+
+
 ## Hydra nested combines — 2026-11-13
 
 Source: Step 10 changes on parent `7637708aad106b30c460a67a89c4821e6b8564ae`,

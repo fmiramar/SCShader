@@ -41,5 +41,5 @@ and over-expanded shared branches. See [verification](../VERIFICATION.md).
 
 `examples/hydra/03_combine.scd` uses its own port and names. Recompile the SC class
 library after installation. Evaluate startup, then the replacement separately.
-Manual visual observation of this new example and other backends remain open.
+The user confirms this example works perfectly. Other backends remain open.
 Spatial modulation is Step 11. Output sampling/history and media remain deferred.

@@ -8,6 +8,8 @@ mod families;
 mod gpu;
 #[path = "../src/hydra/ir.rs"]
 mod ir;
+#[path = "../src/hydra/modulation.rs"]
+mod modulation;
 #[path = "../src/hydra/registry.rs"]
 mod registry;
 use ir::{Argument, Node, Program};
@@ -57,7 +59,7 @@ fn reference(
     utilities: &str,
 ) -> Result<String, Box<dyn Error>> {
     let mut source = String::from(
-        "#version 450\nlayout(set=0,binding=0,std140) uniform Frame {vec4 clock;vec4 resolution;vec4 pointer;uvec4 counters;} hydra;\n#define time hydra.clock.x\nlayout(location=0) in vec2 uv;layout(location=0) out vec4 result;\n",
+        "#version 450\nlayout(set=0,binding=0,std140) uniform Frame {vec4 clock;vec4 resolution;vec4 pointer;uvec4 counters;} hydra;\n#define time hydra.clock.x\n#define resolution hydra.resolution.xy\nlayout(location=0) in vec2 uv;layout(location=0) out vec4 result;\n",
     );
     for utility in utilities.split("glsl:").skip(1) {
         source.push_str(body(utility)?);
@@ -79,10 +81,22 @@ fn reference(
             write!(
                 source,
                 "{} {}({} {}",
-                if spec.category == 1 { "vec2" } else { "vec4" },
+                if matches!(spec.category, 1 | 4) {
+                    "vec2"
+                } else {
+                    "vec4"
+                },
                 n.name,
-                if spec.category >= 2 { "vec4" } else { "vec2" },
-                if spec.category >= 2 { "_c0" } else { "_st" }
+                if matches!(spec.category, 2 | 3) {
+                    "vec4"
+                } else {
+                    "vec2"
+                },
+                if matches!(spec.category, 2 | 3) {
+                    "_c0"
+                } else {
+                    "_st"
+                }
             )?;
             for (name, kind) in spec._names.iter().zip(spec.args) {
                 write!(
@@ -97,7 +111,7 @@ fn reference(
                         "float"
                     },
                     if *kind == registry::ValueType::Expression {
-                        "_c1"
+                        if spec.category == 4 { "_c0" } else { "_c1" }
                     } else {
                         name
                     }
@@ -124,7 +138,7 @@ fn reference(
         let separator = if args.is_empty() { "" } else { "," };
         let call = match spec.category {
             0 => format!("{}(p{separator}{args})", n.name),
-            1 => format!("ref{}({}(p{separator}{args}))", n.receiver, n.name),
+            1 | 4 => format!("ref{}({}(p{separator}{args}))", n.receiver, n.name),
             _ => format!("{}(ref{}(p){separator}{args})", n.name, n.receiver),
         };
         writeln!(source, "vec4 ref{}(vec2 p){{return {call};}}", n.id)?;
@@ -321,6 +335,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut args = defaults(spec);
         match spec.name {
             "add" | "sub" | "mult" => args[1] = Argument::Float(0.35),
+            "modulateRepeat" => args[1..].clone_from_slice(&scalars(&[-3., 2., 0.35, -0.2])),
+            "modulateRepeatX" | "modulateRepeatY" => {
+                args[1..].clone_from_slice(&scalars(&[-3., -0.4]))
+            }
+            "modulateScrollX" | "modulateScrollY" => {
+                args[1..].clone_from_slice(&scalars(&[-0.8, 0.13]))
+            }
             "noise" => args = scalars(&[1.4, 0.3]),
             "voronoi" => args = scalars(&[3., 0.2, 0.4]),
             "shape" => args = scalars(&[5., 0.4, 0.08]),
@@ -334,7 +355,29 @@ fn main() -> Result<(), Box<dyn Error>> {
             "sum" => args = vec![Argument::Vector([0.1, 0.2, 0.3, 0.4])],
             _ => {}
         }
-        let nodes = if spec.category == 3 {
+        let nodes = if spec.category == 4 {
+            vec![
+                node(1, "osc", 0, scalars(&[10., 0.1, 0.8])),
+                node(2, "rotate", 1, scalars(&[0.24, 0.03])),
+                node(3, "gradient", 0, scalars(&[0.4])),
+                node(4, "color", 3, scalars(&[0.7, 0.4, 0.8, 0.6])),
+                node(
+                    5,
+                    "blend",
+                    4,
+                    vec![Argument::Expression(3), Argument::Float(0.2)],
+                ),
+                node(6, "rotate", 5, scalars(&[-0.13, 0.02])),
+                node(
+                    7,
+                    "modulate",
+                    2,
+                    vec![Argument::Expression(6), Argument::Float(0.07)],
+                ),
+                node(8, spec.name, 7, args),
+                node(9, "rotate", 8, scalars(&[-0.35, 0.01])),
+            ]
+        } else if spec.category == 3 {
             vec![
                 node(1, "osc", 0, scalars(&[10., 0.1, 0.])),
                 node(2, "shape", 0, scalars(&[4., 0.4, 0.01])),
@@ -435,9 +478,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             )
             .into());
         }
-        if spec.category == 3 {
+        if spec.category >= 3 {
             let mut bad = program.clone();
-            bad.nodes[1].arguments[0] = Argument::Float(0.0);
+            bad.nodes[0].arguments[0] = Argument::Float(0.0);
             assert!(gpu::Candidate::prepare(&device, &bad, &mut cached).is_err());
             let kept = cached.as_ref().unwrap();
             assert_eq!(kept.source, candidate.source);

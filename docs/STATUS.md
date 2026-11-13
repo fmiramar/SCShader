@@ -1,10 +1,10 @@
 # Implementation checkpoint
 
-Hydra Step 10 (2026-11-13): all [seven nested combines](hydra/COMBINE.md)
-pass native Metal reference and SC checks. They execute in one procedural pass,
-including branch transforms and alpha composition. Bad nested edits preserve the
-previous candidate. Step 11 spatial modulation is next; release/platform gates
-and user visual observation remain separate.
+Hydra Step 11 (2026-11-13): all [eleven spatial modulation functions](hydra/MODULATION.md)
+pass native Metal reference and SC checks. Fifty shader operations now compile,
+with nested modulation executing in one procedural pass. The user visually
+confirms Step 10 works perfectly. Step 12 multiple outputs is next; new modulation
+visual observation and existing release/platform gates remain separate.
 
 Hydra update (2026-11-13): [32 procedural operations](hydra/FAMILIES.md) now
 pass native Metal numerical checks and source SC chains. The user confirms

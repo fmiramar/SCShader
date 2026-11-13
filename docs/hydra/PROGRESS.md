@@ -13,13 +13,14 @@ Updated: 2026-11-13
 | 07 — Typed WGSL compiler | PASS (compiler/offscreen; live path verified in Step 08) | [COMPILER.md](COMPILER.md): six operation variants, Naga validation, one GPU candidate cache and three 3x3 native Metal pixel cases. SC compiler/rollback path and legacy graph smoke pass. |
 | 08 — First output / presentation | PASS (automated native + installed example); user confirms 01_osc visual PASS | [OUTPUT.md](OUTPUT.md): o0 commits/replacements, presentation, resize, mode selection, cleanup and installed automatic discovery. Presenter pixels pass for linear/sRGB targets on Metal. |
 | 09 — Procedural source/coordinate/color families | PASS for 32 procedural entries; full 34-entry acceptance DEFERRED | [FAMILIES.md](FAMILIES.md): all defaults/types, WGSL, SC methods; 32 native numerical reference cases and live chained commits pass. `src`/`prev` require later sampling/history work. |
-| 10 — Nested combine family | PASS (native automated/installed scope) | [COMBINE.md](COMBINE.md): seven operations, nested branch transforms, alpha, rollback pixels and live revision checks. Manual observation pending. |
+| 10 — Nested combine family | PASS (native automated/installed scope) | [COMBINE.md](COMBINE.md): seven operations, nested branch transforms, alpha, rollback pixels and live revision checks. User confirms Step 10 works perfectly. |
+| 11 — Spatial modulation | PASS (native automated/installed scope) | [MODULATION.md](MODULATION.md): all 11 operations, nested/current-UV evaluation, negative wrapping and rollback pixels; new demo awaits user observation. |
 
 Checkpoint A is available for one-output procedural visuals and live replacement.
 The user confirms `01_osc.scd` runs perfectly; new Step 09 visuals have automated
 native checks but await user observation. This is a development checkpoint.
 
-Next: Step 11, `gpt-6.1-sol` / `high` (same requested pair as Step 10).
-No further model/effort change is prescribed at this boundary. The user's
-proceed message authorized Step 10; no runtime model switch is inferred from
-plan text. `src`/`prev`, feedback and other-platform parity remain open.
+Next: Step 12, `gpt-6.1-sol` / `high` (same planned pair).
+The user's Step 10 visual confirmation is recorded; Step 11 manual observation
+remains open. `src`/`prev`, multiple outputs, feedback and other-platform parity
+remain later scope. No runtime model switch is inferred from plan text.

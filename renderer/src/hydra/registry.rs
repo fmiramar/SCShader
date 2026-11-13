@@ -320,8 +320,93 @@ pub const COMBINE: &[Spec] = &[
         _defaults: &[],
     },
 ];
+pub const MODULATION: &[Spec] = &[
+    Spec {
+        name: "modulateRepeat",
+        category: 4,
+        args: &[
+            ValueType::Expression,
+            ValueType::Float,
+            ValueType::Float,
+            ValueType::Float,
+            ValueType::Float,
+        ],
+        _names: &["texture", "repeatX", "repeatY", "offsetX", "offsetY"],
+        _defaults: &[3.0, 3.0, 0.5, 0.5],
+    },
+    Spec {
+        name: "modulateRepeatX",
+        category: 4,
+        args: &[ValueType::Expression, ValueType::Float, ValueType::Float],
+        _names: &["texture", "reps", "offset"],
+        _defaults: &[3.0, 0.5],
+    },
+    Spec {
+        name: "modulateRepeatY",
+        category: 4,
+        args: &[ValueType::Expression, ValueType::Float, ValueType::Float],
+        _names: &["texture", "reps", "offset"],
+        _defaults: &[3.0, 0.5],
+    },
+    Spec {
+        name: "modulateKaleid",
+        category: 4,
+        args: &[ValueType::Expression, ValueType::Float],
+        _names: &["texture", "nSides"],
+        _defaults: &[4.0],
+    },
+    Spec {
+        name: "modulateScrollX",
+        category: 4,
+        args: &[ValueType::Expression, ValueType::Float, ValueType::Float],
+        _names: &["texture", "scrollX", "speed"],
+        _defaults: &[0.5, 0.0],
+    },
+    Spec {
+        name: "modulateScrollY",
+        category: 4,
+        args: &[ValueType::Expression, ValueType::Float, ValueType::Float],
+        _names: &["texture", "scrollY", "speed"],
+        _defaults: &[0.5, 0.0],
+    },
+    Spec {
+        name: "modulate",
+        category: 4,
+        args: &[ValueType::Expression, ValueType::Float],
+        _names: &["texture", "amount"],
+        _defaults: &[0.1],
+    },
+    Spec {
+        name: "modulateScale",
+        category: 4,
+        args: &[ValueType::Expression, ValueType::Float, ValueType::Float],
+        _names: &["texture", "multiple", "offset"],
+        _defaults: &[1.0, 1.0],
+    },
+    Spec {
+        name: "modulatePixelate",
+        category: 4,
+        args: &[ValueType::Expression, ValueType::Float, ValueType::Float],
+        _names: &["texture", "multiple", "offset"],
+        _defaults: &[10.0, 3.0],
+    },
+    Spec {
+        name: "modulateRotate",
+        category: 4,
+        args: &[ValueType::Expression, ValueType::Float, ValueType::Float],
+        _names: &["texture", "multiple", "offset"],
+        _defaults: &[1.0, 0.0],
+    },
+    Spec {
+        name: "modulateHue",
+        category: 4,
+        args: &[ValueType::Expression, ValueType::Float],
+        _names: &["texture", "amount"],
+        _defaults: &[1.0],
+    },
+];
 pub fn supported() -> impl Iterator<Item = &'static Spec> {
-    PROCEDURAL.iter().chain(COMBINE)
+    PROCEDURAL.iter().chain(COMBINE).chain(MODULATION)
 }
 pub fn spec(name: &str) -> Option<&'static Spec> {
     supported().find(|s| s.name == name)

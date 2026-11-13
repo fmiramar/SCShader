@@ -27,6 +27,18 @@ SCHydraExpr : Object {
     diff { |other| ^this.append(\diff, [other]) }
     mask { |other| ^this.append(\mask, [other]) }
 
+    modulateRepeat { |other, repeatX = 3.0, repeatY = 3.0, offsetX = 0.5, offsetY = 0.5| ^this.append(\modulateRepeat, [other, repeatX, repeatY, offsetX, offsetY]) }
+    modulateRepeatX { |other, reps = 3.0, offset = 0.5| ^this.append(\modulateRepeatX, [other, reps, offset]) }
+    modulateRepeatY { |other, reps = 3.0, offset = 0.5| ^this.append(\modulateRepeatY, [other, reps, offset]) }
+    modulateKaleid { |other, nSides = 4.0| ^this.append(\modulateKaleid, [other, nSides]) }
+    modulateScrollX { |other, scrollX = 0.5, speed = 0.0| ^this.append(\modulateScrollX, [other, scrollX, speed]) }
+    modulateScrollY { |other, scrollY = 0.5, speed = 0.0| ^this.append(\modulateScrollY, [other, scrollY, speed]) }
+    modulate { |other, amount = 0.1| ^this.append(\modulate, [other, amount]) }
+    modulateScale { |other, multiple = 1.0, offset = 1.0| ^this.append(\modulateScale, [other, multiple, offset]) }
+    modulatePixelate { |other, multiple = 10.0, offset = 3.0| ^this.append(\modulatePixelate, [other, multiple, offset]) }
+    modulateRotate { |other, multiple = 1.0, offset = 0.0| ^this.append(\modulateRotate, [other, multiple, offset]) }
+    modulateHue { |other, amount = 1.0| ^this.append(\modulateHue, [other, amount]) }
+
     pixelate { |pixelX = 20, pixelY = 20| ^this.append(\pixelate, [pixelX, pixelY]) }
     repeat { |repeatX = 3, repeatY = 3, offsetX = 0, offsetY = 0| ^this.append(\repeat, [repeatX, repeatY, offsetX, offsetY]) }
     repeatX { |reps = 3, offset = 0| ^this.append(\repeatX, [reps, offset]) }
@@ -138,6 +150,17 @@ SCHydraExpr : Object {
             \layer, { [\combine, [\expr]] },
             \diff, { [\combine, [\expr]] },
             \mask, { [\combine, [\expr]] },
+            \modulateRepeat, { [\combineCoord, [\expr,\float,\float,\float,\float]] },
+            \modulateRepeatX, { [\combineCoord, [\expr,\float,\float]] },
+            \modulateRepeatY, { [\combineCoord, [\expr,\float,\float]] },
+            \modulateKaleid, { [\combineCoord, [\expr,\float]] },
+            \modulateScrollX, { [\combineCoord, [\expr,\float,\float]] },
+            \modulateScrollY, { [\combineCoord, [\expr,\float,\float]] },
+            \modulate, { [\combineCoord, [\expr,\float]] },
+            \modulateScale, { [\combineCoord, [\expr,\float,\float]] },
+            \modulatePixelate, { [\combineCoord, [\expr,\float,\float]] },
+            \modulateRotate, { [\combineCoord, [\expr,\float,\float]] },
+            \modulateHue, { [\combineCoord, [\expr,\float]] },
             \blend, { [\combine, [\expr, \float]] },
             { Error("Unsupported SCHydra operation: %".format(name)).throw })
     }

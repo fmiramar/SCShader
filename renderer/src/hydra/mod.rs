@@ -3,6 +3,7 @@ pub mod compiler;
 pub mod families;
 pub mod gpu;
 pub mod ir;
+pub mod modulation;
 pub mod output;
 pub mod registry;
 use crate::protocol::{ErrorReply, ReplyTarget};

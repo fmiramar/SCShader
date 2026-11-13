@@ -34,6 +34,7 @@ enum Operation {
         other: u32,
         amount: f32,
     },
+    Modulation(super::modulation::Modulation),
     Builtin(super::families::Builtin),
     Solid([f32; 4]),
     Osc([f32; 3]),
@@ -159,6 +160,10 @@ fn lower(program: &Program) -> Result<Vec<(u32, Operation)>, String> {
                     },
                 )
             }
+            name if super::registry::spec(name).is_some_and(|spec| spec.category == 4) => (
+                4,
+                Operation::Modulation(super::modulation::Modulation::lower(node)?),
+            ),
             _ => {
                 let builtin = super::families::Builtin::lower(node)?;
                 (node.category, Operation::Builtin(builtin))
@@ -226,6 +231,7 @@ pub fn compile(program: &Program) -> Result<String, String> {
                 };
                 writeln!(source, "return {result};").unwrap();
             }
+            Operation::Modulation(operation) => operation.emit(&mut source),
             Operation::Builtin(builtin) => builtin.emit(&mut source),
             Operation::Solid(args) => {
                 writeln!(source, "return {};", vector(&args)).unwrap();
@@ -434,6 +440,46 @@ mod tests {
             });
         }
         assert!(compile(&Program { nodes, root: 13 }).is_err());
+    }
+    #[test]
+    fn modulation_signatures_and_undefined_constants() {
+        assert_eq!(super::super::registry::MODULATION.len(), 11);
+        for spec in super::super::registry::MODULATION {
+            let mut args = vec![Argument::Expression(2)];
+            args.extend(spec._defaults.iter().copied().map(Argument::Float));
+            let mut program = Program {
+                nodes: vec![
+                    node(1, "osc", 0, 0, &[10., 0.1, 0.]),
+                    node(2, "gradient", 0, 0, &[0.4]),
+                    Node {
+                        id: 3,
+                        name: spec.name.into(),
+                        category: 4,
+                        receiver: 1,
+                        arguments: args,
+                    },
+                ],
+                root: 3,
+            };
+            let source = compile(&program).unwrap();
+            assert_eq!(source.matches("@fragment").count(), 1);
+            program.nodes[2].arguments[0] = Argument::Expression(3);
+            assert!(compile(&program).is_err());
+            program.nodes[2].arguments[0] = Argument::Float(0.5);
+            assert!(compile(&program).is_err());
+            program.nodes[2].arguments[0] = Argument::Expression(2);
+            program.nodes[2].arguments[1] = Argument::Float(f32::NAN);
+            assert!(compile(&program).is_err());
+            if matches!(
+                spec.name,
+                "modulateKaleid" | "modulateScale" | "modulatePixelate"
+            ) {
+                for arg in &mut program.nodes[2].arguments[1..] {
+                    *arg = Argument::Float(0.0);
+                }
+                assert!(compile(&program).is_err());
+            }
+        }
     }
     #[test]
     fn malformed_and_undefined_inputs_fail_before_gpu() {

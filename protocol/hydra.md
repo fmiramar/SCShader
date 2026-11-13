@@ -1,7 +1,7 @@
 # Hydra single-output protocol — implementation checkpoint
 
 2026-11-13. Additive to [SCShader v1](protocol.md) and implementing the first
-single-output portion of [ADR 001](../docs/hydra/ARCHITECTURE.md). 39 compiled
+single-output portion of [ADR 001](../docs/hydra/ARCHITECTURE.md). 50 compiled
 operators and `o0` activation/presentation are available. Other output/source and
 parameter features remain explicitly unavailable.
 
@@ -31,7 +31,7 @@ session; retrying a closed handle currently reports `E_HYDRA_SESSION`.
 
 `limits` is exactly five big-endian u32 values, in order: maximum IR bytes
 (65536), chunk bytes (2048), nodes (256), depth (64), expanded operations (4096).
-`features` is `staging-ir-v1;wgsl-v1:<comma-separated supported registry names>;output-o0-v1`. The 39 names and their defaults/types are in `renderer/src/hydra/registry.rs`; their order follows the pinned inventory.
+`features` is `staging-ir-v1;wgsl-v1:<comma-separated supported registry names>;output-o0-v1`. The 50 names and their defaults/types are in `renderer/src/hydra/registry.rs`; their order follows the pinned inventory.
 This narrower discovery payload supersedes the ADR's provisional full-limit
 payload for the staging feature only. Future compiler/source/presentation
 capabilities must explicitly document their additional fields before advertising.
@@ -66,11 +66,11 @@ errors use `E_PROTOCOL`. Query status to reconcile lost/suppressed commit errors
 replies are bounded. The ADR's richer Hydra error tuple is reserved for later
 node/output diagnostics; clients must not assume it exists yet.
 
-The IR layout is HYIR 1.0 from ADR 001. The decoder accepts 32 procedural and seven combine
+The IR layout is HYIR 1.0 from ADR 001. The decoder accepts 32 procedural, seven combine and eleven combineCoord
 operations with scalar arguments (tag 0,
 f32) and the literal vec4 argument for `sum` (tag 5, four f32 components),
 encoded in network order. Combine arguments begin with an expression reference (tag 2, earlier node ID
-as u32). All seven combine operations compile, including nested branches. Parameter declarations,
+as u32). All seven combine and eleven combineCoord operations compile, including nested branches. Parameter declarations,
 source sampling and other argument forms/operators fail explicitly.
 The decoder verifies size/version, category/arity/types,
 finite f32 inputs, unique positive node IDs, earlier-node references, root reachability,

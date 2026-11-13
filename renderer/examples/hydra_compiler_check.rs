@@ -7,6 +7,8 @@ mod families;
 mod gpu;
 #[path = "../src/hydra/ir.rs"]
 mod ir;
+#[path = "../src/hydra/modulation.rs"]
+mod modulation;
 #[path = "../src/hydra/output.rs"]
 mod output;
 #[path = "../src/hydra/registry.rs"]
