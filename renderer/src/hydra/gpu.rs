@@ -1,6 +1,7 @@
 //! One renderer-owned compiled candidate, not an active output or presentation mode.
 use super::{compiler, ir::Program};
 
+#[derive(Clone)]
 pub struct Candidate {
     pub source: String,
     pub _pipeline: wgpu::RenderPipeline,

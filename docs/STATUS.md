@@ -2,12 +2,14 @@
 
 Updated 2026-11-12. Current development version: **0.0.18**. Not a final v0.1.0 release.
 
-Hydra development (2026-11-12): the [typed WGSL compiler](hydra/COMPILER.md) now
-lowers solid/osc/gradient/rotate/scale/color and caches a validated GPU candidate.
-Three native Metal offscreen pixel cases, SC upload/compiler-error handling and
-legacy graph smoke pass. Window activation/presentation remain pending Step 08;
-no successful Hydra commit/revision is reported yet. Full pinned Rust 1.97.1
-strict checks pass. Existing platform/release claims below remain separate.
+Hydra development (2026-11-12): the [first o0 output](hydra/OUTPUT.md) now commits
+and presents in the existing window. Native Metal output/resize/mode-switch and
+legacy graph checks pass, as do linear/sRGB presenter pixels. The native arm64
+development package is installed with its previous extension backed up outside
+Extensions; the example passes installed automatic renderer discovery. Manual
+visual observation, temporal feedback, recovery injection and other backends
+remain unqualified. Next: remaining procedural function families (Step 09).
+Existing platform/release claims below remain separate.
 
 **Latest RTX 3060 result:** the updated renderer (SHA-256
 `a65c5d5f97301c17347e170ffeee0623904368ef5276916a898d8cc7653cd8c2`) passes an

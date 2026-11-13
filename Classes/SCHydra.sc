@@ -1,7 +1,7 @@
 SCHydra : Object {
     classvar all;
     var <server, <isFreed, <isReady, <lastError, epoch, session, sequence, startupTask, uploadTask;
-    var readyAction, failureAction, responders, uploading;
+    var readyAction, failureAction, responders, uploading, revisions, presentTask, presenting;
 
     *initClass { all = IdentityDictionary.new }
 
@@ -16,8 +16,8 @@ SCHydra : Object {
         };
         server = argServer;
         if(server.notNil) { all[server] = this };
-        isFreed = false; isReady = false; sequence = 0; uploading = false;
-        responders = IdentitySet.new;
+        isFreed = false; isReady = false; sequence = 0; uploading = false; presenting = false;
+        responders = IdentitySet.new; revisions = [0,0,0,0];
         if(server.notNil and: { server.isRunning }) { this.negotiate };
         ^this
     }
@@ -128,13 +128,13 @@ SCHydra : Object {
         var snapshot, tx;
         this.checkLive;
         if(isReady.not or: { server.isRunning.not }) { Error("SCHydra session is not ready.").throw };
-        if(uploading) { Error("SCHydra already has an upload in flight.").throw };
+        if(uploading or: { presenting }) { Error("SCHydra already has a request in flight.").throw };
         snapshot = this.snapshot(expression, output); tx = this.nextSequence;
         uploading = true;
         uploadTask = Routine({
             var response, statusID;
             response = this.request(['/scshader/v1/hydra/begin', epoch, session, tx,
-                this.outputIndex(output), 0, snapshot[\bytes].size], "ack",
+                this.outputIndex(output), revisions[this.outputIndex(output)], snapshot[\bytes].size], "ack",
                 { |msg| msg[1].asString == epoch and: { msg[2] == session and: { msg[3] == tx and: { msg[4] == -1 } } } });
             snapshot[\bytes].clump(2048).do { |chunk, index|
                 if(response[\ok]) {
@@ -152,10 +152,18 @@ SCHydra : Object {
                     response = this.request(['/scshader/v1/hydra/status', epoch, session, statusID, tx],
                         "status.reply", { |msg| msg[1].asString == epoch and: { msg[2] == session and: { msg[3] == statusID } } });
                     if(response[\ok]) {
-                        response = (ok: false, code: response[\message][7].asString, message: response[\message][8].asString);
+                        if(response[\message][6].asString == "committed") {
+                            response = (ok: true, revision: response[\message][8].asString.asInteger);
+                        } {
+                            response = (ok: false, code: response[\message][7].asString, message: response[\message][8].asString);
+                        };
                         if(response[\code] == "") { response = (ok: false, code: "E_HYDRA_UNKNOWN", message: "Commit outcome unknown") };
                     };
                 };
+            };
+            if(response[\ok]) {
+                if(response[\revision].isNil) { response[\revision] = response[\message][5] };
+                revisions[this.outputIndex(output)] = response[\revision];
             };
             if(response[\ok].not) { server.sendMsg('/scshader/v1/hydra/abort', epoch, session, tx) };
             response[\transaction] = tx; response[\output] = output;
@@ -165,8 +173,27 @@ SCHydra : Object {
         ^this
     }
 
+    render { |output = \o0, action|
+        var mode, id;
+        this.checkLive;
+        if(isReady.not) { Error("SCHydra session is not ready.").throw };
+        if(uploading or: { presenting }) { Error("SCHydra already has a request in flight.").throw };
+        mode = (output == \legacy).if({ -1 }, { this.outputIndex(output) });
+        if(mode > 0) { Error("Only Hydra o0 is implemented.").throw };
+        id = this.nextSequence;
+        presenting = true;
+        presentTask = Routine({
+            var response = this.request(['/scshader/v1/hydra/present', epoch, session, id, mode],
+                "presented", { |msg| msg[1].asString == epoch and: { msg[2] == session and: { msg[3] == id } } });
+            presenting = false; lastError = response[\ok].if({ nil }, { response });
+            action.value(response);
+        }).play(SystemClock);
+        ^this
+    }
+
     free {
         if(isFreed.not) {
+            if(presentTask !== thisThread) { presentTask.tryPerform(\stop) };
             if(startupTask !== thisThread) { startupTask.tryPerform(\stop) };
             if(uploadTask !== thisThread) { uploadTask.tryPerform(\stop) };
             responders.do(_.free); responders.clear;

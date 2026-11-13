@@ -1,5 +1,42 @@
 # Verification
 
+## Hydra first output and installed example — 2026-11-12
+
+Pinned Rust 1.97.1 strict Clippy, 70 binary unit tests plus six example-module
+tests, and normal debug/release builds pass. The native arm64 development package
+passes target/format checks and notice assembly (132 packages, zero missing texts);
+its corresponding source snapshot was produced locally. No release was published.
+The packaged binary is installed in the normal Extensions location, and the old
+extension is retained outside Extensions under ignored `build/backups/`.
+
+Installed release renderer SHA-256:
+`4b2f04d3b688d314f9dced31b942b07510a6ad746eb34b67a2f8a28eaf44e820`.
+Apple M5 / Metal: the existing SC harness passes `hydra_output_smoke`,
+`hydra_transport_smoke`, `hydra_ast_unit`, `compile_check`, `graph_smoke` and `hydra_example_smoke` with
+normal installed classes and the installed binary. The new output smoke confirms
+committed revisions, rejection of a bad edit without advancing revision, successful
+replacement, native resize, o0/Legacy switching and cleanup. The example also
+passes when interpreted from a string using automatic installed renderer discovery.
+
+The offscreen presenter proof passes three 3x3 cases for both linear and sRGB
+attachments: 54 pixels / 216 RGBA components, with at most two 8-bit values of
+error against independent equations. The production output/presentation code is
+used, with ordered Metal submissions. Manual visual observation is NOT RUN.
+
+Initial package extraction via Python lost executable permissions; SC boot emitted
+CoreFoundation fork errors. The archive itself stores the correct mode. Restoring
+mode 755 fixes the installed checks, including the full personal class configuration.
+The previous renderer also passed the control run. Failed logs remain under
+`build/hydra-tests/output-08/installed/` and `installed-isolated/`; final evidence is
+under `final-installed/`, `rust-final2.log` and `package-final.log`.
+The final resize-limit warning uses the shared diagnostic budget and a single
+retained warning slot. The temporary unsaved-example helper initially used an incorrect file-read method;
+that helper was corrected and its owned process stopped before the passing run.
+
+Recovery reconstruction is implemented but injection was NOT RUN. Feedback,
+additional outputs/sources and non-Metal backends are not qualified here. The
+installed package is a development checkpoint, not final-release validation.
+
 ## Hydra native compiler — 2026-11-12
 
 At the commit containing this entry, the fully pinned Rust 1.97.1 environment

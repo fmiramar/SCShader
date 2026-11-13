@@ -17,9 +17,7 @@ server.waitForBoot({
     hydra = SCHydra.new(server);
     hydra.waitForReady({
         hydra.osc(10).rotate(0.2).out(\o0, { |result|
-            if(result[\ok].not and: { result[\code] == "E_HYDRA_CAPABILITY" and: {
-                result[\message].find("pipeline compiled and cached").notNil
-            } }) {
+            if(result[\ok] and: { result[\revision] == 1 }) {
                 hydra.osc(0).out(\o0, { |invalid|
                     if(invalid[\ok].not and: { invalid[\code] == "E_HYDRA_COMPILE" }) {
                         server.status { |receiver, status|

@@ -32,22 +32,20 @@ The fixed group-0/binding-0 frame ABI is 64 bytes, aligned to 16 bytes:
 
 Only time is consumed by this initial family. Literal inputs do not need the
 ADR's reserved parameter block or source/output texture groups yet; those bindings
-are not advertised as available. Step 08 supplies per-frame values from the
-session clock. This checkpoint uses explicit fixed-time uniforms in the offscreen
-proof and does not claim a running session clock or window presentation.
+are not advertised as available. Step 08 now supplies per-frame values from the session clock; see
+[the live output](OUTPUT.md). The independent offscreen proof continues to use
+fixed-time uniforms.
 
 `Renderer` owns one compiled candidate (source, pipeline and bind-group layout).
 Identical source reuses that candidate. Preparing a replacement validates CPU
 lowering/Naga and the GPU pipeline under an error scope before replacing the
-cache; failure keeps the old candidate. Close releases it; device recreation drops
-it because no accepted Hydra output exists yet. This is not an inactive global
+cache; failure keeps the old candidate. Close releases it. The transient cache drops on device recreation, while the
+accepted output is rebuilt from retained CPU IR. This is not an inactive global
 shader cache and does not allocate output textures in the running renderer.
 
-A successful OSC compilation still returns `E_HYDRA_CAPABILITY` with the explicit
-message that the pipeline compiled/cached but presentation activation is absent.
-Failure returns `E_HYDRA_COMPILE`; no `committed` reply or revision increment is
-fabricated. Step 08 must wire activation, presentation and last-picture rollback
-before closing Step 06's full replacement gate.
+Step 08 now installs the accepted output and replies `committed` with its new
+revision. Failure returns `E_HYDRA_COMPILE` and retains the old program/revision.
+Presentation is selected separately; see [the protocol](../../protocol/hydra.md).
 
 Domain decisions: `osc` frequency zero is rejected because the pinned expression
 has undefined frequency division; `scale` rejects zero/overflowed axis extents.
@@ -69,5 +67,6 @@ still renders the expected pixels. Reads use a five-second bounded GPU wait.
 
 This passes on Apple M5/Metal. Unit validation, strict Clippy and the SC transport,
 AST, class compile and legacy graph smokes also pass. See [verification](../VERIFICATION.md).
-Window display/manual visual observation, four outputs, feedback, other backends,
-and full Hydra parity remain NOT RUN or unimplemented as appropriate.
+Step 08 adds automated window presentation/installed checks; manual visual
+observation, four outputs, feedback, other backends and full Hydra parity remain
+NOT RUN or unimplemented as appropriate.

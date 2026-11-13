@@ -5,6 +5,8 @@ mod compiler;
 mod gpu;
 #[path = "../src/hydra/ir.rs"]
 mod ir;
+#[path = "../src/hydra/output.rs"]
+mod output;
 use ir::{Argument, Node, Program};
 use std::{error::Error, sync::mpsc, time::Duration};
 fn node(id: u32, name: &str, category: u8, receiver: u32, args: &[f32]) -> Node {
@@ -97,141 +99,102 @@ fn main() -> Result<(), Box<dyn Error>> {
         ),
     ];
     let mut cached = None;
-    for (index, program) in cases.iter().enumerate() {
-        gpu::Candidate::prepare(&device, program, &mut cached)?;
-        let before = cached.as_ref().unwrap().source.clone();
-        let invalid = Program {
-            nodes: vec![node(1, "osc", 0, 0, &[0., 0.1, 0.])],
-            root: 1,
-        };
-        assert!(gpu::Candidate::prepare(&device, &invalid, &mut cached).is_err());
-        assert_eq!(cached.as_ref().unwrap().source, before);
-        let candidate = cached.as_ref().unwrap();
-        let extent = wgpu::Extent3d {
-            width: 3,
-            height: 3,
-            depth_or_array_layers: 1,
-        };
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Hydra compiler pixel test"),
-            size: extent,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8Unorm,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
-            view_formats: &[],
-        });
-        let frame = device.create_buffer(&wgpu::BufferDescriptor {
-            label: None,
-            size: 64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        let values: [f32; 16] = [
-            0.,
-            1.,
-            30.,
-            0.,
-            3.,
-            3.,
-            1. / 3.,
-            1. / 3.,
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
-        ];
-        queue.write_buffer(&frame, 0, bytemuck::cast_slice(&values));
-        let bindings = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: None,
-            layout: &candidate._layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: frame.as_entire_binding(),
-            }],
-        });
-        let readback = device.create_buffer(&wgpu::BufferDescriptor {
-            label: None,
-            size: 256 * 3,
-            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        let view = texture.create_view(&Default::default());
-        let mut encoder = device.create_command_encoder(&Default::default());
-        {
-            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: None,
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    depth_slice: None,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                ..Default::default()
+    for format in [
+        wgpu::TextureFormat::Rgba8Unorm,
+        wgpu::TextureFormat::Rgba8UnormSrgb,
+    ] {
+        for (index, program) in cases.iter().enumerate() {
+            gpu::Candidate::prepare(&device, program, &mut cached)?;
+            let before = cached.as_ref().unwrap().source.clone();
+            let invalid = Program {
+                nodes: vec![node(1, "osc", 0, 0, &[0., 0.1, 0.])],
+                root: 1,
+            };
+            assert!(gpu::Candidate::prepare(&device, &invalid, &mut cached).is_err());
+            assert_eq!(cached.as_ref().unwrap().source, before);
+            let candidate = cached.as_ref().unwrap();
+            let extent = wgpu::Extent3d {
+                width: 3,
+                height: 3,
+                depth_or_array_layers: 1,
+            };
+            let texture = device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("Hydra compiler pixel test"),
+                size: extent,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+                view_formats: &[],
             });
-            pass.set_pipeline(&candidate._pipeline);
-            pass.set_bind_group(0, &bindings, &[]);
-            pass.draw(0..3, 0..1);
-        }
-        encoder.copy_texture_to_buffer(
-            texture.as_image_copy(),
-            wgpu::TexelCopyBufferInfo {
-                buffer: &readback,
-                layout: wgpu::TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(256),
-                    rows_per_image: Some(3),
+            let output = output::Output::new(&device, candidate.clone(), 3, 3, format)?;
+            let readback = device.create_buffer(&wgpu::BufferDescriptor {
+                label: None,
+                size: 256 * 3,
+                usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+            let view = texture.create_view(&Default::default());
+            let mut encoder = device.create_command_encoder(&Default::default());
+            output.encode_output(&queue, &mut encoder, 0., 0., 0);
+            queue.submit(Some(encoder.finish()));
+            let mut encoder = device.create_command_encoder(&Default::default());
+            output.encode_present(&mut encoder, &view);
+            encoder.copy_texture_to_buffer(
+                texture.as_image_copy(),
+                wgpu::TexelCopyBufferInfo {
+                    buffer: &readback,
+                    layout: wgpu::TexelCopyBufferLayout {
+                        offset: 0,
+                        bytes_per_row: Some(256),
+                        rows_per_image: Some(3),
+                    },
                 },
-            },
-            extent,
-        );
-        queue.submit(Some(encoder.finish()));
-        let (send, receive) = mpsc::channel();
-        readback.map_async(wgpu::MapMode::Read, .., move |result| {
-            let _ = send.send(result);
-        });
-        device.poll(wgpu::PollType::Wait {
-            submission_index: None,
-            timeout: Some(Duration::from_secs(5)),
-        })?;
-        receive.recv_timeout(Duration::from_secs(5))??;
-        let pixels = readback.get_mapped_range(..)?;
-        for row in 0..3 {
-            for col in 0..3 {
-                let x = (col as f64 + 0.5) / 3.;
-                let y = 1. - (row as f64 + 0.5) / 3.;
-                let angle = 0.2f32 as f64;
-                let u = 0.5 + angle.cos() * (x - 0.5) + angle.sin() * (y - 0.5);
-                let v = 0.5 - angle.sin() * (x - 0.5) + angle.cos() * (y - 0.5);
-                let expected = match index {
-                    0 => [0.75, 0.25, 1.5, 0.4],
-                    1 => {
-                        let c = 0.5 + 0.5 * (10. * u).sin();
-                        [c, c, c, 1.]
+                extent,
+            );
+            queue.submit(Some(encoder.finish()));
+            let (send, receive) = mpsc::channel();
+            readback.map_async(wgpu::MapMode::Read, .., move |result| {
+                let _ = send.send(result);
+            });
+            device.poll(wgpu::PollType::Wait {
+                submission_index: None,
+                timeout: Some(Duration::from_secs(5)),
+            })?;
+            receive.recv_timeout(Duration::from_secs(5))??;
+            let pixels = readback.get_mapped_range(..)?;
+            for row in 0..3 {
+                for col in 0..3 {
+                    let x = (col as f64 + 0.5) / 3.;
+                    let y = 1. - (row as f64 + 0.5) / 3.;
+                    let angle = 0.2f32 as f64;
+                    let u = 0.5 + angle.cos() * (x - 0.5) + angle.sin() * (y - 0.5);
+                    let v = 0.5 - angle.sin() * (x - 0.5) + angle.cos() * (y - 0.5);
+                    let expected = match index {
+                        0 => [0.75, 0.25, 1.5, 0.4],
+                        1 => {
+                            let c = 0.5 + 0.5 * (10. * u).sin();
+                            [c, c, c, 1.]
+                        }
+                        _ => [(u - 0.3) / 2. + 0.3, (v - 0.7) / 4. + 0.7, 0., 1.],
+                    };
+                    for channel in 0..4 {
+                        let target = (expected[channel].clamp(0., 1.) * 255.).round() as i32;
+                        let actual = pixels[row * 256 + col * 4 + channel] as i32;
+                        assert!(
+                            (actual - target).abs() <= 2,
+                            "case={index} pixel=({col},{row}) channel={channel} actual={actual} expected={target}"
+                        );
                     }
-                    _ => [(u - 0.3) / 2. + 0.3, (v - 0.7) / 4. + 0.7, 0., 1.],
-                };
-                for channel in 0..4 {
-                    let target = (expected[channel].clamp(0., 1.) * 255.).round() as i32;
-                    let actual = pixels[row * 256 + col * 4 + channel] as i32;
-                    assert!(
-                        (actual - target).abs() <= 2,
-                        "case={index} pixel=({col},{row}) channel={channel} actual={actual} expected={target}"
-                    );
                 }
             }
+            drop(pixels);
+            readback.unmap();
+            println!(
+                "format={format:?} case={index} nine RGBA pixels PASS; failed candidate preserved cache"
+            );
         }
-        drop(pixels);
-        readback.unmap();
-        println!("case={index} nine RGBA pixels PASS; failed candidate preserved cache");
     }
     println!("SCSHADER_HYDRA_COMPILER_GPU_OK");
     Ok(())

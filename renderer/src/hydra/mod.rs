@@ -2,6 +2,7 @@
 pub mod compiler;
 pub mod gpu;
 pub mod ir;
+pub mod output;
 use crate::protocol::{ErrorReply, ReplyTarget};
 use rosc::OscType;
 use std::{
@@ -58,6 +59,12 @@ impl Request {
             }
             "commit" | "abort" | "close" => {
                 args.len() == 3 && scoped && integer(&args, 2, 1, i32::MAX)
+            }
+            "present" => {
+                args.len() == 4
+                    && scoped
+                    && integer(&args, 2, 1, i32::MAX)
+                    && integer(&args, 3, -1, 0)
             }
             "status" => {
                 args.len() == 4
@@ -129,6 +136,9 @@ struct Session {
     target: ReplyTarget,
     nonce: String,
     high_water: i32,
+    revision: i32,
+    selected: i32,
+    present_sequence: i32,
     upload: Option<Upload>,
     results: VecDeque<(i32, &'static str, String)>,
 }
@@ -182,6 +192,9 @@ fn remember(session: &mut Session, tx: i32, code: &'static str, message: &str) {
         .push_back((tx, code, message[..end].to_owned()));
 }
 impl Transport {
+    pub fn reply_target(&self) -> Option<ReplyTarget> {
+        self.session.as_ref().map(|s| s.target)
+    }
     pub fn abort_pending(&mut self, reason: &str) {
         if let Some(session) = &mut self.session
             && let Some(upload) = session.upload.take()
@@ -230,7 +243,8 @@ impl Transport {
                     1.into(),
                     0.into(),
                     OscType::Blob(limits.into_iter().flat_map(u32::to_be_bytes).collect()),
-                    "staging-ir-v1;wgsl-v1:solid,osc,gradient,rotate,scale,color;activation-unavailable".into(),
+                    "staging-ir-v1;wgsl-v1:solid,osc,gradient,rotate,scale,color;output-o0-v1"
+                        .into(),
                 ],
             });
         }
@@ -259,6 +273,9 @@ impl Transport {
                     target,
                     nonce: r.text(2).into(),
                     high_water: 0,
+                    revision: 0,
+                    selected: -1,
+                    present_sequence: 0,
                     upload: None,
                     results: VecDeque::new(),
                 });
@@ -315,12 +332,15 @@ impl Transport {
                         "transaction ID is stale; query status",
                     ));
                 }
-                if r.int(4) != 0 {
+                if r.int(3) != 0 {
                     return Err(failure(
                         target,
-                        "E_HYDRA_STALE",
-                        "output revision is 0 before compiler activation",
+                        "E_HYDRA_CAPABILITY",
+                        "only o0 is supported",
                     ));
+                }
+                if r.int(4) != session.revision {
+                    return Err(failure(target, "E_HYDRA_STALE", "output revision mismatch"));
                 }
                 session.high_water = tx;
                 let size = r.int(5) as usize;
@@ -366,6 +386,13 @@ impl Transport {
             "commit" => {
                 if let Some((_, code, message)) = session.results.iter().find(|entry| entry.0 == tx)
                 {
+                    if code.is_empty() {
+                        reply.suffix = "committed";
+                        reply
+                            .args
+                            .extend([0.into(), message.parse::<i32>().unwrap().into()]);
+                        return Ok(reply);
+                    }
                     return Err(failure(target, code, message.clone()));
                 }
                 let u = session
@@ -376,6 +403,17 @@ impl Transport {
                 if u.chunks.iter().any(Option::is_none) {
                     return Err(failure(target, "E_HYDRA_UPLOAD", "upload incomplete"));
                 }
+                if u.expected != session.revision {
+                    return Err(failure(
+                        target,
+                        "E_HYDRA_STALE",
+                        "output changed before commit",
+                    ));
+                }
+                let next_revision = session
+                    .revision
+                    .checked_add(1)
+                    .ok_or_else(|| failure(target, "E_HYDRA_LIMIT", "revision exhausted"))?;
                 let bytes: Vec<u8> = u
                     .chunks
                     .iter()
@@ -384,7 +422,13 @@ impl Transport {
                 session.upload = None;
                 let (code, message) = match ir::Program::decode(&bytes) {
                     Ok(program) => match prepare(&program) {
-                        Ok(()) => ("E_HYDRA_CAPABILITY", "WGSL pipeline compiled and cached; presentation activation is not implemented yet".to_owned()),
+                        Ok(()) => {
+                            session.revision = next_revision;
+                            remember(session, tx, "", &next_revision.to_string());
+                            reply.suffix = "committed";
+                            reply.args.extend([0.into(), next_revision.into()]);
+                            return Ok(reply);
+                        }
                         Err(message) => ("E_HYDRA_COMPILE", message),
                     },
                     Err(message) => ("E_HYDRA_IR", message),
@@ -399,11 +443,38 @@ impl Transport {
                 }
                 reply.suffix = "aborted";
             }
+            "present" => {
+                if r.int(3) == 0 && session.revision == 0 {
+                    return Err(failure(
+                        target,
+                        "E_HYDRA_STALE",
+                        "commit o0 before rendering",
+                    ));
+                }
+                if tx == session.present_sequence && r.int(3) == session.selected {
+                    reply.suffix = "presented";
+                    reply.args.push(session.selected.into());
+                    return Ok(reply);
+                }
+                if tx <= session.present_sequence {
+                    return Err(failure(
+                        target,
+                        "E_HYDRA_STALE",
+                        "stale presentation sequence",
+                    ));
+                }
+                session.present_sequence = tx;
+                session.selected = r.int(3);
+                reply.suffix = "presented";
+                reply.args.push(session.selected.into());
+            }
             "status" => {
                 let queried = r.int(3);
                 let result = session.results.iter().find(|entry| entry.0 == queried);
                 let state = if session.upload.as_ref().is_some_and(|u| u.tx == queried) {
                     "uploading"
+                } else if result.is_some_and(|v| v.1.is_empty()) {
+                    "committed"
                 } else if result.is_some() {
                     "failed"
                 } else {
@@ -411,8 +482,13 @@ impl Transport {
                 };
                 reply.suffix = "status.reply";
                 reply.args.extend([
-                    (-1).into(),
-                    OscType::Blob(vec![0; 16]),
+                    session.selected.into(),
+                    OscType::Blob(
+                        [session.revision, 0, 0, 0]
+                            .into_iter()
+                            .flat_map(i32::to_be_bytes)
+                            .collect(),
+                    ),
                     state.into(),
                     result.map_or("", |v| v.1).into(),
                     result.map_or("", |v| v.2.as_str()).into(),
@@ -513,6 +589,54 @@ mod tests {
         };
         assert!(reason.len() <= 3072);
         assert!(message.starts_with(reason));
+    }
+    #[test]
+    fn committed_revisions_retry_and_present_ordering() {
+        let mut t = Transport::default();
+        open(&mut t);
+        let mut bytes = b"HYIR\0\x01\0\0".to_vec();
+        for n in [1u32, 0, 1, 1] {
+            bytes.extend(n.to_be_bytes());
+        }
+        bytes.extend([0, 3, 0, 3]);
+        bytes.extend(b"osc");
+        bytes.extend(0u32.to_be_bytes());
+        for value in [10f32, 0.1, 0.] {
+            bytes.push(0);
+            bytes.extend(value.to_be_bytes());
+        }
+        let args = scoped(
+            &t,
+            vec![1.into(), 0.into(), 0.into(), (bytes.len() as i32).into()],
+        );
+        run(&mut t, "begin", args, 0.).unwrap();
+        let args = scoped(&t, vec![1.into(), 0.into(), OscType::Blob(bytes)]);
+        run(&mut t, "chunk", args, 0.).unwrap();
+        let args = scoped(&t, vec![1.into()]);
+        assert_eq!(
+            run(&mut t, "commit", args.clone(), 0.).unwrap().suffix,
+            "committed"
+        );
+        assert_eq!(run(&mut t, "commit", args, 0.).unwrap().suffix, "committed");
+        assert_eq!(t.session.as_ref().unwrap().revision, 1);
+        let args = scoped(&t, vec![2.into(), 0.into(), 0.into(), 1.into()]);
+        assert_eq!(
+            run(&mut t, "begin", args, 0.).err().unwrap().code,
+            "E_HYDRA_STALE"
+        );
+        let args = scoped(&t, vec![2.into(), 0.into(), 1.into(), 1.into()]);
+        run(&mut t, "begin", args, 0.).unwrap();
+        let args = scoped(&t, vec![2.into(), 0.into(), OscType::Blob(vec![0])]);
+        run(&mut t, "chunk", args, 0.).unwrap();
+        let args = scoped(&t, vec![2.into()]);
+        assert!(run(&mut t, "commit", args, 0.).is_err());
+        assert_eq!(t.session.as_ref().unwrap().revision, 1);
+        let args = scoped(&t, vec![10.into(), 0.into()]);
+        run(&mut t, "present", args.clone(), 0.).unwrap();
+        run(&mut t, "present", args, 0.).unwrap();
+        let args = scoped(&t, vec![9.into(), (-1).into()]);
+        assert!(run(&mut t, "present", args, 0.).is_err());
+        assert_eq!(t.session.as_ref().unwrap().selected, 0);
     }
     #[test]
     fn ownership_and_parser_limits() {

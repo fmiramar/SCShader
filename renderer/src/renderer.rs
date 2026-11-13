@@ -201,6 +201,11 @@ pub enum HotReload {
 
 pub struct Renderer {
     hydra_candidate: Option<crate::hydra::gpu::Candidate>,
+    hydra_output: Option<crate::hydra::output::Output>,
+    hydra_program: Option<crate::hydra::ir::Program>,
+    hydra_selected: bool,
+    hydra_clock: Option<Instant>,
+    hydra_diagnostic: Option<String>,
     instance: wgpu::Instance,
     window: Arc<Window>,
     surface: wgpu::Surface<'static>,
@@ -250,10 +255,37 @@ pub struct Renderer {
 
 impl Renderer {
     pub fn prepare_hydra(&mut self, program: &crate::hydra::ir::Program) -> Result<(), String> {
-        crate::hydra::gpu::Candidate::prepare(&self.device, program, &mut self.hydra_candidate)
+        crate::hydra::gpu::Candidate::prepare(&self.device, program, &mut self.hydra_candidate)?;
+        let output = crate::hydra::output::Output::new(
+            &self.device,
+            self.hydra_candidate.as_ref().unwrap().clone(),
+            self.config.width,
+            self.config.height,
+            self.config.format,
+        )?;
+        self.hydra_output = Some(output);
+        self.hydra_program = Some(program.clone());
+        Ok(())
     }
     pub fn clear_hydra_candidate(&mut self) {
         self.hydra_candidate = None;
+        self.hydra_output = None;
+        self.hydra_program = None;
+        self.hydra_selected = false;
+        self.hydra_clock = None;
+    }
+    pub fn take_hydra_diagnostic(&mut self) -> Option<String> {
+        self.hydra_diagnostic.take()
+    }
+    pub fn open_hydra(&mut self) {
+        self.hydra_clock.get_or_insert_with(Instant::now);
+    }
+    pub fn select_hydra(&mut self, mode: i32) -> Result<(), String> {
+        if mode == 0 && self.hydra_output.is_none() {
+            return Err("commit o0 before selecting it".into());
+        }
+        self.hydra_selected = mode == 0;
+        Ok(())
     }
 
     pub fn new(
@@ -572,6 +604,11 @@ impl Renderer {
             active_shader_id: RESOURCE_ID,
             graph_nodes: Vec::new(),
             hydra_candidate: None,
+            hydra_output: None,
+            hydra_program: None,
+            hydra_selected: false,
+            hydra_clock: None,
+            hydra_diagnostic: None,
             last_reload_check: Instant::now(),
             last_uniform_time: 0.0,
             mouse_position: [0.0; 2],
@@ -674,6 +711,11 @@ impl Renderer {
     }
 
     pub fn recover(mut self, vsync: bool) -> Result<Self, String> {
+        let hydra_state = (
+            self.hydra_program.clone(),
+            self.hydra_selected,
+            self.hydra_clock,
+        );
         let shaders: Vec<_> = self
             .shaders
             .drain()
@@ -808,6 +850,11 @@ impl Renderer {
             restored.scheduled_events,
             restored.late_events,
         ) = state;
+        if let Some(program) = hydra_state.0 {
+            restored.prepare_hydra(&program)?;
+        }
+        restored.hydra_selected = hydra_state.1;
+        restored.hydra_clock = hydra_state.2;
         restored.queue.submit([]);
         restored.poll_gpu();
         if let Some(issue) = restored.gpu_issue() {
@@ -842,12 +889,18 @@ impl Renderer {
 
     /// Owned texture allocation estimate; excludes swapchain/driver allocation.
     pub fn texture_bytes(&self) -> u64 {
+        let hydra_bytes = self
+            .hydra_output
+            .as_ref()
+            .map_or(0, |o| u64::from(o.width) * u64::from(o.height) * 4);
+
         let bytes = |texture: &wgpu::Texture| {
             u64::from(texture.width())
                 * u64::from(texture.height())
                 * u64::from(texture.format().block_copy_size(None).unwrap_or(4))
         };
-        bytes(&self.fallback_texture._texture)
+        hydra_bytes
+            + bytes(&self.fallback_texture._texture)
             + bytes(&self.fallback_buffer.texture)
             + self
                 .textures
@@ -1359,6 +1412,23 @@ impl Renderer {
             shader.uniforms.resolution = [size.width as f32, size.height as f32];
         });
         self.surface.configure(&self.device, &self.config);
+        if let Some(output) = &self.hydra_output {
+            match crate::hydra::output::Output::new(
+                &self.device,
+                output.candidate.clone(),
+                size.width,
+                size.height,
+                self.config.format,
+            ) {
+                Ok(output) => self.hydra_output = Some(output),
+                Err(error) => {
+                    self.hydra_diagnostic = Some(format!(
+                        "resize retained {}x{}: {error}",
+                        output.width, output.height
+                    ))
+                }
+            }
+        }
         self.feedback_targets = FeedbackTargets::new(
             &self.device,
             &self.queue,
@@ -1544,54 +1614,68 @@ impl Renderer {
                 label: Some("SCShader frame encoder"),
             });
 
-        let graph_nodes = if self.graph_nodes.is_empty() {
-            vec![self.active_shader_id]
+        if self.hydra_selected {
+            if let Some(output) = &self.hydra_output {
+                output.encode_output(
+                    &self.queue,
+                    &mut encoder,
+                    self.hydra_clock
+                        .map_or(0., |clock| clock.elapsed().as_secs_f32()),
+                    time_delta,
+                    self.stats.frame_index as u32,
+                );
+                self.submit_intermediate_pass(&mut encoder);
+                output.encode_present(&mut encoder, &view);
+            }
         } else {
-            self.graph_nodes.clone()
-        };
-        let mut previous_is_graph_output = false;
-        for (index, resource_id) in graph_nodes.iter().enumerate() {
-            let is_last = index + 1 == graph_nodes.len();
-            let shader = self
-                .shaders
-                .get(resource_id)
-                .ok_or_else(|| format!("graph shader resource {resource_id} does not exist"))?;
-            let source_view = if previous_is_graph_output {
-                self.graph_targets.read_view()
+            let graph_nodes = if self.graph_nodes.is_empty() {
+                vec![self.active_shader_id]
             } else {
-                self.source_view()
+                self.graph_nodes.clone()
             };
-            let bind_group = self.create_bind_group(shader, source_view);
-            if is_last {
-                encode_fullscreen_pass(
-                    &mut encoder,
-                    "SCShader feedback render pass",
-                    self.feedback_targets.write_view(),
-                    &shader.pipeline,
-                    &bind_group,
-                );
-                self.submit_intermediate_pass(&mut encoder);
-                encode_fullscreen_pass(
-                    &mut encoder,
-                    "SCShader presentation render pass",
-                    &view,
-                    &shader.pipeline,
-                    &bind_group,
-                );
-            } else {
-                encode_fullscreen_pass(
-                    &mut encoder,
-                    "SCShader graph render pass",
-                    self.graph_targets.write_view(),
-                    &shader.pipeline,
-                    &bind_group,
-                );
-                self.submit_intermediate_pass(&mut encoder);
-                self.graph_targets.swap();
-                previous_is_graph_output = true;
+            let mut previous_is_graph_output = false;
+            for (index, resource_id) in graph_nodes.iter().enumerate() {
+                let is_last = index + 1 == graph_nodes.len();
+                let shader = self
+                    .shaders
+                    .get(resource_id)
+                    .ok_or_else(|| format!("graph shader resource {resource_id} does not exist"))?;
+                let source_view = if previous_is_graph_output {
+                    self.graph_targets.read_view()
+                } else {
+                    self.source_view()
+                };
+                let bind_group = self.create_bind_group(shader, source_view);
+                if is_last {
+                    encode_fullscreen_pass(
+                        &mut encoder,
+                        "SCShader feedback render pass",
+                        self.feedback_targets.write_view(),
+                        &shader.pipeline,
+                        &bind_group,
+                    );
+                    self.submit_intermediate_pass(&mut encoder);
+                    encode_fullscreen_pass(
+                        &mut encoder,
+                        "SCShader presentation render pass",
+                        &view,
+                        &shader.pipeline,
+                        &bind_group,
+                    );
+                } else {
+                    encode_fullscreen_pass(
+                        &mut encoder,
+                        "SCShader graph render pass",
+                        self.graph_targets.write_view(),
+                        &shader.pipeline,
+                        &bind_group,
+                    );
+                    self.submit_intermediate_pass(&mut encoder);
+                    self.graph_targets.swap();
+                    previous_is_graph_output = true;
+                }
             }
         }
-
         if self.show_stats {
             let lines = vec![
                 format!("SCSHADER {}  LIVE DIAGNOSTICS", env!("CARGO_PKG_VERSION")),
@@ -1643,7 +1727,9 @@ impl Renderer {
                 })
                 .map_err(|error| format!("diagnostic GPU wait failed: {error}"))?;
         }
-        self.feedback_targets.swap();
+        if !self.hydra_selected {
+            self.feedback_targets.swap();
+        }
         if reconfigure_after_present {
             self.surface.configure(&self.device, &self.config);
         }

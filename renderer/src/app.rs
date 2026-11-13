@@ -202,6 +202,21 @@ impl App {
         let _timing = crate::timing::enter(crate::timing::Stage::Commands);
         let started = Instant::now();
         self.hydra.expire(self.started_at.elapsed().as_secs_f64());
+        if let Some(message) = self
+            .renderer
+            .as_mut()
+            .and_then(Renderer::take_hydra_diagnostic)
+            && let Some(reply_to) = self.hydra.reply_target()
+        {
+            self.send_error(ErrorReply {
+                reply_to,
+                severity: "warning",
+                subsystem: "hydra",
+                resource_id: 0,
+                code: "E_HYDRA_LIMIT",
+                message,
+            });
+        }
         // Fair service for due and incoming work, yielding between atomic OSC
         // packets. A single compile/atomic bundle can still exceed this budget.
         for _ in 0..128 {
@@ -300,6 +315,22 @@ impl App {
                     },
                 ) {
                     Ok(reply) => {
+                        if reply.suffix == "opened"
+                            && let Some(renderer) = &mut self.renderer
+                        {
+                            renderer.open_hydra();
+                        }
+                        if reply.suffix == "presented"
+                            && let Some(renderer) = &mut self.renderer
+                        {
+                            let rosc::OscType::Int(mode) = reply.args[3] else {
+                                unreachable!()
+                            };
+                            if let Err(error) = renderer.select_hydra(mode) {
+                                self.send_error(ErrorReply::protocol(reply.target, error));
+                                return;
+                            }
+                        }
                         if closing && let Some(renderer) = &mut self.renderer {
                             renderer.clear_hydra_candidate();
                         }
