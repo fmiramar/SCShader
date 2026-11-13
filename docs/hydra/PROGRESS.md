@@ -27,5 +27,7 @@ native checks but await user observation. This is a development checkpoint.
 
 Checkpoint B is available in the documented native scope. Next: Step 17,
 `gpt-6.1-sol` / `medium`, requiring the plan's reasoning-setting boundary.
-The new clock/audio example awaits manual listening and desktop observation.
+The user confirms clock v2 looks correct; their log shows all eight events,
+speed/reset and cleanup without late warnings. Physical audio/display alignment
+remains unqualified.
 Full browser/media/dynamic-argument parity remains outside this checkpoint.

@@ -1,5 +1,16 @@
 # Verification
 
+## Clock v2 user confirmation
+
+The user reports the updated example looks correct. Their supplied SC log shows
+CLOCK EXAMPLE v2 and CLOCK PERFORMANCE v2, eight applied events with no
+E_LATE_EVENT warning, both VISUAL CLOCK speed/reset messages and CLOCK STOPPED.
+Reported command-application errors range 0.017542–14.104791 ms. This confirms
+execution of the updated blocks and user-observed visual behavior for this run;
+it does not establish physical audio/display alignment or a repeated-run result
+beyond the separate automated regression. No runtime changes or test reruns were
+needed for this confirmation record.
+
 ## Clock example version identification
 
 The user's later log shows the original Step 3/4 return values without the new
