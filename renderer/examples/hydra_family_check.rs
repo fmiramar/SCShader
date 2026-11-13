@@ -336,7 +336,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("adapter={:?}", adapter.get_info());
     let (device, queue) = pollster::block_on(adapter.request_device(&Default::default()))?;
     let mut cached = None;
-    for spec in registry::supported().filter(|spec| spec.name != "src") {
+    // Texture/history operations have the separate production output fixture.
+    for spec in registry::supported().filter(|spec| !matches!(spec.name, "src" | "prev")) {
         let mut args = defaults(spec);
         match spec.name {
             "add" | "sub" | "mult" => args[1] = Argument::Float(0.35),

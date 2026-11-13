@@ -122,16 +122,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         });
         let view = target.create_view(&Default::default());
         let mut set = outputs::Outputs::new(&device, 8, 8, format)?;
-        let present = |set: &outputs::Outputs, mode| -> Result<Vec<u8>, Box<dyn Error>> {
+        let present = |set: &mut outputs::Outputs, mode| -> Result<Vec<u8>, Box<dyn Error>> {
             set.encode_outputs(&device, &queue, 0.37, 0.01, 1);
             let mut encoder = device.create_command_encoder(&Default::default());
             set.encode_present(&mut encoder, &view, mode, 8, 8);
             queue.submit(Some(encoder.finish()));
             read(&device, &queue, &target)
         };
-        assert!(present(&set, 4)?.iter().all(|v| *v == 0));
+        assert!(present(&mut set, 4)?.iter().all(|v| *v == 0));
         set.prepare(&device, 3, &sample(2))?;
-        assert!(present(&set, 3)?.iter().all(|v| *v == 0));
+        assert!(present(&mut set, 3)?.iter().all(|v| *v == 0));
         let colors = [
             [255, 0, 0, 255],
             [0, 255, 0, 255],
@@ -145,15 +145,19 @@ fn main() -> Result<(), Box<dyn Error>> {
                 &solid(c[0] as f32 / 255., c[1] as f32 / 255., c[2] as f32 / 255.),
             )?;
         }
-        let pixels = present(&set, 4)?;
+        let pixels = present(&mut set, 4)?;
         for (i, (x, y)) in [(1, 1), (1, 6), (6, 1), (6, 6)].into_iter().enumerate() {
             let begin = (y * 8 + x) * 4;
             assert_eq!(&pixels[begin..begin + 4], &colors[i]);
         }
         for (i, color) in colors.iter().enumerate() {
-            assert!(present(&set, i as i32)?.chunks_exact(4).all(|p| p == color));
+            assert!(
+                present(&mut set, i as i32)?
+                    .chunks_exact(4)
+                    .all(|p| p == color)
+            );
         }
-        assert_eq!(set.texture_bytes(), 4 + 4 * 8 * 8 * 4);
+        assert_eq!(set.texture_bytes(), 4 + 8 * 8 * 8 * 4);
         set.prepare(&device, 0, &program("gradient", vec![Argument::Float(0.)]))?;
         set.prepare(&device, 1, &sample(0))?;
         let mut inverted = sample(1);
@@ -166,23 +170,24 @@ fn main() -> Result<(), Box<dyn Error>> {
         });
         inverted.root = 2;
         set.prepare(&device, 2, &inverted)?;
-        let _ = present(&set, 2)?;
-        let a = read(&device, &queue, &set.slots[0].as_ref().unwrap().texture)?;
-        let b = read(&device, &queue, &set.slots[1].as_ref().unwrap().texture)?;
+        for _ in 0..4 {
+            let _ = present(&mut set, 2)?;
+        }
+        let a = read(&device, &queue, &set.current(0).texture)?;
+        let b = read(&device, &queue, &set.current(1).texture)?;
         assert_eq!(a, b, "src must preserve gradient orientation");
-        let c = read(&device, &queue, &set.slots[2].as_ref().unwrap().texture)?;
+        let c = read(&device, &queue, &set.current(2).texture)?;
         for (left, right) in a.chunks_exact(4).zip(c.chunks_exact(4)) {
             for channel in 0..3 {
                 assert!((255 - left[channel]).abs_diff(right[channel]) <= 1);
             }
             assert_eq!(right[3], 255);
         }
-        assert!(set.prepare(&device, 0, &sample(2)).is_err());
-        assert!(set.prepare(&device, 3, &sample(3)).is_err());
-        assert_eq!(
-            a,
-            read(&device, &queue, &set.slots[0].as_ref().unwrap().texture)?
+        assert!(
+            set.prepare(&device, 0, &program("osc", vec![Argument::Float(0.); 3]))
+                .is_err()
         );
+        assert_eq!(a, read(&device, &queue, &set.current(0).texture)?);
         let mut scaled = sample(0);
         scaled.nodes.push(Node {
             id: 2,
@@ -193,8 +198,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         });
         scaled.root = 2;
         set.prepare(&device, 2, &scaled)?;
-        let _ = present(&set, 2)?;
-        let filtered = read(&device, &queue, &set.slots[2].as_ref().unwrap().texture)?;
+        let _ = present(&mut set, 2)?;
+        let filtered = read(&device, &queue, &set.current(2).texture)?;
         for y in 0..8 {
             for x in 0..8 {
                 let px = x as f32 * 0.5 + 1.75;
@@ -214,25 +219,30 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
         }
-        // A backwards-numbered dependency must be evaluated producer first.
+        // Static values settle across backward-numbered temporal edges.
         set.prepare(&device, 0, &solid(0.2, 0.4, 0.6))?;
         set.prepare(&device, 1, &solid(0., 0., 0.))?;
         set.prepare(&device, 2, &solid(0., 0., 0.))?;
         set.prepare(&device, 0, &sample(3))?;
         set.prepare(&device, 3, &sample(2))?;
         set.prepare(&device, 2, &solid(0.2, 0.4, 0.6))?;
-        let pixels = present(&set, 0)?;
+        for _ in 0..5 {
+            let _ = present(&mut set, 0)?;
+        }
+        let pixels = present(&mut set, 0)?;
         assert!(pixels.chunks_exact(4).all(|p| {
             p.iter()
                 .zip([51, 102, 153, 255])
                 .all(|(a, b)| a.abs_diff(b) <= 1)
         }));
         assert!(set.resized(&device, 4097, 8).is_err());
-        let resized = set.resized(&device, 16, 12)?;
+        let mut resized = set.resized(&device, 16, 12)?;
         assert_eq!(resized.dimensions(), (16, 12));
-        resized.encode_outputs(&device, &queue, 0.5, 0.01, 2);
-        assert_eq!(resized.texture_bytes(), 4 + 4 * 16 * 12 * 4);
-        let pixels = read(&device, &queue, &resized.slots[0].as_ref().unwrap().texture)?;
+        for frame in 0..6 {
+            resized.encode_outputs(&device, &queue, 0.5, 0.01, frame);
+        }
+        assert_eq!(resized.texture_bytes(), 4 + 8 * 16 * 12 * 4);
+        let pixels = read(&device, &queue, &resized.current(0).texture)?;
         assert!(pixels.chunks_exact(4).all(|p| p == [51, 102, 153, 255]));
         if let Some(error) = pollster::block_on(scope.pop()) {
             return Err(error.to_string().into());
@@ -241,6 +251,153 @@ fn main() -> Result<(), Box<dyn Error>> {
             "{format:?}: blank, quadrants, switching, sampling, rollback, reverse dependencies and resize PASS"
         );
     }
+    temporal(&device, &queue)?;
     println!("SCSHADER_HYDRA_OUTPUTS_GPU_OK");
+    Ok(())
+}
+
+// Three short temporal regressions use independent frame recurrences. All
+// readback is in this executable, never in ordinary renderer builds.
+fn accumulate(slot: Option<u8>, step: f32) -> Program {
+    let mut p = slot.map_or_else(|| program("prev", vec![]), sample);
+    p.nodes.push(Node {
+        id: 2,
+        name: "solid".into(),
+        category: 0,
+        receiver: 0,
+        arguments: [step / 255., 0., 0., 0.].map(Argument::Float).into(),
+    });
+    p.nodes.push(Node {
+        id: 3,
+        name: "add".into(),
+        category: 3,
+        receiver: 1,
+        arguments: vec![Argument::Expression(2), Argument::Float(1.)],
+    });
+    p.root = 3;
+    p
+}
+fn temporal(device: &wgpu::Device, queue: &wgpu::Queue) -> Result<(), Box<dyn Error>> {
+    let scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
+    let fresh = || outputs::Outputs::new(device, 8, 8, wgpu::TextureFormat::Rgba8Unorm);
+    let pixels = |set: &outputs::Outputs, i| read(device, queue, &set.current(i).texture);
+    let check = |set: &outputs::Outputs, i, red: u8| -> Result<(), Box<dyn Error>> {
+        let data = pixels(set, i)?;
+        assert!(
+            data.chunks_exact(4)
+                .all(|p| p[0].abs_diff(red) <= 1 && p[1..] == [0, 0, 0]),
+            "output {i}: expected red={red}, actual={:?}",
+            &data[..4]
+        );
+        Ok(())
+    };
+    // 1. Self and native prev: one completed frame, no write-image alias.
+    let mut set = fresh()?;
+    set.prepare(device, 0, &accumulate(Some(0), 8.))?;
+    set.prepare(device, 1, &accumulate(None, 8.))?;
+    for n in 1..=8 {
+        set.encode_outputs(device, queue, 0., 0.01, n);
+        check(&set, 0, n as u8 * 8)?;
+        check(&set, 1, n as u8 * 8)?;
+    }
+    // The requested scaled/blended oscillator expression, 32 bounded frames.
+    let mut feedback = sample(0);
+    feedback.nodes.push(Node {
+        id: 2,
+        name: "scale".into(),
+        category: 1,
+        receiver: 1,
+        arguments: [1.01, 1., 1., 0.5, 0.5].map(Argument::Float).into(),
+    });
+    feedback.nodes.push(Node {
+        id: 3,
+        name: "osc".into(),
+        category: 0,
+        receiver: 0,
+        arguments: [5., 0.1, 0.].map(Argument::Float).into(),
+    });
+    feedback.nodes.push(Node {
+        id: 4,
+        name: "blend".into(),
+        category: 3,
+        receiver: 2,
+        arguments: vec![Argument::Expression(3), Argument::Float(0.06)],
+    });
+    feedback.root = 4;
+    set.prepare(device, 0, &feedback)?;
+    let bytes = set.texture_bytes();
+    for n in 0..32 {
+        set.encode_outputs(device, queue, n as f32 * 0.01, 0.01, n);
+    }
+    assert_eq!(set.texture_bytes(), bytes);
+    assert!(pixels(&set, 0)?.chunks_exact(4).any(|p| p[0] > 0));
+    println!("temporal 1: self/prev recurrence and scaled oscillator feedback PASS");
+
+    // 2. Changing frame tags expose n-1 versus n-2; then test a two-output cycle.
+    let mut set = fresh()?;
+    set.prepare(device, 0, &accumulate(None, 8.))?;
+    set.prepare(device, 1, &sample(0))?;
+    set.prepare(device, 2, &sample(3))?;
+    set.prepare(device, 3, &accumulate(None, 16.))?;
+    for n in 1u32..=8 {
+        set.encode_outputs(device, queue, 0., 0.01, n);
+        check(&set, 0, n as u8 * 8)?;
+        check(&set, 1, (n - 1) as u8 * 8)?;
+        check(&set, 2, n.saturating_sub(2) as u8 * 16)?;
+        check(&set, 3, n as u8 * 16)?;
+    }
+    set.prepare(device, 0, &accumulate(Some(1), 8.))?;
+    set.prepare(device, 1, &accumulate(Some(0), 16.))?;
+    let (mut a, mut b) = (vec![0u8, 0], vec![0u8, 0]);
+    for n in 2..10 {
+        a.push(b[n - 2] + 8);
+        b.push(a[n - 1] + 16);
+        set.encode_outputs(device, queue, 0., 0.01, n as u32);
+        check(&set, 0, a[n])?;
+        check(&set, 1, b[n])?;
+    }
+    println!("temporal 2: lower/higher-index tags and cyclic recurrence PASS");
+
+    // 3. Rollback retains histories; new pairs, resize, and hush clear both banks.
+    let before = pixels(&set, 0)?;
+    assert!(
+        set.prepare(device, 0, &program("osc", vec![Argument::Float(0.); 3]))
+            .is_err()
+    );
+    assert_eq!(pixels(&set, 0)?, before);
+    assert!(set.resized(device, 4097, 8).is_err());
+    assert_eq!(set.dimensions(), (8, 8));
+    assert_eq!(pixels(&set, 0)?, before);
+    let untouched = pixels(&set, 3)?;
+    set.prepare(device, 0, &accumulate(None, 8.))?;
+    assert_eq!(pixels(&set, 3)?, untouched);
+    for n in 1..=2 {
+        set.encode_outputs(device, queue, 0., 0.01, n);
+        check(&set, 0, n as u8 * 8)?;
+    }
+    let mut resized = set.resized(device, 16, 12)?;
+    for i in 0..4 {
+        assert!(pixels(&resized, i)?.iter().all(|v| *v == 0));
+    }
+    for n in 1..=2 {
+        resized.encode_outputs(device, queue, 0., 0.01, n);
+        check(&resized, 0, n as u8 * 8)?;
+    }
+    for i in 0..4 {
+        resized.prepare(device, i, &program("solid", vec![Argument::Float(0.); 4]))?;
+    }
+    for n in 0..3 {
+        for i in 0..4 {
+            assert!(pixels(&resized, i)?.iter().all(|v| *v == 0));
+        }
+        resized.encode_outputs(device, queue, 0., 0.01, n);
+    }
+    assert_eq!(resized.texture_bytes(), 4 + 8 * 16 * 12 * 4);
+    if let Some(error) = pollster::block_on(scope.pop()) {
+        return Err(error.to_string().into());
+    }
+    println!(
+        "temporal 3: failed edits/resize retain history; replacement/resize/hush clear both banks PASS"
+    );
     Ok(())
 }

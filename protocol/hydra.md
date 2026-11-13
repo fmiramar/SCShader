@@ -1,9 +1,9 @@
 # Hydra output protocol — implementation checkpoint
 
 2026-11-13. Additive to [SCShader v1](protocol.md) and implementing the first
-single-output portion of [ADR 001](../docs/hydra/ARCHITECTURE.md). 50 procedural operators plus output-only `src` sampling, four output targets
-and presentation are available. Media sources, temporal feedback and parameters
-remain unavailable.
+output/temporal portion of [ADR 001](../docs/hydra/ARCHITECTURE.md). 50 procedural/composition/modulation operators plus output-only `src` and native `prev`,
+four paired output histories and presentation are available. Media sources and
+parameters remain unavailable.
 
 All suffixes below use `/scshader/v1/hydra/`. Fields use ordinary OSC types:
 `i` = int32, `s` = string, `b` = blob. All requests must be immediate, including
@@ -31,7 +31,7 @@ session; retrying a closed handle currently reports `E_HYDRA_SESSION`.
 
 `limits` is exactly five big-endian u32 values, in order: maximum IR bytes
 (65536), chunk bytes (2048), nodes (256), depth (64), expanded operations (4096).
-`features` is `staging-ir-v1;wgsl-v1:<comma-separated supported registry names>;output-o0-v1;outputs-static-v1`. The 51 names and their defaults/types are in `renderer/src/hydra/registry.rs`; their order follows the pinned inventory.
+`features` is `staging-ir-v1;wgsl-v1:<comma-separated supported registry names>;output-o0-v1;outputs-temporal-v1`. The 52 names and their defaults/types are in `renderer/src/hydra/registry.rs`; discovery order is not an ABI guarantee.
 This narrower discovery payload supersedes the ADR's provisional full-limit
 payload for the staging feature only. Future compiler/source/presentation
 capabilities must explicitly document their additional fields before advertising.
@@ -65,7 +65,7 @@ errors use `E_PROTOCOL`. Query status to reconcile lost/suppressed commit errors
 replies are bounded. The ADR's richer Hydra error tuple is reserved for later
 node/output diagnostics; clients must not assume it exists yet.
 
-The IR layout is HYIR 1.0 from ADR 001. The decoder accepts 32 procedural, seven combine, eleven combineCoord and output-only src
+The IR layout is HYIR 1.0 from ADR 001. The decoder accepts 32 procedural, seven combine, eleven combineCoord, output-only src and zero-argument native prev
 operations with scalar arguments (tag 0,
 f32) and the literal vec4 argument for `sum` (tag 5, four f32 components),
 encoded in network order. Combine arguments begin with an expression reference (tag 2, earlier node ID
@@ -83,13 +83,13 @@ queries status; unknown outcomes report `E_HYDRA_UNKNOWN`. One upload is allowed
 per controller; local snapshots remain available offline. `free` stops only the
 controller's tasks/responders and sends close without stopping the ShaderServer.
 
-`params`, media sampling and feedback remain unimplemented. SC hush uses four sequential ordinary commits and a presentation request.
+`params` and media sampling remain unimplemented. SC hush uses four sequential ordinary commits and a presentation request.
 See [four-output semantics and limitations](../docs/hydra/OUTPUTS.md). The SC
 client maintains accepted revisions and reconciles a timed-out commit through
 status. `present` is immediate-only at this stage. A new output is only made
 visible after explicit presentation selection; an accepted replacement of a selected
 output becomes visible on its next frame. Close releases the output and selects Legacy.
 
-Static output references are cycle-checked before commit. Producers run before consumers; blank slots sample transparent black. Blank selection is allowed. This mode is explicitly provisional until Step 13 establishes temporal semantics.
+Output cycles are valid temporal reads. Fixed numeric output order gives self/lower-index reads the previous image and higher-index reads the older image (n−2 during uninterrupted rendering). Blank slots sample transparent black and blank selection is allowed. Native `prev` reads the destination’s previous image. Successful replacements reset that output’s paired history; resize/recovery reset all histories. See [the temporal contract and native differences](../docs/hydra/TEMPORAL_SEMANTICS.md).
 
 Display resources are prepared before presentation sequence/mode changes. A preparation failure returns E_HYDRA_LIMIT and retains the previous selection and sequence.

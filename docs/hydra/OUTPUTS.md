@@ -1,5 +1,12 @@
 # Four outputs and static sampling — Step 12
 
+Step 13 supersedes the static scheduling, cycle rejection and single-image memory
+figures below with [paired temporal outputs](TEMPORAL_SEMANTICS.md). This document
+retains the Step 12 checkpoint and ordered visual diagnostic instructions. The user
+now confirms hush produces a full black window and invert(0.5) produces gray in
+the bottom-right quadrant; both observations are expected. This is not a claim
+that every item in the nine-step visual checklist was observed.
+
 Four independent `o0..o3` programs and revisions now share one renderer session.
 `expr.out(\oN, action)` replaces only its destination after validation/compilation.
 `h.render(\oN)` selects one image; no-argument `h.render` shows all four.
@@ -98,5 +105,6 @@ still pass. SC tests cover output tags/slots, per-output commits/revisions, blan
 selection, static sampling, switches, cycle rejection and hush. The transport
 unit test checks all four revisions and retried commit destination identity.
 See [VERIFICATION.md](../VERIFICATION.md) for exact build/hash and installed scope.
-The user confirms Step 11 works perfectly. New four-output manual observation,
-other platforms, temporal feedback and complete browser parity remain open.
+The user confirms Step 11 works perfectly. Remaining four-output manual observations,
+other platforms and complete browser parity remain open. Temporal feedback is now
+covered by [Step 13](TEMPORAL_SEMANTICS.md).

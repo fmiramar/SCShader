@@ -9,12 +9,12 @@ finish={ |ok,message|
 modes=[\o0,\o1,\o2,\o3,nil,\legacy,\o2];
 select={ |n|
     if(n==modes.size) {
-        // This creates a cycle o0 -> o3 -> o0 and must preserve every revision.
-        h.src(\o3).out(\o0,{ |bad|
-            if(bad[\ok] or: {bad[\code]!="E_HYDRA_COMPILE"}) {finish.value(false,bad)} {
+        // A cross-output cycle is now valid temporal feedback.
+        h.src(\o3).out(\o0,{ |cycle|
+            if(cycle[\ok].not or: {cycle[\revision]!=2}) {finish.value(false,cycle)} {
                 h.hush({ |quiet|
                     if(quiet[\ok].not) {finish.value(false,quiet)} {
-                        h.solid(0.1,0.2,0.3).out(\o3,{ |good|finish.value(good[\ok] and: {good[\revision]==3},"Four outputs, sampling, switches, cycle rollback and hush revisions pass")});
+                        h.solid(0.1,0.2,0.3).out(\o3,{ |good|finish.value(good[\ok] and: {good[\revision]==3},"Four outputs, sampling, switches, cyclic feedback and hush revisions pass")});
                     };
                 });
             };

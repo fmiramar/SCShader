@@ -1,6 +1,6 @@
 use super::gpu::Candidate;
 
-// One o0 image plus a presentation pass. Source expressions execute once per frame.
+// One history image plus its render and presentation bindings.
 pub struct Output {
     pub candidate: Candidate,
     pub inputs: Option<wgpu::BindGroup>,
@@ -31,7 +31,7 @@ impl Output {
         }
         let scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Hydra o0"),
+            label: Some("Hydra history image"),
             size: wgpu::Extent3d {
                 width,
                 height,
@@ -171,7 +171,7 @@ struct Vertex {{ @builtin(position) position:vec4<f32>, @location(0) uv:vec2<f32
         queue.write_buffer(&self.frame, 0, bytemuck::cast_slice(&values));
         let view = self.texture.create_view(&Default::default());
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Hydra o0 render"),
+            label: Some("Hydra output render"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: &view,
                 depth_slice: None,

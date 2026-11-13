@@ -38,9 +38,10 @@ impl Candidate {
         let inputs = program
             .nodes
             .iter()
-            .any(|node| node.name == "src")
+            .any(|node| matches!(node.name.as_str(), "src" | "prev"))
             .then(|| {
-                let mut entries = (0..4)
+                let mut entries = [0, 1, 2, 3, 5]
+                    .into_iter()
                     .map(|binding| wgpu::BindGroupLayoutEntry {
                         binding,
                         visibility: wgpu::ShaderStages::FRAGMENT,

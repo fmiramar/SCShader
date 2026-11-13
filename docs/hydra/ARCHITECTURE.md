@@ -176,6 +176,10 @@ presentation pass samples their latest images; overlay is added afterward.
 
 ## Temporal contract: match observable safe output reads
 
+Implemented in Step 13; [TEMPORAL_SEMANTICS.md](TEMPORAL_SEMANTICS.md) records
+the paired-bank implementation, callback trace, native reset/filtering differences
+and actual verification scope. The source-derived design below remains the basis.
+
 The Hydra commit alone does not determine callback evaluation order. Its
 `package-lock.json` pins **regl 1.7.0**; the downloaded package was verified against
 its SHA-512 integrity value (see evidence below). In that package's `lib/core.js`,
@@ -220,10 +224,9 @@ no output index swap. A device loss after partial submission clears all historie
 under the existing recovery contract; partial-frame history is never reconstructed.
 
 This is source-derived behavior, **not browser GPU parity verification**. Step 13
-must verify self/lower-index/higher-index reads with changing frame colors against
-the pinned upstream and native GPU, plus unassigned outputs and the documented
-`prev` difference. If those results contradict the source derivation, correct this
-ADR and the implementation before claiming temporal parity.
+now verifies self/lower-index/higher-index frame tags through an upstream
+callback recorder and native Metal pixels, including unassigned outputs and the
+documented `prev` difference. Actual browser/regl GPU parity remains unverified.
 
 ## Bounded transport and atomic replacement
 

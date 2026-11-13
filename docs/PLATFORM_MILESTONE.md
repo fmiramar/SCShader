@@ -1,15 +1,16 @@
 # Milestone P1 — native desktop compatibility first
 
-Step 12 visual follow-up: the user reported gray/quadrant-location symptoms.
-The [four-output example](hydra/OUTPUTS.md) now has nine ordered diagnostics;
-all command/order checks pass on the installed Metal build. Desktop observation
-of quadrant positions and transparent versus opaque clears is still pending.
+Hydra Step 13 (2026-11-13): [paired output histories and feedback](hydra/TEMPORAL_SEMANTICS.md)
+pass native Metal pixel checks and source SC checks. Self-feedback, cross-output
+cycles and native prev are implemented. Logical-device recovery clears all four
+histories and restores programs; surface reacquisition retains them. The ordinary
+arm64 package is installed; all eight installed checks pass, including both
+ordered examples. See VERIFICATION.md for hashes and scope. Step 14 live
+replacement/resource work and other-platform/release gates remain separate.
 
-Hydra Step 12 (2026-11-13): [four independent outputs and static sampling](hydra/OUTPUTS.md)
-pass native Metal/SC checks. Quadrants, per-output revisions, bounded targets,
-acyclic source reads and hush are available. The user visually confirms Step 11.
-Step 13 temporal buffering requires the plan's Astra/xhigh boundary; feedback,
-new four-output visual observation and release/platform gates remain open.
+The user confirms Step 12 hush is full black and invert(0.5) makes o3 gray in
+the bottom-right quadrant. Both observations match the intended behavior; this
+confirmation does not cover every item in the nine-step visual checklist.
 
 Hydra update (2026-11-13): [32 procedural operations](hydra/FAMILIES.md) now
 pass native Metal numerical checks and source SC chains. The user confirms

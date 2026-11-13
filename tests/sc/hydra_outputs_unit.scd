@@ -8,6 +8,7 @@ try {
         check.value(snapshot[\bytes].size>20);
     };
     check.value(try { h.src(\o4); false } { true });
+    check.value(h.prev.snapshot(\o3)[\nodes][0][\name] == \prev);
     h.free; "SCSHADER_HYDRA_OUTPUTS_UNIT_OK".postln; 0.exit;
 } { |error| error.reportError; h.free; 1.exit };
 )

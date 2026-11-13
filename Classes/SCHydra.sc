@@ -43,6 +43,8 @@ SCHydra : Object {
     voronoi { |scale = 5, speed = 0.3, blending = 0.3| this.checkLive; ^SCHydraExpr.new(this, \voronoi, [scale, speed, blending]) }
     shape { |sides = 3, radius = 0.3, smoothing = 0.01| this.checkLive; ^SCHydraExpr.new(this, \shape, [sides, radius, smoothing]) }
 
+    prev { this.checkLive; ^SCHydraExpr.new(this, \prev, []) }
+
     src { |output = \o0| ^SCHydraExpr.new(this, \src, [this.outputIndex(output)]) }
 
     hush { |action|

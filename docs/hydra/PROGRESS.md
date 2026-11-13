@@ -12,16 +12,19 @@ Updated: 2026-11-13
 | 06 — Safe transport / atomic replacement | PASS (one output) | [Implemented staging protocol](../../protocol/hydra.md), bounded IR decoder and SC acknowledged upload. Pinned-toolchain Rust tests/Clippy and native Metal transport/legacy graph smokes pass. Step 08 now verifies committed revisions, rejected edits and native output/Legacy coexistence. |
 | 07 — Typed WGSL compiler | PASS (compiler/offscreen; live path verified in Step 08) | [COMPILER.md](COMPILER.md): six operation variants, Naga validation, one GPU candidate cache and three 3x3 native Metal pixel cases. SC compiler/rollback path and legacy graph smoke pass. |
 | 08 — First output / presentation | PASS (automated native + installed example); user confirms 01_osc visual PASS | [OUTPUT.md](OUTPUT.md): o0 commits/replacements, presentation, resize, mode selection, cleanup and installed automatic discovery. Presenter pixels pass for linear/sRGB targets on Metal. |
-| 09 — Procedural source/coordinate/color families | PASS for 32 procedural entries; full 34-entry acceptance DEFERRED | [FAMILIES.md](FAMILIES.md): all defaults/types, WGSL, SC methods; 32 native numerical reference cases and live chained commits pass. `src`/`prev` require later sampling/history work. |
+| 09 — Procedural source/coordinate/color families | PASS for 32 procedural entries; full 34-entry acceptance DEFERRED | [FAMILIES.md](FAMILIES.md): all defaults/types, WGSL, SC methods; 32 native numerical reference cases and live chained commits pass. `src`/`prev` were deferred here; Steps 12–13 add output/history support, while media sampling remains deferred. |
 | 10 — Nested combine family | PASS (native automated/installed scope) | [COMBINE.md](COMBINE.md): seven operations, nested branch transforms, alpha, rollback pixels and live revision checks. User confirms Step 10 works perfectly. |
 | 11 — Spatial modulation | PASS (native automated/installed scope) | [MODULATION.md](MODULATION.md): all 11 operations, nested/current-UV evaluation, negative wrapping and rollback pixels; user confirms Step 11 works perfectly. |
-| 12 — Four outputs and static sampling | PASS (native automated/installed scope) | [OUTPUTS.md](OUTPUTS.md): independent revisions, quadrants, static src reads, cycle rejection, resize and hush. Nine ordered visual checks now installed and command-tested; user reported gray/quadrant symptoms remain under manual verification. |
+| 12 — Four outputs and static sampling | PASS (native automated/installed scope) | [OUTPUTS.md](OUTPUTS.md): independent revisions, quadrants, static src reads, cycle rejection, resize and hush. Nine ordered visual checks installed and command-tested; user confirms black hush and gray bottom-right invert(0.5). Step 13 supersedes static scheduling. |
+| 13 — Temporal buffering and feedback | PASS (native pixels, installed SC/example and logical recovery) | [TEMPORAL_SEMANTICS.md](TEMPORAL_SEMANTICS.md): fixed numeric order, paired histories, legal cycles, native prev, resets and bounded accounting. Upstream callback trace agrees; browser GPU parity unverified. |
 
 Checkpoint A is available for one-output procedural visuals and live replacement.
 The user confirms `01_osc.scd` runs perfectly; new Step 09 visuals have automated
 native checks but await user observation. This is a development checkpoint.
 
-Next: Step 13, `gpt-6-astra` / `xhigh`. Stop for the plan's model/effort
-boundary: `/model gpt-6-astra --reasoning=xhigh`, then `/status`.
-The user's Step 11 visual confirmation is recorded. Temporal feedback, `prev`,
-media-source sampling and other-platform parity remain later scope.
+Next: Step 14, `gpt-6.1-sol` / `medium`. Stop at the plan's model/effort
+boundary: `/model gpt-6.1-sol --reasoning=medium`, then `/status`.
+The user authorized Step 13 continuation after the prior switch request; no
+in-session tool independently reports the running model/effort pair. No automatic
+model change is claimed. Media sources and complete browser/runtime parity remain
+outside this checkpoint. New feedback-demo manual observation is still pending.

@@ -62,3 +62,8 @@ feedback, missing-image placeholder, and second-loss exit code 70.
 Logical-device injection is not a physical GPU/driver reset, and a successful
 Metal run is not qualification for Vulkan/DX12 or other hardware. Those remain
 native platform gates alongside long-duration acceptance.
+
+Hydra Step 13 also restores the four accepted output programs, presentation mode,
+accepted dimensions and session clock. Both history images per output start at
+transparent black. [Temporal verification](hydra/TEMPORAL_SEMANTICS.md) covers
+this separately from the legacy graph recovery fixture.

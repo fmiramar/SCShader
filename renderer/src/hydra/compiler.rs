@@ -96,6 +96,12 @@ fn lower(program: &Program) -> Result<Vec<(u32, Operation)>, String> {
             return Err("compiler depth or expansion limit".into());
         }
         let (category, operation) = match node.name.as_str() {
+            "prev" => {
+                if !node.arguments.is_empty() {
+                    return Err("prev takes no arguments".into());
+                }
+                (0, Operation::Sample(5))
+            }
             "src" => {
                 let [Argument::Output(slot)] = node.arguments.as_slice() else {
                     return Err("src requires output slot".into());
@@ -210,9 +216,13 @@ pub fn compile(program: &Program) -> Result<String, String> {
     let nodes = lower(program)?;
     let mut source = String::from(PRELUDE);
     source.push_str(include_str!("procedural.wgsl"));
-    if program.nodes.iter().any(|node| node.name == "src") {
+    if program
+        .nodes
+        .iter()
+        .any(|node| matches!(node.name.as_str(), "src" | "prev"))
+    {
         source.push_str("@group(1) @binding(4) var output_sampler: sampler;\n");
-        for slot in 0..4 {
+        for slot in [0, 1, 2, 3, 5] {
             writeln!(
                 source,
                 "@group(1) @binding({slot}) var output{slot}: texture_2d<f32>;"

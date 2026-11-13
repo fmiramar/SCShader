@@ -115,6 +115,7 @@ SCHydraExpr : Object {
     spec { |name|
         ^switch(name,
             \src, { [\src, [\output]] },
+            \prev, { [\src, []] },
             \noise, { [\src, [\float, \float]] },
             \voronoi, { [\src, [\float, \float, \float]] },
             \osc, { [\src, [\float, \float, \float]] },

@@ -1,11 +1,77 @@
 # Verification
 
+## Hydra temporal outputs and feedback — 2026-11-13
+
+Source: Step 13 changes on parent `852bb11afe5834e15a86c495022acc2787decbfd`,
+identified by the commit containing this record. Native aarch64-apple-darwin,
+Apple M5 / Metal, SuperCollider 3.14.1, pinned Rust 1.97.1 with tool binaries first
+in PATH; dependencies, lockfile and version 0.0.18 unchanged. Contract and native
+differences: [TEMPORAL_SEMANTICS.md](hydra/TEMPORAL_SEMANTICS.md).
+
+Executable SHA-256:
+
+| Executable | SHA-256 |
+| --- | --- |
+| Ordinary release renderer (installed) | `967bed7ca5441eb5c2a8b08859c212b7d60fc35715859906cedbde935322cbc9` |
+| Production output/temporal pixel helper | `c469333377588fcffc1cf6fb4bc95073b31a8dae69057baf6226ecbae834a55a` |
+| Procedural/composition/modulation reference helper | `4add17db3e63d662e3cfc4473ffeba10878b54d9289addbeaf05737248c46d6b` |
+| Isolated logical-recovery renderer, gpu-test-hooks enabled | `23ab16b8a3f9af45765ae6bce802ba65a727b6393efdd5edd4e00855df683494` |
+
+PASS:
+
+- Formatting and strict all-target/all-feature Clippy; 75 renderer tests, three
+  helper suites of seven tests each and two overlay tests. The obsolete static
+  cycle-rejection unit case is replaced by native temporal-cycle pixel coverage.
+- Python discovery: 136 tests, 131 passed and five skips.
+- Three short native temporal GPU cases: self/prev accumulation and 32 frames of
+  the requested scaled oscillator blend; lower/higher-index frame tags and a
+  cross-output cycle; rejected edits/resize, successful pair reset/resize/hush
+  and paired-image accounting. No captured validation errors. Existing linear
+  and sRGB presentation, blank/quadrant/single views, gradient orientation,
+  bilinear filtering and static settling assertions also pass.
+- Pinned upstream Output callbacks executed in JavaScriptCore with a recorder,
+  using source-verified regl 1.7.0 callback order. npm package SHA-512 checked
+  against the pinned lockfile. Frame tags and cycles agree with the native GPU
+  recurrence; upstream prev's unsafe alias is explicitly distinguished.
+- Hydra logical recovery: all four histories freeze in Legacy, survive surface
+  reacquisition, clear on device restart and resize, and rebuild from retained
+  programs. Revisions and selection survive; second loss exits 70. The existing
+  legacy GPU recovery fixture also passes its exact-pixel, control, clock,
+  schedule, cached-source, overlay-isolation and second-loss checks.
+- Six source SC checks: output AST, four-output/cycle/hush revisions, modulation
+  AST, single-output rollback/resize/modes, AST isolation and legacy graph.
+- Eight installed SC checks with ordinary renderer discovery: the same six plus
+  `hydra_feedback_smoke` (the actual new three-step example) and
+  `hydra_four_example_smoke` (all nine earlier diagnostic functions). Owned test
+  ports 57195/57196 keep user examples on 57192/57194 separate.
+- Ordinary arm64 release packaging/notice checks pass. The previous extension
+  was backed up outside Extensions before replacement. Test hooks are present
+  only in the isolated recovery executable, never in the installed renderer.
+
+Evidence: `build/hydra-tests/temporal-13/`, including `pixels.log`, `reference/`,
+`rust-final.log`, `clippy-reviewed.log`, `python.log`, `families-02.log`,
+`recovery-02.log`, `legacy-recovery.log`, `sc/`, `installed/`, package logs and
+`hashes.json`. Negative evidence retained: `recovery.log` stopped on the expected
+E_GPU_DEVICE_LOST warning before the harness was corrected to consume/assert it;
+`families.log` incorrectly included prev in the non-texture reference fixture
+and failed on missing prevBuffer. Both sampling operations now use the dedicated
+production history fixture; all fifty non-sampling comparisons pass with zero
+channel error. Neither first attempt is reported as a pass.
+
+NOT RUN / outside scope: actual browser/regl WebGL pixel parity, other GPUs or
+backends, physical GPU reset, maximum-size history allocation, long soaks and
+manual observation of the new feedback example. Successful output edits currently
+reset that output's history; native prev/filtering differences are documented.
+Step 14 resource churn and seamless editing are not claimed complete. The user
+confirms the preceding Step 12 black hush and gray bottom-right invert(0.5).
+
 ## Ordered four-output visual diagnostics — 2026-11-13
 
 Follow-up to `47bfb3382f458e865d0e429360cf6477e7da270a`. The user reported gray
 from the original invert(0.5) sample, a possible quadrant-location mismatch, and
-a gray window after hush. Invert(0.5) necessarily yields RGB 0.5; the reported
-hush/window appearance and quadrant location remain under manual verification.
+a gray window after hush. The user subsequently confirmed full black hush and
+gray invert(0.5) in the bottom-right quadrant; both match expected behavior.
+This confirms those two observations, not every ordered visual check.
 
 The installed `02_four_outputs.scd` now has startup/cleanup instructions and nine
 ordered checks for quadrant identity, single-output selection, restored animation,

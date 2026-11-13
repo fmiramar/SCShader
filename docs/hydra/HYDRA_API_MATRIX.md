@@ -2,7 +2,7 @@
 
 Reference: `hydra-synth` commit **9d29a9f4fd8f9081b9759943f38db36f05b9a88f**, retrieved 2026-11-12. The reference checkout is ignored under `build/hydra-reference`. Only API metadata and independently written behavior notes are included here; no upstream shader implementation is incorporated.
 
-This inventory describes the pinned source, including lesser-used exported operations. Status below reflects Step 09 procedural coverage; full language parity remains open. Existing SCShader resources are reuse candidates, not evidence of Hydra parity. Tier A is shader/runtime synthesis, B is native media/input services, C is browser/network integration.
+This inventory describes the pinned source, including lesser-used exported operations. Status below reflects Step 13 native operation coverage; full language parity remains open. Existing SCShader resources are reuse candidates, not evidence of Hydra parity. Tier A is shader/runtime synthesis, B is native media/input services, C is browser/network integration.
 
 ## Shader operations
 
@@ -17,7 +17,7 @@ Declared arguments below exclude the implicit receiving chain. The factory prepe
 | `osc` | src | `frequency:float=60; sync:float=0.1; offset:float=0` | Sine RGB channels with phase offsets; opaque. [Source](https://github.com/hydra-synth/hydra-synth/blob/9d29a9f4fd8f9081b9759943f38db36f05b9a88f/src/glsl/glsl-functions.js#L144) | A / IMPLEMENTED: native procedural; bounded pixel proof |
 | `shape` | src | `sides:float=3; radius:float=0.3; smoothing:float=0.01` | Regular polygon distance and soft edge; opaque grayscale. [Source](https://github.com/hydra-synth/hydra-synth/blob/9d29a9f4fd8f9081b9759943f38db36f05b9a88f/src/glsl/glsl-functions.js#L171) | A / IMPLEMENTED: native procedural; bounded pixel proof |
 | `gradient` | src | `speed:float=0` | UV-derived color; opaque. [Source](https://github.com/hydra-synth/hydra-synth/blob/9d29a9f4fd8f9081b9759943f38db36f05b9a88f/src/glsl/glsl-functions.js#L199) | A / IMPLEMENTED: native procedural; bounded pixel proof |
-| `src` | src | `tex:sampler2D=NaN` | Samples external/output texture at wrapped UV; RGBA preserved. [Source](https://github.com/hydra-synth/hydra-synth/blob/9d29a9f4fd8f9081b9759943f38db36f05b9a88f/src/glsl/glsl-functions.js#L212) | A / PARTIAL: static output sampling; media/history prerequisites remain |
+| `src` | src | `tex:sampler2D=NaN` | Samples external/output texture at wrapped UV; RGBA preserved. [Source](https://github.com/hydra-synth/hydra-synth/blob/9d29a9f4fd8f9081b9759943f38db36f05b9a88f/src/glsl/glsl-functions.js#L212) | A / PARTIAL: temporal output sampling; media sources remain |
 | `solid` | src | `r:float=0; g:float=0; b:float=0; a:float=1` | Constant RGBA; alpha supplied. [Source](https://github.com/hydra-synth/hydra-synth/blob/9d29a9f4fd8f9081b9759943f38db36f05b9a88f/src/glsl/glsl-functions.js#L226) | A / IMPLEMENTED: native procedural; bounded pixel proof |
 | `rotate` | coord | `angle:float=10; speed:float=0` | Transforms sampling UV before evaluating the receiving expression; sampled alpha follows that expression. [Source](https://github.com/hydra-synth/hydra-synth/blob/9d29a9f4fd8f9081b9759943f38db36f05b9a88f/src/glsl/glsl-functions.js#L254) | A / IMPLEMENTED: native procedural; bounded pixel proof |
 | `scale` | coord | `amount:float=1.5; xMult:float=1; yMult:float=1; offsetX:float=0.5; offsetY:float=0.5` | Transforms sampling UV before evaluating the receiving expression; sampled alpha follows that expression. [Source](https://github.com/hydra-synth/hydra-synth/blob/9d29a9f4fd8f9081b9759943f38db36f05b9a88f/src/glsl/glsl-functions.js#L276) | A / IMPLEMENTED: native procedural; bounded pixel proof |
@@ -58,7 +58,7 @@ Declared arguments below exclude the implicit receiving chain. The factory prepe
 | `saturate` | color | `amount:float=2` | RGB luminance interpolation; preserves alpha. [Source](https://github.com/hydra-synth/hydra-synth/blob/9d29a9f4fd8f9081b9759943f38db36f05b9a88f/src/glsl/glsl-functions.js#L959) | A / IMPLEMENTED: native procedural; bounded pixel proof |
 | `hue` | color | `hue:float=0.4` | HSV hue rotation; preserves alpha. [Source](https://github.com/hydra-synth/hydra-synth/blob/9d29a9f4fd8f9081b9759943f38db36f05b9a88f/src/glsl/glsl-functions.js#L974) | A / IMPLEMENTED: native procedural; bounded pixel proof |
 | `colorama` | color | `amount:float=0.005` | HSV channel offset, converts and wraps RGB; preserves alpha. [Source](https://github.com/hydra-synth/hydra-synth/blob/9d29a9f4fd8f9081b9759943f38db36f05b9a88f/src/glsl/glsl-functions.js#L990) | A / IMPLEMENTED: native procedural; bounded pixel proof |
-| `prev` | src | `none` | Samples `prevBuffer` at wrapped UV; the pinned upstream binding can alias the draw attachment. Native safe previous-output semantics are defined in ARCHITECTURE.md. [Source](https://github.com/hydra-synth/hydra-synth/blob/9d29a9f4fd8f9081b9759943f38db36f05b9a88f/src/glsl/glsl-functions.js#L1007) | A / DEFERRED: output/history or media prerequisites (Steps 12–13/19) |
+| `prev` | src | `none` | Samples `prevBuffer` at wrapped UV; the pinned upstream binding can alias the draw attachment. Native safe previous-output semantics are defined in ARCHITECTURE.md. [Source](https://github.com/hydra-synth/hydra-synth/blob/9d29a9f4fd8f9081b9759943f38db36f05b9a88f/src/glsl/glsl-functions.js#L1007) | A / IMPLEMENTED: safe native previous destination; upstream alias differs |
 | `sum` | color | `scale:vec4=[1, 1, 1, 1]` | Weighted channel sum replicated into RGB; preserves alpha. Also used by scalar input conversion. [Source](https://github.com/hydra-synth/hydra-synth/blob/9d29a9f4fd8f9081b9759943f38db36f05b9a88f/src/glsl/glsl-functions.js#L1016) | A / IMPLEMENTED: native procedural; bounded pixel proof |
 | `r` | color | `scale:float=1; offset:float=0` | Red channel scale/offset replicated into all four RGBA channels. [Source](https://github.com/hydra-synth/hydra-synth/blob/9d29a9f4fd8f9081b9759943f38db36f05b9a88f/src/glsl/glsl-functions.js#L1034) | A / IMPLEMENTED: native procedural; bounded pixel proof |
 | `g` | color | `scale:float=1; offset:float=0` | Green channel scale/offset replicated into all four RGBA channels. [Source](https://github.com/hydra-synth/hydra-synth/blob/9d29a9f4fd8f9081b9759943f38db36f05b9a88f/src/glsl/glsl-functions.js#L1052) | A / IMPLEMENTED: native procedural; bounded pixel proof |
@@ -151,10 +151,12 @@ This inventory was extracted from pinned source declarations and inspected runti
 
 Step 07 evidence for the six partial entries: [native compiler](COMPILER.md), including domain restrictions and exact offscreen pixel scope. Step 08 adds native o0 presentation; no entry claims full synthesis-language parity or manual visual verification.
 
-Step 09: [procedural family evidence](FAMILIES.md) covers all 32 procedural entries (6 src, 10 coord, 16 color). `src` and `prev` remain missing from the broader 34-entry inventory scope until sampling/history prerequisites exist. The original Step 09 no-missing-entry acceptance is therefore not claimed.
+Step 09: [procedural family evidence](FAMILIES.md) covers all 32 procedural entries (6 src, 10 coord, 16 color). `src` and `prev` were deferred from the broader 34-entry inventory scope at Step 09. Steps 12–13 add output sampling and native prev; media sampling and full parity remain outside that acceptance claim.
 
 Step 10 implements all seven combine operations; see [COMBINE.md](COMBINE.md).
 
 Step 11 implements all eleven combineCoord operations; see [MODULATION.md](MODULATION.md).
 
 Step 12 adds output-only src sampling and four targets; see [OUTPUTS.md](OUTPUTS.md).
+
+Step 13 implements temporal output `src` and native `prev`; see [TEMPORAL_SEMANTICS.md](TEMPORAL_SEMANTICS.md). All 52 names are recognized within the documented native argument scope. Media `src`, upstream alias behavior and full runtime parity remain unqualified.

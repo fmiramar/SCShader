@@ -353,9 +353,12 @@ impl App {
                 }
             }
             #[cfg(feature = "gpu-test-hooks")]
-            Command::TestPixel { reply_to } => {
+            Command::TestPixel {
+                reply_to,
+                hydra_output,
+            } => {
                 if let Some(renderer) = &self.renderer {
-                    match renderer.feedback_pixel() {
+                    match renderer.feedback_pixel(hydra_output) {
                         Ok(bytes) => {
                             if let Err(error) = self.osc.replies().send_test_pixel(reply_to, bytes)
                             {

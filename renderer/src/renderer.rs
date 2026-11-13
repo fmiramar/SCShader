@@ -646,8 +646,17 @@ impl Renderer {
     }
 
     #[cfg(feature = "gpu-test-hooks")]
-    pub fn feedback_pixel(&self) -> Result<Vec<u8>, String> {
-        let texture = &self.feedback_targets.textures[self.feedback_targets.read_index]._texture;
+    pub fn feedback_pixel(&self, hydra_output: Option<usize>) -> Result<Vec<u8>, String> {
+        let texture = if let Some(index) = hydra_output {
+            &self
+                .hydra_output
+                .as_ref()
+                .ok_or("missing Hydra outputs")?
+                .current(index)
+                .texture
+        } else {
+            &self.feedback_targets.textures[self.feedback_targets.read_index]._texture
+        };
         let size = texture
             .format()
             .block_copy_size(None)
@@ -1629,7 +1638,7 @@ impl Renderer {
             });
 
         if self.hydra_selected >= 0 {
-            if let Some(output) = &self.hydra_output {
+            if let Some(output) = &mut self.hydra_output {
                 output.encode_outputs(
                     &self.device,
                     &self.queue,
@@ -1638,7 +1647,6 @@ impl Renderer {
                     time_delta,
                     self.stats.frame_index as u32,
                 );
-                self.submit_intermediate_pass(&mut encoder);
                 output.encode_present(
                     &mut encoder,
                     &view,

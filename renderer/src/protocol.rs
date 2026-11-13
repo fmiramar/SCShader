@@ -58,6 +58,7 @@ pub enum Command {
     #[cfg(feature = "gpu-test-hooks")]
     TestPixel {
         reply_to: ReplyTarget,
+        hydra_output: Option<usize>,
     },
     #[cfg(feature = "gpu-test-hooks")]
     TestSurfaceLoss {
@@ -212,7 +213,7 @@ impl Command {
             #[cfg(feature = "gpu-test-hooks")]
             Self::TestDeviceLoss { reply_to } => Some(*reply_to),
             #[cfg(feature = "gpu-test-hooks")]
-            Self::TestPixel { reply_to } => Some(*reply_to),
+            Self::TestPixel { reply_to, .. } => Some(*reply_to),
             #[cfg(feature = "gpu-test-hooks")]
             Self::TestSurfaceLoss { reply_to } => Some(*reply_to),
             Self::Hello { reply_to }
@@ -441,7 +442,19 @@ pub fn parse_message(message: OscMessage, sender: SocketAddr) -> Result<Command,
         #[cfg(feature = "gpu-test-hooks")]
         "/scshader/v1/test/pixel" if message.args.is_empty() => Ok(Command::TestPixel {
             reply_to: default_target,
+            hydra_output: None,
         }),
+        #[cfg(feature = "gpu-test-hooks")]
+        "/scshader/v1/test/hydra/pixel" if matches!(message.args.as_slice(), [OscType::Int(i)] if (0..4).contains(i)) =>
+        {
+            let OscType::Int(i) = message.args[0] else {
+                unreachable!()
+            };
+            Ok(Command::TestPixel {
+                reply_to: default_target,
+                hydra_output: Some(i as usize),
+            })
+        }
         #[cfg(feature = "gpu-test-hooks")]
         "/scshader/v1/test/surface-loss" if message.args.is_empty() => {
             Ok(Command::TestSurfaceLoss {

@@ -406,13 +406,22 @@ pub const MODULATION: &[Spec] = &[
         _defaults: &[1.0],
     },
 ];
-pub const SAMPLING: &[Spec] = &[Spec {
-    name: "src",
-    category: 0,
-    args: &[ValueType::Output],
-    _names: &["tex"],
-    _defaults: &[],
-}];
+pub const SAMPLING: &[Spec] = &[
+    Spec {
+        name: "prev",
+        category: 0,
+        args: &[],
+        _names: &[],
+        _defaults: &[],
+    },
+    Spec {
+        name: "src",
+        category: 0,
+        args: &[ValueType::Output],
+        _names: &["tex"],
+        _defaults: &[],
+    },
+];
 pub fn supported() -> impl Iterator<Item = &'static Spec> {
     PROCEDURAL
         .iter()
