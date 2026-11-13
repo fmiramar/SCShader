@@ -27,4 +27,5 @@ boundary: `/model gpt-6.1-sol --reasoning=medium`, then `/status`.
 The user authorized Step 13 continuation after the prior switch request; no
 in-session tool independently reports the running model/effort pair. No automatic
 model change is claimed. Media sources and complete browser/runtime parity remain
-outside this checkpoint. New feedback-demo manual observation is still pending.
+outside this checkpoint. The user reports the Step 13 feedback example works properly in the desktop
+window; browser pixel parity remains unverified.

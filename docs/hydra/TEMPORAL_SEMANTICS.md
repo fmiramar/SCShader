@@ -126,6 +126,7 @@ Exact results and executable hashes belong in [VERIFICATION.md](../VERIFICATION.
 The ordered [05_feedback.scd](../../examples/hydra/05_feedback.scd) demonstrates
 self-feedback, a two-output cycle, native prev, resize and hush. Recompile the SC
 class library, run Step 1, then Steps 2 and 3 after each acknowledgement; Step 0
-cleans up. Manual observation of this new example remains separate from automated
-command and pixel checks. The user's Step 12 black hush and gray bottom-right
-invert(0.5) observations are confirmed expected behavior.
+cleans up. The user reports the new example works properly in the desktop
+window; this is separate from automated command and pixel checks. The user's
+Step 12 black hush and gray bottom-right invert(0.5) observations are confirmed
+expected behavior.

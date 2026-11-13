@@ -5,7 +5,8 @@ pass native Metal pixel checks and source SC checks. Self-feedback, cross-output
 cycles and native prev are implemented. Logical-device recovery clears all four
 histories and restores programs; surface reacquisition retains them. The ordinary
 arm64 package is installed; all eight installed checks pass, including both
-ordered examples. See VERIFICATION.md for hashes and scope. Step 14 live
+ordered examples. The user reports the Step 13 desktop example works properly.
+See VERIFICATION.md for hashes and scope. Step 14 live
 replacement/resource work and other-platform/release gates remain separate.
 
 The user confirms Step 12 hush is full black and invert(0.5) makes o3 gray in

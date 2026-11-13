@@ -59,9 +59,10 @@ production history fixture; all fifty non-sampling comparisons pass with zero
 channel error. Neither first attempt is reported as a pass.
 
 NOT RUN / outside scope: actual browser/regl WebGL pixel parity, other GPUs or
-backends, physical GPU reset, maximum-size history allocation, long soaks and
-manual observation of the new feedback example. Successful output edits currently
-reset that output's history; native prev/filtering differences are documented.
+backends, physical GPU reset, maximum-size history allocation and long soaks.
+The user reports the new Step 13 feedback example works properly in the desktop
+window. Successful output edits currently reset that output's history; native
+prev/filtering differences are documented.
 Step 14 resource churn and seamless editing are not claimed complete. The user
 confirms the preceding Step 12 black hush and gray bottom-right invert(0.5).
 
