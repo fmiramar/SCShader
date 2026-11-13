@@ -1,6 +1,7 @@
 mod app;
 mod controls;
 mod diagnostics;
+mod hydra;
 mod osc;
 mod overlay;
 mod platform;

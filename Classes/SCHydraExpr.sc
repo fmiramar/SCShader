@@ -146,6 +146,6 @@ SCHydraExpr : Object {
     out { |output = \o0, action|
         hydra.checkLive;
         hydra.outputIndex(output);
-        Error("SCHydra renderer transport starts in Step 06; use snapshot for offline work.").throw;
+        ^hydra.submit(this, output, action);
     }
 }

@@ -99,6 +99,7 @@ struct App {
     recovery_count: u32,
     exit_code: i32,
     late_events: u64,
+    hydra: crate::hydra::Transport,
 }
 
 impl App {
@@ -124,6 +125,7 @@ impl App {
             recovery_count: 0,
             exit_code: 0,
             late_events: 0,
+            hydra: crate::hydra::Transport::default(),
         }
     }
 
@@ -199,6 +201,7 @@ impl App {
     fn process_commands(&mut self, event_loop: &ActiveEventLoop) {
         let _timing = crate::timing::enter(crate::timing::Stage::Commands);
         let started = Instant::now();
+        self.hydra.expire(self.started_at.elapsed().as_secs_f64());
         // Fair service for due and incoming work, yielding between atomic OSC
         // packets. A single compile/atomic bundle can still exceed this budget.
         for _ in 0..128 {
@@ -283,6 +286,23 @@ impl App {
         }
 
         match command {
+            Command::Hydra { request, .. } => {
+                match self
+                    .hydra
+                    .execute(request, self.started_at.elapsed().as_secs_f64())
+                {
+                    Ok(reply) => {
+                        if let Err(error) = self.osc.replies().send(
+                            reply.target,
+                            &format!("/scshader/v1/hydra/{}", reply.suffix),
+                            reply.args,
+                        ) {
+                            eprintln!("SCShader Hydra reply error: {error}");
+                        }
+                    }
+                    Err(error) => self.send_error(error),
+                }
+            }
             Command::DiagnosticsOverlay { reply_to, enabled } => {
                 self.last_reply_target = Some(reply_to);
                 if let Some(renderer) = self.renderer.as_mut() {
@@ -1079,6 +1099,8 @@ impl App {
             );
             return false;
         }
+        self.hydra
+            .abort_pending("upload aborted by device recovery");
         self.recovery_count += 1;
         eprintln!("SCShader GPU recovery attempt 1: {}", issue.message);
         if let Some(target) = self.last_reply_target {

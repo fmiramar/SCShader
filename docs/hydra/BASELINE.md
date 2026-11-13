@@ -40,3 +40,13 @@ This is the Step 01 source and build baseline for the proposed opt-in Hydra subs
 ## Not established
 
 No Hydra upstream SHA or exhaustive API inventory is pinned yet. No SC architecture/API collision audit beyond the inspected class names is complete. No renderer executable was built or run, and no output pixels, media input, or GPU recovery behavior was tested as part of this baseline.
+
+## Toolchain follow-up (Step 06)
+
+Selecting Cargo via `rustup run` alone did not isolate all subprocesses from this
+host's Homebrew PATH. The Step 03 explicit Cargo check is not independent proof
+that every compiler/subtool was pinned. Step 06 prepends the directory returned
+by `dirname "$(rustup which --toolchain 1.97.1 cargo)"` to PATH for the command
+process; `rustc -V` and `cargo clippy -V` then report 1.97.1 / 0.1.97. The native
+build, strict lint and unit tests pass under that environment; see
+[verification](../VERIFICATION.md#hydra-transport-staging--2026-11-12).

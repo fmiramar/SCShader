@@ -1,5 +1,30 @@
 # Verification
 
+## Hydra transport staging — 2026-11-12
+
+At the commit containing this entry, Rust 1.97.1 **with its full bin directory
+first on PATH** passes strict Clippy (`--locked --all-targets --all-features -- -D
+warnings`), 66 binary unit tests plus two example tests, and an ordinary native
+debug build. Initial `rustup run 1.97.1 cargo clippy` found Homebrew Clippy 1.98
+on PATH; its lint failure was retained as an environment finding, and the full
+pinned toolchain rerun passes. Earlier Hydra records selecting Cargo via rustup
+alone did not prove the compiler/subtool selection.
+
+The existing SC harness, isolated source class config and production-feature debug
+renderer pass `hydra_transport_smoke`, `hydra_ast_unit`, `compile_check`, and
+`graph_smoke`. Adapter: Apple M5 / Metal. Binary SHA-256:
+`6279aa8da506260df2c84b5c5f0662725e4bbbb95fbe5b63e5f6f7d9afec0f76`.
+Evidence: ignored `build/hydra-tests/transport-06-final/`,
+`transport-06-client-final/`, and `rust-06-final.log`.
+
+The first native run failed on SC OSC string normalization and callback cleanup;
+that negative log is retained under `build/hydra-tests/transport-06/`. Both issues
+were corrected; the final roundtrip gets the expected `E_HYDRA_CAPABILITY` after
+valid IR upload, retains the legacy shader resource, and quits normally. This is
+transport evidence, not Hydra pixels. Full compile/activation rollback, visual
+parity, resize/recovery of Hydra output, other backends and installed packaging
+are **NOT RUN**. See [actual protocol subset](../protocol/hydra.md).
+
 ## Hydra offline AST front end — 2026-11-12
 
 With an isolated sclang class configuration that excludes the separately installed

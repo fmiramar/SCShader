@@ -25,6 +25,10 @@ impl ReplyTarget {
 
 #[derive(Debug)]
 pub enum Command {
+    Hydra {
+        reply_to: ReplyTarget,
+        request: crate::hydra::Request,
+    },
     Batch {
         commands: Vec<Command>,
         target_time: Option<f64>,
@@ -203,6 +207,7 @@ impl Command {
     pub fn reply_target(&self) -> Option<ReplyTarget> {
         match self {
             Self::Batch { commands, .. } => commands.iter().find_map(Self::reply_target),
+            Self::Hydra { reply_to, .. } => Some(*reply_to),
             Self::ScheduleClear { reply_to } => Some(*reply_to),
             #[cfg(feature = "gpu-test-hooks")]
             Self::TestDeviceLoss { reply_to } => Some(*reply_to),
@@ -249,6 +254,7 @@ impl Command {
     /// charged separately). Packet preflight bounds recursion before decoding.
     pub fn heap_bytes(&self) -> usize {
         match self {
+            Self::Hydra { request, .. } => request.heap_bytes(),
             Self::Batch { commands, .. } => {
                 commands.capacity() * std::mem::size_of::<Self>()
                     + commands.iter().map(Self::heap_bytes).sum::<usize>()
@@ -409,6 +415,14 @@ pub fn parse_message(message: OscMessage, sender: SocketAddr) -> Result<Command,
     let versioned = message.addr.starts_with("/scshader/v1/");
     let default_target = ReplyTarget::from_sender(sender, versioned);
 
+    if let Some(operation) = message.addr.strip_prefix("/scshader/v1/hydra/") {
+        let request = crate::hydra::Request::parse(operation, message.args, sender)
+            .map_err(|message| ErrorReply::protocol(default_target, message))?;
+        return Ok(Command::Hydra {
+            reply_to: request.reply_target(),
+            request,
+        });
+    }
     match message.addr.as_str() {
         "/scshader/hello" => parse_legacy_hello(&message.args, sender),
         "/scshader/v1/hello" => parse_v1_hello(&message.args, sender),

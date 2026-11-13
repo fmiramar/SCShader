@@ -492,7 +492,12 @@ impl ReplySender {
         )
     }
 
-    fn send(&self, target: ReplyTarget, address: &str, args: Vec<OscType>) -> Result<(), String> {
+    pub(crate) fn send(
+        &self,
+        target: ReplyTarget,
+        address: &str,
+        args: Vec<OscType>,
+    ) -> Result<(), String> {
         let packet = OscPacket::Message(OscMessage {
             addr: address.to_owned(),
             args,
@@ -588,10 +593,18 @@ fn prepare_packet(
 ) -> Result<IncomingCommand, ErrorReply> {
     let bad = |message| ErrorReply::protocol(ReplyTarget::from_sender(source, true), message);
     match packet {
-        OscPacket::Message(message) => Ok(IncomingCommand {
-            command: parse_message(message, source)?,
-            target_time: parent_time,
-        }),
+        OscPacket::Message(message) => {
+            let command = parse_message(message, source)?;
+            if matches!(&command, Command::Hydra { .. }) && parent_time.is_some() {
+                return Err(bad(
+                    "Hydra structural commands require immediate timetags".to_owned()
+                ));
+            }
+            Ok(IncomingCommand {
+                command,
+                target_time: parent_time,
+            })
+        }
         OscPacket::Bundle(bundle) => {
             let immediate = bundle.timetag.seconds == 0 && bundle.timetag.fractional == 1;
             let tag = if immediate {
@@ -802,6 +815,16 @@ mod tests {
                     .collect(),
             },
         }
+    }
+
+    #[test]
+    fn hydra_structural_command_rejects_inherited_timetag() {
+        let source = "127.0.0.1:57120".parse().unwrap();
+        let message = OscPacket::Message(OscMessage {
+            addr: "/scshader/v1/hydra/capabilities".into(),
+            args: vec![1.into(), 1.into(), 57120.into()],
+        });
+        assert!(prepare_packet(message, source, None, Some(1.0), Instant::now()).is_err());
     }
 
     #[test]

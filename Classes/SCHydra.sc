@@ -1,5 +1,9 @@
 SCHydra : Object {
-    var <server, <isFreed;
+    classvar all;
+    var <server, <isFreed, <isReady, <lastError, epoch, session, sequence, startupTask, uploadTask;
+    var readyAction, failureAction, responders, uploading;
+
+    *initClass { all = IdentityDictionary.new }
 
     *new { |server| ^super.new.init(server) }
 
@@ -7,8 +11,14 @@ SCHydra : Object {
         if(argServer.notNil and: { argServer.isKindOf(ShaderServer).not }) {
             Error("SCHydra needs a ShaderServer or nil for offline expression work.").throw;
         };
+        if(argServer.notNil and: { all[argServer].notNil }) {
+            Error("Only one SCHydra controller may own a ShaderServer.").throw;
+        };
         server = argServer;
-        isFreed = false;
+        if(server.notNil) { all[server] = this };
+        isFreed = false; isReady = false; sequence = 0; uploading = false;
+        responders = IdentitySet.new;
+        if(server.notNil and: { server.isRunning }) { this.negotiate };
         ^this
     }
 
@@ -41,5 +51,123 @@ SCHydra : Object {
         ^this
     }
 
-    free { isFreed = true; ^this }
+    nextSequence {
+        if(sequence == 2147483647) { Error("SCHydra sequence exhausted; reopen session.").throw };
+        sequence = sequence + 1; ^sequence
+    }
+
+    waitForReady { |action, onFailure|
+        this.checkLive;
+        if(server.isNil or: { server.isRunning.not }) { Error("Boot ShaderServer before Hydra negotiation.").throw };
+        readyAction = action; failureAction = onFailure;
+        if(isReady) { action.value(this) } {
+            if(lastError.notNil) { onFailure.value(this, lastError) };
+        };
+        ^this
+    }
+
+    exchange { |message, suffix, matches|
+        var condition = Condition.new, response, done = false, success, failure;
+        success = OSCFunc({ |msg|
+            if(matches.value(msg) and: { done.not }) {
+                response = (ok: true, message: msg); done = true; condition.unhang;
+            };
+        }, ("/scshader/v1/hydra/" ++ suffix).asSymbol, server.addr);
+        failure = OSCFunc({ |msg|
+            if(msg[2].asString == "hydra" and: { done.not }) {
+                response = (ok: false, code: msg[4].asString, message: msg[5].asString); done = true; condition.unhang;
+            };
+        }, '/scshader/v1/error', server.addr);
+        responders.add(success).add(failure);
+        server.sendMsg(*message);
+        SystemClock.sched(0.5, { if(done.not) { done = true; condition.unhang }; nil });
+        condition.hang;
+        success.free; failure.free; responders.remove(success).remove(failure);
+        ^response
+    }
+
+    request { |message, suffix, matches|
+        var response;
+        3.do { if(response.isNil) { response = this.exchange(message, suffix, matches) } };
+        ^response ? (ok: false, code: "E_HYDRA_TIMEOUT", message: "Hydra reply timeout")
+    }
+
+    negotiate {
+        startupTask = Routine({
+            var id = this.nextSequence, response;
+            response = this.request(['/scshader/v1/hydra/capabilities', id, 1, NetAddr.langPort],
+                "capabilities.reply", { |msg| msg[1] == id });
+            if(response[\ok]) {
+                if(response[\message][3] != 1 or: {
+                    response[\message][6].asString.find("staging-ir-v1").isNil
+                }) { response = (ok: false, code: "E_HYDRA_VERSION", message: "Unsupported Hydra transport capabilities") };
+            };
+            if(response[\ok]) {
+                epoch = response[\message][2].asString;
+                id = this.nextSequence;
+                response = this.request(['/scshader/v1/hydra/open', id, epoch,
+                    (Main.elapsedTime.asString ++ "-" ++ this.identityHash.asString), 1, NetAddr.langPort],
+                    "opened", { |msg| msg[1] == id and: { msg[2].asString == epoch } });
+            };
+            if(response[\ok]) {
+                session = response[\message][3]; isReady = true; readyAction.value(this);
+            } { lastError = response; failureAction.value(this, response) };
+        }).play(SystemClock);
+        ^this
+    }
+
+    submit { |expression, output, action|
+        var snapshot, tx;
+        this.checkLive;
+        if(isReady.not or: { server.isRunning.not }) { Error("SCHydra session is not ready.").throw };
+        if(uploading) { Error("SCHydra already has an upload in flight.").throw };
+        snapshot = this.snapshot(expression, output); tx = this.nextSequence;
+        uploading = true;
+        uploadTask = Routine({
+            var response, statusID;
+            response = this.request(['/scshader/v1/hydra/begin', epoch, session, tx,
+                this.outputIndex(output), 0, snapshot[\bytes].size], "ack",
+                { |msg| msg[1].asString == epoch and: { msg[2] == session and: { msg[3] == tx and: { msg[4] == -1 } } } });
+            snapshot[\bytes].clump(2048).do { |chunk, index|
+                if(response[\ok]) {
+                    response = this.request(['/scshader/v1/hydra/chunk', epoch, session, tx, index,
+                        Int8Array.newFrom(chunk)], "ack", { |msg|
+                        msg[1].asString == epoch and: { msg[2] == session and: { msg[3] == tx and: { msg[4] == index } } }
+                    });
+                };
+            };
+            if(response[\ok]) {
+                response = this.request(['/scshader/v1/hydra/commit', epoch, session, tx], "committed",
+                    { |msg| msg[1].asString == epoch and: { msg[2] == session and: { msg[3] == tx } } });
+                if(response[\code] == "E_HYDRA_TIMEOUT") {
+                    statusID = this.nextSequence;
+                    response = this.request(['/scshader/v1/hydra/status', epoch, session, statusID, tx],
+                        "status.reply", { |msg| msg[1].asString == epoch and: { msg[2] == session and: { msg[3] == statusID } } });
+                    if(response[\ok]) {
+                        response = (ok: false, code: response[\message][7].asString, message: response[\message][8].asString);
+                        if(response[\code] == "") { response = (ok: false, code: "E_HYDRA_UNKNOWN", message: "Commit outcome unknown") };
+                    };
+                };
+            };
+            if(response[\ok].not) { server.sendMsg('/scshader/v1/hydra/abort', epoch, session, tx) };
+            response[\transaction] = tx; response[\output] = output;
+            uploading = false; lastError = response[\ok].if({ nil }, { response });
+            action.value(response);
+        }).play(SystemClock);
+        ^this
+    }
+
+    free {
+        if(isFreed.not) {
+            if(startupTask !== thisThread) { startupTask.tryPerform(\stop) };
+            if(uploadTask !== thisThread) { uploadTask.tryPerform(\stop) };
+            responders.do(_.free); responders.clear;
+            if(isReady and: { server.isRunning }) {
+                server.sendMsg('/scshader/v1/hydra/close', epoch, session, this.nextSequence);
+            };
+            if(server.notNil and: { all[server] === this }) { all.removeAt(server) };
+            isFreed = true; isReady = false;
+        };
+        ^this
+    }
 }
