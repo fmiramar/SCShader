@@ -1,5 +1,36 @@
 # Verification
 
+## Hydra numeric sources — Step 15
+
+Parent `b53a140`; source identified by the commit containing this record. Native
+Apple M5 / Metal, aarch64-apple-darwin, SC 3.14.1 and Rust 1.97.1. Version 0.0.18,
+dependencies and lockfile unchanged. Ordinary installed renderer SHA-256:
+`b25c4eef5d1c0c440c0375ffbec45c59821025736a4b3f4a47c92ec8c63af6fe`.
+
+PASS: formatting, strict all-target/all-feature Clippy, 79 renderer tests, three
+ten-test helper suites and two overlay tests. Production pixels verify a mutable
+uniform and native wave at two times with the same pipeline, and preserve the
+previous temporal, rollback, edit/disposal and linear/sRGB presenter assertions.
+All fifty static family comparisons still have zero channel error. Native numeric
+unit traces and pinned upstream JavaScriptCore array traces agree for centered
+smoothing, speed-zero fallback and fit metadata. Revision/sequence/duplicate and
+rejected-update guards pass. Source SC numeric snapshot/commit/set and AST pass.
+Ten installed SC checks pass: numeric smoke, the actual new numeric example,
+and the preceding eight checks.
+Ordinary arm64 package/notice checks pass; the previous extension is backed up
+outside Extensions. Test hooks are absent from the installed build.
+
+Evidence: `build/hydra-tests/params-15/`: `clippy-final.log`, `rust-final.log`,
+`pixels-final.log`, `reference-final.log`, `families.log`, `sc/`, `installed/`,
+`installed-example/`, `installed-final/` and package logs.
+Initial compile-only failures while integrating IR fixture fields are retained in
+`build/hydra-params-check*.log`; these are not reported as passed checks. No Python
+runtime changes; the full Python suite was not repeated. Browser GPU parity,
+other backends, long soaks and numeric recovery injection remain unqualified.
+Dynamic arguments currently cover five operators; named easing support is limited
+to linear plus easeInOutQuad. Sequence clock controls remain Step 16. The
+user confirms Step 14 works. See [PARAMETERS.md](hydra/PARAMETERS.md).
+
 ## Hydra live replacement — Step 14
 
 Parent `5da7e89`, source identified by the commit containing this record. Native
@@ -1166,7 +1197,7 @@ Verified 2026-09-23 on macOS x64 with the Metal backend.
 
 - Rust format, Clippy with warnings denied, debug/release builds, and 36 unit
   tests passed. New cases cover WGSL/GLSL reflection, struct offsets, mat3 padding,
-  exact integer blobs, malformed payloads, type mismatches, smoothstep, extreme
+  exact integer blobs, malformed payloads, type mismatches, easeInOutQuad, extreme
   Float32 endpoints, retargeting, and preservation across changed layouts.
 - The installed SC classes pass all 20 default checks in
   `python3 tools/run_sc_checks.py`. These include the existing lifecycle, timing,

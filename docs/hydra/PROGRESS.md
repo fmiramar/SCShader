@@ -17,17 +17,14 @@ Updated: 2026-11-13
 | 11 — Spatial modulation | PASS (native automated/installed scope) | [MODULATION.md](MODULATION.md): all 11 operations, nested/current-UV evaluation, negative wrapping and rollback pixels; user confirms Step 11 works perfectly. |
 | 12 — Four outputs and static sampling | PASS (native automated/installed scope) | [OUTPUTS.md](OUTPUTS.md): independent revisions, quadrants, static src reads, cycle rejection, resize and hush. Nine ordered visual checks installed and command-tested; user confirms black hush and gray bottom-right invert(0.5). Step 13 supersedes static scheduling. |
 | 13 — Temporal buffering and feedback | PASS (native pixels, installed SC/example and logical recovery) | [TEMPORAL_SEMANTICS.md](TEMPORAL_SEMANTICS.md): fixed numeric order, paired histories, legal cycles, native prev, resets and bounded accounting. Upstream callback trace agrees; browser GPU parity unverified. |
-
 | 14 — Live replacement and reclamation | PASS (native fixed-count GPU check; installed SC checks) | [LIVE_CODING.md](LIVE_CODING.md): active pipeline reuse, explicit clear, existing hush/disposal/mode contracts and 32 edits with resource ownership returning to baseline. |
+| 15 — Dynamic numeric representation | PASS in minimal numeric scope | [PARAMETERS.md](PARAMETERS.md): named uniform values, native time/wave/sequence evaluation, typed HYIR 1.1, revision/sequence guards and frequency/color/transform smoke. Dynamic arguments in five operations; full argument parity remains open. |
 
 Checkpoint A is available for one-output procedural visuals and live replacement.
 The user confirms `01_osc.scd` runs perfectly; new Step 09 visuals have automated
 native checks but await user observation. This is a development checkpoint.
 
-Checkpoint B reached in the documented native scope. Next: Step 15, `gpt-6.1-sol` / `high`. Stop at the plan's model/effort
-boundary: `/model gpt-6.1-sol --reasoning=high`, then `/status`.
-The user authorized Step 13 continuation after the prior switch request; no
-in-session tool independently reports the running model/effort pair. No automatic
-model change is claimed. Media sources and complete browser/runtime parity remain
-outside this checkpoint. The user reports the Step 13 feedback example works properly in the desktop
-window; browser pixel parity remains unverified.
+Checkpoint B is available in the documented native scope. Step 16 uses the same
+planned pair: `gpt-6.1-sol` / `high`. The user confirms Step 14 works; manual
+observation of `06_parameters.scd` remains pending. Media sampling and complete
+dynamic-argument/browser parity remain outside this checkpoint.

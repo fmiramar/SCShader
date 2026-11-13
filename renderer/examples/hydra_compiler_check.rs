@@ -1,4 +1,6 @@
-//! Short native offscreen pixel proof for the initial independently implemented compiler.
+#[path = "../src/hydra/parameters.rs"]
+mod parameters;
+// Short native offscreen pixel proof for the initial independently implemented compiler.
 #[path = "../src/hydra/compiler.rs"]
 mod compiler;
 #[path = "../src/hydra/families.rs"]
@@ -113,6 +115,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             gpu::Candidate::prepare(&device, program, &mut cached)?;
             let before = cached.as_ref().unwrap().source.clone();
             let invalid = Program {
+                parameters: vec![],
                 nodes: vec![node(1, "osc", 0, 0, &[0., 0.1, 0.])],
                 root: 1,
             };

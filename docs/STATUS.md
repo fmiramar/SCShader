@@ -1,5 +1,12 @@
 # Implementation checkpoint
 
+Hydra Step 15: [typed numeric sources](hydra/PARAMETERS.md) support named
+mutable values, native linear time/sine and bounded sequences for frequency,
+color and transforms. Numeric updates retain pipelines and history. The user
+confirms Step 14 works; clock controls and broader dynamic-argument coverage
+remain later scope.
+
+
 Hydra Step 14: [live output replacement](hydra/LIVE_CODING.md) reuses matching
 active expression pipelines and adds explicit per-output clear. A native fixed
 32-edit check verifies unrelated pixels, failed-edit rollback and allocation

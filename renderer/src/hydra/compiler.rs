@@ -28,6 +28,7 @@ struct VertexOutput {
 
 #[derive(Debug)]
 enum Operation {
+    Numeric(super::ir::Node),
     Sample(u8),
     Combine {
         name: String,
@@ -94,6 +95,42 @@ fn lower(program: &Program) -> Result<Vec<(u32, Operation)>, String> {
         }
         if depth > 64 || expanded > 4096 {
             return Err("compiler depth or expansion limit".into());
+        }
+        if node
+            .arguments
+            .iter()
+            .any(|a| matches!(a, Argument::Parameter(_)))
+        {
+            if (node.name == "osc"
+                && matches!(node.arguments.first(),Some(Argument::Float(v)) if *v==0.))
+                || (node.name == "scale"
+                    && node
+                        .arguments
+                        .iter()
+                        .take(3)
+                        .any(|a| matches!(a,Argument::Float(v) if *v==0.)))
+            {
+                return Err("literal zero divisor in dynamic operation".into());
+            }
+            let spec = super::registry::spec(&node.name).ok_or("unknown numeric operation")?;
+            if !["osc", "solid", "color", "rotate", "scale"].contains(&node.name.as_str())
+                || node.category != spec.category
+                || node.arguments.len() != spec.args.len()
+            {
+                return Err(
+                    "dynamic arguments supported in osc/solid/color/rotate/scale only".into(),
+                );
+            }
+            for a in &node.arguments {
+                match a {
+                    Argument::Float(v) if v.is_finite() => (),
+                    Argument::Parameter(id) if program.parameters.iter().any(|p| p.id == *id) => (),
+                    _ => return Err("invalid numeric argument".into()),
+                }
+            }
+            known.insert(node.id, (depth, expanded));
+            result.push((node.id, Operation::Numeric(node.clone())));
+            continue;
         }
         let (category, operation) = match node.name.as_str() {
             "prev" => {
@@ -213,9 +250,19 @@ fn vector(values: &[f32]) -> String {
 }
 
 pub fn compile(program: &Program) -> Result<String, String> {
+    let mut ids = std::collections::HashSet::new();
+    for p in &program.parameters {
+        if !ids.insert(p.id) {
+            return Err("duplicate parameter ID".into());
+        }
+        p.validate()?;
+    }
     let nodes = lower(program)?;
     let mut source = String::from(PRELUDE);
     source.push_str(include_str!("procedural.wgsl"));
+    if !program.parameters.is_empty() {
+        source.push_str("@group(0) @binding(1) var<uniform> numbers: array<vec4<f32>,64>;\n");
+    }
     if program
         .nodes
         .iter()
@@ -233,6 +280,26 @@ pub fn compile(program: &Program) -> Result<String, String> {
     for (id, operation) in nodes {
         writeln!(source, "fn n{id}(uv: vec2<f32>) -> vec4<f32> {{").unwrap();
         match operation {
+            Operation::Numeric(node) => {
+                for (i, a) in node.arguments.iter().enumerate() {
+                    let text = match a {
+                        Argument::Float(v) => literal(*v),
+                        Argument::Parameter(id) => {
+                            format!("numbers[{}][{}]", (id - 1) / 4, (id - 1) % 4)
+                        }
+                        _ => unreachable!(),
+                    };
+                    writeln!(source, "let a{i} = {text};").unwrap();
+                }
+                let r = node.receiver;
+                match node.name.as_str() {
+                    "solid"=>source.push_str("return vec4<f32>(a0,a1,a2,a3);"),
+                    "osc"=>source.push_str("let t=hydra.clock.x*a1;return vec4<f32>(0.5+0.5*sin((uv.x-a2/a0+t)*a0),0.5+0.5*sin((uv.x+t)*a0),0.5+0.5*sin((uv.x+a2/a0+t)*a0),1.0);"),
+                    "color"=>{writeln!(source,"let c=n{r}(uv);let k=vec4<f32>(a0,a1,a2,a3);return select((vec4<f32>(1.0)-c)*abs(k),c*k,k>=vec4<f32>(0.0));").unwrap();},
+                    "scale"=>{writeln!(source,"let origin=vec2<f32>(a3,a4);return n{r}((uv-origin)/(a0*vec2<f32>(a1,a2))+origin);").unwrap();},
+                    "rotate"=>{writeln!(source,"let angle=a0+hydra.clock.x*a1;let p=uv-vec2<f32>(0.5);let c=cos(angle);let s=sin(angle);return n{r}(vec2<f32>(c*p.x+s*p.y,-s*p.x+c*p.y)+vec2<f32>(0.5));").unwrap();},_=>unreachable!()
+                }
+            }
             Operation::Sample(slot) => {
                 writeln!(
                     source,
@@ -370,6 +437,32 @@ fn validate(source: &str) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn numeric_frequency_preserves_literal_domain_check() {
+        let mut p = super::Program {
+            parameters: vec![super::super::parameters::Parameter {
+                id: 1,
+                kind: 0,
+                values: vec![0.1],
+            }],
+            nodes: vec![super::super::ir::Node {
+                id: 1,
+                name: "osc".into(),
+                category: 0,
+                receiver: 0,
+                arguments: vec![
+                    super::Argument::Float(0.),
+                    super::Argument::Parameter(1),
+                    super::Argument::Float(0.),
+                ],
+            }],
+            root: 1,
+        };
+        assert!(super::compile(&p).is_err());
+        p.nodes[0].arguments[0] = super::Argument::Float(5.);
+        assert!(super::compile(&p).is_ok());
+    }
+
     use super::super::ir::Node;
     use super::*;
     fn node(id: u32, name: &str, category: u8, receiver: u32, args: &[f32]) -> Node {
@@ -389,6 +482,7 @@ mod tests {
             node(1, "gradient", 0, 0, &[0.5]),
         ] {
             let program = Program {
+                parameters: vec![],
                 nodes: vec![
                     source,
                     node(2, "rotate", 1, 1, &[0.2, 0.]),
@@ -436,7 +530,12 @@ mod tests {
                 receiver: if spec.category == 0 { 0 } else { 1 },
                 arguments: args,
             });
-            compile(&Program { nodes, root: id }).unwrap_or_else(|e| panic!("{}: {e}", spec.name));
+            compile(&Program {
+                parameters: vec![],
+                nodes,
+                root: id,
+            })
+            .unwrap_or_else(|e| panic!("{}: {e}", spec.name));
         }
     }
     #[test]
@@ -458,7 +557,11 @@ mod tests {
                 receiver: 1,
                 arguments: args,
             });
-            let mut program = Program { nodes, root: 4 };
+            let mut program = Program {
+                parameters: vec![],
+                nodes,
+                root: 4,
+            };
             let source = compile(&program).unwrap();
             assert_eq!(source.matches("@fragment").count(), 1);
             program.nodes[3].arguments[0] = Argument::Expression(9);
@@ -476,7 +579,14 @@ mod tests {
                 arguments: vec![Argument::Expression(id - 1), Argument::Float(0.5)],
             });
         }
-        assert!(compile(&Program { nodes, root: 13 }).is_err());
+        assert!(
+            compile(&Program {
+                parameters: vec![],
+                nodes,
+                root: 13
+            })
+            .is_err()
+        );
     }
     #[test]
     fn modulation_signatures_and_undefined_constants() {
@@ -485,6 +595,7 @@ mod tests {
             let mut args = vec![Argument::Expression(2)];
             args.extend(spec._defaults.iter().copied().map(Argument::Float));
             let mut program = Program {
+                parameters: vec![],
                 nodes: vec![
                     node(1, "osc", 0, 0, &[10., 0.1, 0.]),
                     node(2, "gradient", 0, 0, &[0.4]),
@@ -528,6 +639,7 @@ mod tests {
         ] {
             assert!(
                 compile(&Program {
+                    parameters: vec![],
                     nodes: vec![n],
                     root: 1
                 })

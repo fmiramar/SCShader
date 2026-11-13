@@ -2,8 +2,7 @@
 
 2026-11-13. Additive to [SCShader v1](protocol.md) and implementing the first
 output/temporal portion of [ADR 001](../docs/hydra/ARCHITECTURE.md). 50 procedural/composition/modulation operators plus output-only `src` and native `prev`,
-four paired output histories and presentation are available. Media sources and
-parameters remain unavailable.
+four paired output histories and presentation are available. Media sources remain unavailable. Step 15 adds the bounded numeric API below.
 
 All suffixes below use `/scshader/v1/hydra/`. Fields use ordinary OSC types:
 `i` = int32, `s` = string, `b` = blob. All requests must be immediate, including
@@ -31,7 +30,7 @@ session; retrying a closed handle currently reports `E_HYDRA_SESSION`.
 
 `limits` is exactly five big-endian u32 values, in order: maximum IR bytes
 (65536), chunk bytes (2048), nodes (256), depth (64), expanded operations (4096).
-`features` is `staging-ir-v1;wgsl-v1:<comma-separated supported registry names>;output-o0-v1;outputs-temporal-v1`. The 52 names and their defaults/types are in `renderer/src/hydra/registry.rs`; discovery order is not an ABI guarantee.
+`features` is `staging-ir-v1;wgsl-v1:<comma-separated supported registry names>;output-o0-v1;outputs-temporal-v1;numeric-v1`. The 52 names and their defaults/types are in `renderer/src/hydra/registry.rs`; discovery order is not an ABI guarantee.
 This narrower discovery payload supersedes the ADR's provisional full-limit
 payload for the staging feature only. Future compiler/source/presentation
 capabilities must explicitly document their additional fields before advertising.
@@ -69,8 +68,8 @@ The IR layout is HYIR 1.0 from ADR 001. The decoder accepts 32 procedural, seven
 operations with scalar arguments (tag 0,
 f32) and the literal vec4 argument for `sum` (tag 5, four f32 components),
 encoded in network order. Combine arguments begin with an expression reference (tag 2, earlier node ID
-as u32). All seven combine and eleven combineCoord operations compile, including nested branches. Parameter declarations,
-media sampling and other argument forms/operators fail explicitly. `src` accepts tag 4 followed by a u8 output slot 0..3.
+as u32). All seven combine and eleven combineCoord operations compile, including nested branches. Numeric declarations and dynamic scalar arguments use HYIR 1.1 as specified below.
+Media sampling and other unsupported argument forms fail explicitly. `src` accepts tag 4 followed by a u8 output slot 0..3.
 The decoder verifies size/version, category/arity/types,
 finite f32 inputs, unique positive node IDs, earlier-node references, root reachability,
 no trailing data, depth and expansion bounds before any candidate installation.
@@ -83,7 +82,7 @@ queries status; unknown outcomes report `E_HYDRA_UNKNOWN`. One upload is allowed
 per controller; local snapshots remain available offline. `free` stops only the
 controller's tasks/responders and sends close without stopping the ShaderServer.
 
-`params` and media sampling remain unimplemented. SC hush uses four sequential ordinary commits and a presentation request.
+Batch `params` and media sampling remain unimplemented; single-value `parameter` updates are available. SC hush uses four sequential ordinary commits and a presentation request.
 See [four-output semantics and limitations](../docs/hydra/OUTPUTS.md). The SC
 client maintains accepted revisions and reconciles a timed-out commit through
 status. `present` is immediate-only at this stage. A new output is only made
@@ -95,3 +94,5 @@ Output cycles are valid temporal reads. Fixed numeric output order gives self/lo
 Display resources are prepared before presentation sequence/mode changes. A preparation failure returns E_HYDRA_LIMIT and retains the previous selection and sequence.
 
 Step 14: `SCHydra.clear(output, action)` is a client convenience using an ordinary transparent-solid commit. It increments only that output revision and retains selection. Hush uses four sequential clear calls. Matching live expression pipelines share compiled resources; no protocol fields change. See [live editing](../docs/hydra/LIVE_CODING.md).
+
+Step 15 advertises `numeric-v1`, accepts HYIR 1.1 numeric declarations and scalar tag 1, and implements `parameter(epoch:s,session:i,sequence:i,output:i,revision:i,parameterID:i,value:f)` with ack. [PARAMETERS.md](../docs/hydra/PARAMETERS.md) defines the bounded layout, supported operators, immediate control ordering and native differences. Earlier parameter-unavailable statements describe prior checkpoints.

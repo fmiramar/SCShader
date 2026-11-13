@@ -315,6 +315,9 @@ impl App {
                             crate::hydra::Preparation::Commit(output, program) => {
                                 renderer.prepare_hydra(output, program)
                             }
+                            crate::hydra::Preparation::Parameter(slot, id, value) => {
+                                renderer.update_hydra_parameter(slot, id, value)
+                            }
                             crate::hydra::Preparation::Present(mode) => renderer.select_hydra(mode),
                         }
                     },

@@ -253,6 +253,19 @@ pub struct Renderer {
 }
 
 impl Renderer {
+    pub fn update_hydra_parameter(
+        &mut self,
+        slot: usize,
+        id: u32,
+        value: f32,
+    ) -> Result<(), String> {
+        self.hydra_output
+            .as_mut()
+            .ok_or("missing outputs")?
+            .update(slot, id, value)?;
+        self.hydra_program[slot] = self.hydra_output.as_ref().unwrap().programs[slot].clone();
+        Ok(())
+    }
     pub fn prepare_hydra(
         &mut self,
         index: usize,

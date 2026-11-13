@@ -1,5 +1,7 @@
-//! Small numerical differential check. Reads AGPL reference GLSL from an external
-//! pinned checkout at runtime; no upstream shader bodies are distributed here.
+#[path = "../src/hydra/parameters.rs"]
+mod parameters;
+// Small numerical differential check. Reads AGPL reference GLSL from an external
+// pinned checkout at runtime; no upstream shader bodies are distributed here.
 #[path = "../src/hydra/compiler.rs"]
 mod compiler;
 #[path = "../src/hydra/families.rs"]
@@ -124,6 +126,7 @@ fn reference(
             .arguments
             .iter()
             .map(|arg| match arg {
+                Argument::Parameter(_) => unreachable!("numeric sources have a separate fixture"),
                 Argument::Float(v) => format!("uintBitsToFloat(0x{:08x}u)", v.to_bits()),
                 Argument::Vector(v) => format!(
                     "vec4({})",
@@ -272,6 +275,7 @@ fn checked(program: Program) -> Program {
         bytes.extend(node.receiver.to_be_bytes());
         for arg in node.arguments {
             match arg {
+                Argument::Parameter(_) => unreachable!("numeric sources have a separate fixture"),
                 Argument::Float(value) => {
                     bytes.push(0);
                     bytes.extend(value.to_be_bytes());
@@ -421,6 +425,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             ]
         };
         let program = checked(Program {
+            parameters: vec![],
             root: nodes.last().unwrap().id,
             nodes,
         });

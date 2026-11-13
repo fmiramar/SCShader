@@ -1,5 +1,6 @@
 SCHydra : Object {
     classvar all;
+    var numbers, namedNumbers;
     var <server, <isFreed, <isReady, <lastError, epoch, session, sequence, startupTask, uploadTask;
     var readyAction, failureAction, responders, uploading, revisions, presentTask, presenting;
 
@@ -17,9 +18,38 @@ SCHydra : Object {
         server = argServer;
         if(server.notNil) { all[server] = this };
         isFreed = false; isReady = false; sequence = 0; uploading = false; presenting = false;
+        numbers=List.new;namedNumbers=IdentityDictionary.new;
         responders = IdentitySet.new; revisions = [0,0,0,0];
         if(server.notNil and: { server.isRunning }) { this.negotiate };
         ^this
+    }
+
+    number { |kind, values|
+        var n;this.checkLive;
+        if(numbers.size>=256) {Error("Hydra numeric source limit: 256").throw};
+        n=SCHydraNumber.new(this,numbers.size+1,kind,values);numbers.add(n);^n
+    }
+    param { |name,initial=0|
+        if(name.isKindOf(Symbol).not) {Error("Hydra parameter names must be Symbols").throw};
+        if(namedNumbers[name].notNil) {^namedNumbers[name]};
+        namedNumbers[name]=this.number(0,[initial]);^namedNumbers[name]
+    }
+    time { |rate=1,bias=0| ^this.number(1,[rate,bias]) }
+    wave { |rate=1,phase=0,low=0,high=1| ^this.number(2,[rate,phase,low,high]) }
+    seq { |values|
+        if(values.isSequenceableCollection.not or:{values.size<1 or:{values.size>64}}) {Error("Hydra sequence needs 1..64 values").throw};
+        ^this.number(3,[1,0,0,0]++values.asArray)
+    }
+    set { |name,value,output=\o0,action|
+        var n=name.isKindOf(SCHydraNumber).if({name},{namedNumbers[name]}),slot=this.outputIndex(output),tx;
+        this.checkLive;ShaderDef.validateValue(\float,value);
+        if(n.isNil or:{n.hydra!==this or:{n.kind!=0 or:{value.abs>1e6}}}) {Error("Invalid mutable Hydra parameter").throw};
+        if(isReady.not or:{uploading or:{presenting}}) {Error("Hydra is not ready or another request is active").throw};
+        tx=this.nextSequence;presenting=true;
+        presentTask=Routine({
+            var result=this.request(['/scshader/v1/hydra/parameter',epoch,session,tx,slot,revisions[slot],n.id,value.asFloat],"ack",{|msg|msg[1].asString==epoch and:{msg[2]==session and:{msg[3]==tx}}});
+            presenting=false;if(result[\ok]) {n.setValue(value)};action.value(result);
+        }).play(SystemClock);^this
     }
 
     osc { |frequency = 60, sync = 0.1, offset = 0|

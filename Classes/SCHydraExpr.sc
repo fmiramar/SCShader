@@ -76,7 +76,11 @@ SCHydraExpr : Object {
             } {
                 if(spec[1][index] == \output) {
                     if(value.isInteger.not or: { value < 0 or: { value > 3 } }) { Error("Invalid output slot").throw };
-                } { ShaderDef.validateValue(spec[1][index], value) };
+                } {
+                    if(value.isKindOf(SCHydraNumber)) {
+                        if(value.hydra!==hydra or:{spec[1][index]!=\float}) {Error("Invalid Hydra numeric argument").throw};
+                    } { ShaderDef.validateValue(spec[1][index], value) };
+                };
             };
         };
         if(operations.isEmpty and: { spec[0] != \src }) {
@@ -191,7 +195,7 @@ SCHydraExpr : Object {
             var name = operation[0], args = operation[1], spec = this.spec(name), encodedArgs;
             encodedArgs = args.collect { |value, index|
                 value.isKindOf(SCHydraExpr).if({ [\expr, value.collectNodes(nodes, visiting, memo, depth + 1)] },
-                    { [spec[1][index], (spec[1][index] == \output).if({ value }, { ShaderDef.validateValue(spec[1][index], value) })] });
+                    { value.isKindOf(SCHydraNumber).if({[\number,value]}, { [spec[1][index], (spec[1][index] == \output).if({ value }, { ShaderDef.validateValue(spec[1][index], value) })] }) });
             };
             if(nodes.size >= 256) { Error("SCHydra snapshot exceeds 256 nodes.").throw };
             first = (id: nodes.size + 1, name: name, category: spec[0], receiver: receiver,
@@ -205,13 +209,18 @@ SCHydraExpr : Object {
     }
 
     encode { |nodes, root|
-        var bytes = List.new, result;
+        var bytes = List.new, result, params=List.new;
+        nodes.do {|node|node[\args].do {|a|if(a[0]==\number and:{params.includes(a[1]).not}) {params.add(a[1])}}};
         [72, 89, 73, 82].do { |byte| bytes.add(byte) };
         this.writeInteger(bytes, 1, 2);
-        this.writeInteger(bytes, 0, 2);
+        this.writeInteger(bytes, params.isEmpty.if({0},{1}), 2);
         this.writeInteger(bytes, nodes.size, 4);
-        this.writeInteger(bytes, 0, 4);
+        this.writeInteger(bytes, params.size, 4);
         this.writeInteger(bytes, root, 4);
+        params.do {|n|
+            n.validate;this.writeInteger(bytes,n.id,4);this.writeInteger(bytes,n.kind,1);this.writeInteger(bytes,n.values.size,1);
+            n.values.do {|v|ShaderDef.encodeValue(\float,v).do {|b|bytes.add(b.bitAnd(255))}};
+        };
         nodes.do { |node|
             var name = node[\name].asString, categories = [\src, \coord, \color, \combine, \combineCoord];
             this.writeInteger(bytes, node[\id], 4);
@@ -221,6 +230,9 @@ SCHydraExpr : Object {
             name.ascii.do { |character| this.writeInteger(bytes, character, 1) };
             this.writeInteger(bytes, node[\receiver], 4);
             node[\args].do { |argument|
+                if(argument[0] == \number) {
+                    this.writeInteger(bytes,1,1);this.writeInteger(bytes,argument[1].id,4);
+                } {
                 if(argument[0] == \expr) {
                     this.writeInteger(bytes, 2, 1);
                     this.writeInteger(bytes, argument[1], 4);
@@ -231,6 +243,7 @@ SCHydraExpr : Object {
                         this.writeInteger(bytes, (argument[0] == \vec4).if({ 5 }, { 0 }), 1);
                         ShaderDef.encodeValue(argument[0], argument[1]).do { |byte| bytes.add(byte.bitAnd(255)) };
                     };
+                };
                 };
             };
         };

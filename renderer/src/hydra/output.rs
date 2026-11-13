@@ -3,6 +3,8 @@ use super::gpu::Candidate;
 // One history image plus its render and presentation bindings.
 pub struct Output {
     pub candidate: Candidate,
+    pub parameters: Vec<super::parameters::Parameter>,
+    numbers: wgpu::Buffer,
     pub inputs: Option<wgpu::BindGroup>,
     pub texture: wgpu::Texture,
     frame: wgpu::Buffer,
@@ -19,6 +21,16 @@ impl Output {
         width: u32,
         height: u32,
         format: wgpu::TextureFormat,
+    ) -> Result<Self, String> {
+        Self::with_parameters(device, candidate, width, height, format, vec![])
+    }
+    pub fn with_parameters(
+        device: &wgpu::Device,
+        candidate: Candidate,
+        width: u32,
+        height: u32,
+        format: wgpu::TextureFormat,
+        parameters: Vec<super::parameters::Parameter>,
     ) -> Result<Self, String> {
         if width == 0
             || height == 0
@@ -52,13 +64,28 @@ impl Output {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
+        let numbers = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Hydra numeric values"),
+            size: 1024,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
         let bindings = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
             layout: &candidate._layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: frame.as_entire_binding(),
-            }],
+            entries: &{
+                let mut entries = vec![wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: frame.as_entire_binding(),
+                }];
+                if !parameters.is_empty() {
+                    entries.push(wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: numbers.as_entire_binding(),
+                    });
+                }
+                entries
+            },
         });
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: None,
@@ -137,6 +164,8 @@ struct Vertex {{ @builtin(position) position:vec4<f32>, @location(0) uv:vec2<f32
             return Err(error.to_string());
         }
         Ok(Self {
+            parameters,
+            numbers,
             candidate,
             inputs: None,
             texture,
@@ -156,6 +185,13 @@ struct Vertex {{ @builtin(position) position:vec4<f32>, @location(0) uv:vec2<f32
         delta: f32,
         frame: u32,
     ) {
+        if !self.parameters.is_empty() {
+            let mut data = [0f32; 256];
+            for p in &self.parameters {
+                data[(p.id - 1) as usize] = p.value(time);
+            }
+            queue.write_buffer(&self.numbers, 0, bytemuck::cast_slice(&data));
+        }
         let mut values = [0f32; 16];
         values[..8].copy_from_slice(&[
             time,

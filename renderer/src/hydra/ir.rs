@@ -7,6 +7,7 @@ pub const MAX_NODES: usize = 256;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Argument {
     Float(f32),
+    Parameter(u32),
     Output(u8),
     Vector([f32; 4]),
     Expression(u32),
@@ -21,6 +22,7 @@ pub struct Node {
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct Program {
+    pub parameters: Vec<super::parameters::Parameter>,
     pub nodes: Vec<Node>,
     pub root: u32,
 }
@@ -53,17 +55,44 @@ impl Program {
             return Err("IR exceeds 64 KiB".into());
         }
         let mut input = Reader { bytes, offset: 0 };
-        if input.take(4)? != b"HYIR" || input.short()? != 1 || input.short()? != 0 {
+        if input.take(4)? != b"HYIR" || input.short()? != 1 {
             return Err("unsupported IR version".into());
+        }
+        let minor = input.short()?;
+        if minor > 1 {
+            return Err("unsupported IR minor".into());
         }
         let count = input.word()? as usize;
         if count == 0 || count > MAX_NODES {
             return Err("IR node count outside 1..256".into());
         }
-        if input.word()? != 0 {
-            return Err("parameter declarations are not supported yet".into());
+        let parameter_count = input.word()? as usize;
+        if parameter_count > 256 || (minor == 0 && parameter_count != 0) {
+            return Err("parameter limit".into());
         }
         let root = input.word()?;
+        let mut parameters = Vec::new();
+        for _ in 0..parameter_count {
+            let id = input.word()?;
+            let kind = input.byte()?;
+            let count = input.byte()? as usize;
+            if count > 68 {
+                return Err("numeric source size".into());
+            }
+            let mut values = Vec::new();
+            for _ in 0..count {
+                values.push(f32::from_bits(input.word()?));
+            }
+            let p = super::parameters::Parameter { id, kind, values };
+            p.validate()?;
+            if parameters
+                .iter()
+                .any(|q: &super::parameters::Parameter| q.id == id)
+            {
+                return Err("duplicate parameter".into());
+            }
+            parameters.push(p);
+        }
         let mut nodes = Vec::with_capacity(count);
         let mut known: HashMap<u32, (usize, usize)> = HashMap::new();
         for _ in 0..count {
@@ -102,6 +131,13 @@ impl Program {
             let mut arguments = Vec::with_capacity(argc);
             for expected_type in types {
                 match input.byte()? {
+                    1 if *expected_type == ValueType::Float => {
+                        let id = input.word()?;
+                        if !parameters.iter().any(|p| p.id == id) {
+                            return Err("unknown parameter".into());
+                        }
+                        arguments.push(Argument::Parameter(id));
+                    }
                     4 if *expected_type == ValueType::Output => {
                         let slot = input.byte()?;
                         if slot > 3 {
@@ -180,7 +216,11 @@ impl Program {
         if reachable.len() != nodes.len() {
             return Err("unreachable IR node".into());
         }
-        Ok(Self { nodes, root })
+        Ok(Self {
+            nodes,
+            root,
+            parameters,
+        })
     }
 }
 

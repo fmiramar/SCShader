@@ -6,6 +6,7 @@ pub mod ir;
 pub mod modulation;
 pub mod output;
 pub mod outputs;
+pub mod parameters;
 pub mod registry;
 use crate::protocol::{ErrorReply, ReplyTarget};
 use rosc::OscType;
@@ -63,6 +64,15 @@ impl Request {
             }
             "commit" | "abort" | "close" => {
                 args.len() == 3 && scoped && integer(&args, 2, 1, i32::MAX)
+            }
+            "parameter" => {
+                args.len() == 7
+                    && scoped
+                    && integer(&args, 2, 1, i32::MAX)
+                    && integer(&args, 3, 0, 3)
+                    && integer(&args, 4, 1, i32::MAX)
+                    && integer(&args, 5, 1, 256)
+                    && matches!(args[6],OscType::Float(v) if v.is_finite() && v.abs()<=1e6)
             }
             "present" => {
                 args.len() == 4
@@ -144,12 +154,14 @@ struct Session {
     committed_outputs: VecDeque<(i32, i32)>,
     selected: i32,
     present_sequence: i32,
+    parameter_sequences: [Option<(i32, i32, f32)>; 4],
     upload: Option<Upload>,
     results: VecDeque<(i32, &'static str, String)>,
 }
 pub enum Preparation<'a> {
     Commit(usize, &'a ir::Program),
     Present(i32),
+    Parameter(usize, u32, f32),
 }
 pub struct Transport {
     epoch: String,
@@ -226,7 +238,7 @@ impl Transport {
     pub fn execute(&mut self, r: Request, now: f64) -> Result<Reply, ErrorReply> {
         self.execute_with(r, now, |preparation| match preparation {
             Preparation::Commit(_, program) => compiler::compile(program).map(|_| ()),
-            Preparation::Present(_) => Ok(()),
+            Preparation::Present(_) | Preparation::Parameter(..) => Ok(()),
         })
     }
     pub fn execute_with(
@@ -256,7 +268,7 @@ impl Transport {
                     0.into(),
                     OscType::Blob(limits.into_iter().flat_map(u32::to_be_bytes).collect()),
                     format!(
-                        "staging-ir-v1;wgsl-v1:{};output-o0-v1;outputs-temporal-v1",
+                        "staging-ir-v1;wgsl-v1:{};output-o0-v1;outputs-temporal-v1;numeric-v1",
                         registry::supported()
                             .map(|s| s.name)
                             .collect::<Vec<_>>()
@@ -295,6 +307,7 @@ impl Transport {
                     committed_outputs: VecDeque::new(),
                     selected: -1,
                     present_sequence: 0,
+                    parameter_sequences: [None; 4],
                     upload: None,
                     results: VecDeque::new(),
                 });
@@ -466,6 +479,28 @@ impl Transport {
                 }
                 reply.suffix = "aborted";
             }
+            "parameter" => {
+                let slot = r.int(3) as usize;
+                let id = r.int(5);
+                let OscType::Float(value) = r.args[6] else {
+                    unreachable!()
+                };
+                if session.revision[slot] != r.int(4) {
+                    return Err(failure(target, "E_HYDRA_STALE", "stale parameter revision"));
+                }
+                let entry = (tx, id, value);
+                if let Some(last) = session.parameter_sequences[slot] {
+                    if entry == last {
+                        return Ok(reply);
+                    }
+                    if tx <= last.0 {
+                        return Err(failure(target, "E_HYDRA_STALE", "stale parameter sequence"));
+                    }
+                }
+                prepare(Preparation::Parameter(slot, id as u32, value))
+                    .map_err(|message| failure(target, "E_HYDRA_CAPABILITY", message))?;
+                session.parameter_sequences[slot] = Some(entry);
+            }
             "present" => {
                 if tx == session.present_sequence && r.int(3) == session.selected {
                     reply.suffix = "presented";
@@ -551,6 +586,39 @@ mod tests {
         let mut args = vec![t.epoch.clone().into(), 1.into()];
         args.extend(tail);
         args
+    }
+    #[test]
+    fn numeric_updates_guard_revision_sequence_and_failure() {
+        let mut t = Transport::default();
+        open(&mut t);
+        t.session.as_mut().unwrap().revision[0] = 1;
+        let args = scoped(
+            &t,
+            vec![10.into(), 0.into(), 1.into(), 1.into(), OscType::Float(0.5)],
+        );
+        let request = Request::parse(
+            "parameter",
+            args.clone(),
+            "127.0.0.1:57120".parse().unwrap(),
+        )
+        .unwrap();
+        assert!(
+            t.execute_with(request, 0., |_| Err("unknown parameter".into()))
+                .is_err()
+        );
+        assert_eq!(t.session.as_ref().unwrap().parameter_sequences[0], None);
+        run(&mut t, "parameter", args.clone(), 0.).unwrap();
+        run(&mut t, "parameter", args, 0.).unwrap();
+        let args = scoped(
+            &t,
+            vec![9.into(), 0.into(), 1.into(), 1.into(), OscType::Float(0.7)],
+        );
+        assert!(run(&mut t, "parameter", args, 0.).is_err());
+        let args = scoped(
+            &t,
+            vec![11.into(), 0.into(), 2.into(), 1.into(), OscType::Float(0.7)],
+        );
+        assert!(run(&mut t, "parameter", args, 0.).is_err());
     }
     #[test]
     fn upload_bounds_duplicates_and_expiry() {

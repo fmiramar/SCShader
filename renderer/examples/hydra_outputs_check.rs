@@ -1,4 +1,6 @@
-//! Native production output/sampling/presentation proof; no device hooks.
+#[path = "../src/hydra/parameters.rs"]
+mod parameters;
+// Native production output/sampling/presentation proof; no device hooks.
 #[path = "../src/hydra/compiler.rs"]
 mod compiler;
 #[path = "../src/hydra/families.rs"]
@@ -19,6 +21,7 @@ use ir::{Argument, Node, Program};
 use std::{error::Error, sync::mpsc, time::Duration};
 fn program(name: &str, args: Vec<Argument>) -> Program {
     Program {
+        parameters: vec![],
         nodes: vec![Node {
             id: 1,
             name: name.into(),
@@ -252,6 +255,44 @@ fn main() -> Result<(), Box<dyn Error>> {
         );
     }
     temporal(&device, &queue)?;
+    let mut numeric = solid(0., 0., 0.);
+    numeric.parameters = vec![
+        parameters::Parameter {
+            id: 1,
+            kind: 0,
+            values: vec![0.2],
+        },
+        parameters::Parameter {
+            id: 2,
+            kind: 2,
+            values: vec![1., 0., 0., 1.],
+        },
+    ];
+    numeric.nodes[0].arguments[0] = Argument::Parameter(1);
+    numeric.nodes[0].arguments[1] = Argument::Parameter(2);
+    let mut set = outputs::Outputs::new(&device, 8, 8, wgpu::TextureFormat::Rgba8Unorm)?;
+    set.prepare(&device, 0, &numeric)?;
+    let pipeline = set.current(0).candidate._pipeline.clone();
+    set.encode_outputs(&device, &queue, 0., 0., 0);
+    let first = read(&device, &queue, &set.current(0).texture)?;
+    assert!(
+        first
+            .chunks_exact(4)
+            .all(|p| p[0].abs_diff(51) <= 1 && p[1].abs_diff(128) <= 1)
+    );
+    set.update(0, 1, 0.8)?;
+    assert!(set.update(0, 99, 0.).is_err());
+    set.encode_outputs(&device, &queue, std::f32::consts::FRAC_PI_2, 0., 1);
+    assert_eq!(pipeline, set.current(0).candidate._pipeline);
+    let second = read(&device, &queue, &set.current(0).texture)?;
+    assert!(
+        second
+            .chunks_exact(4)
+            .all(|p| p[0].abs_diff(204) <= 1 && p[1] == 255)
+    );
+    drop(set);
+    drop(pipeline);
+    println!("mutable uniform and native wave pixels PASS; pipeline retained");
     let counts = || {
         let h = instance.generate_report().unwrap().hub;
         [

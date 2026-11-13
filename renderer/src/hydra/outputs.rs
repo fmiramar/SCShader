@@ -31,6 +31,7 @@ impl Outputs {
             return Err("four-output dimensions exceed 4096/device limit".into());
         }
         let program = Program {
+            parameters: vec![],
             nodes: vec![Node {
                 id: 1,
                 name: "solid".into(),
@@ -84,18 +85,42 @@ impl Outputs {
         // Construct both images before replacing any accepted state. New WebGPU
         // textures are zero-initialized before first read (including after resize).
         let pair = [
-            Output::new(
+            Output::with_parameters(
                 device,
                 candidate.clone(),
                 self.width,
                 self.height,
                 self.format,
+                program.parameters.clone(),
             )?,
-            Output::new(device, candidate, self.width, self.height, self.format)?,
+            Output::with_parameters(
+                device,
+                candidate,
+                self.width,
+                self.height,
+                self.format,
+                program.parameters.clone(),
+            )?,
         ];
         self.slots[index] = Some(pair);
         self.programs[index] = Some(program.clone());
         self.bind(device);
+        Ok(())
+    }
+    pub fn update(&mut self, index: usize, id: u32, value: f32) -> Result<(), String> {
+        let program = self.programs[index].as_mut().ok_or("unassigned output")?;
+        let p = program
+            .parameters
+            .iter_mut()
+            .find(|p| p.id == id && p.kind == 0)
+            .ok_or("unknown mutable parameter")?;
+        if !value.is_finite() {
+            return Err("nonfinite value".into());
+        }
+        p.values[0] = value;
+        for o in self.slots[index].as_mut().unwrap() {
+            o.parameters = program.parameters.clone();
+        }
         Ok(())
     }
     fn bind(&mut self, device: &wgpu::Device) {
