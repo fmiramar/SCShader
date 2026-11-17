@@ -89,13 +89,13 @@ Declared arguments below exclude the implicit receiving chain. The factory prepe
 | `update(dt), afterUpdate(dt)` | A | Callbacks before sources/outputs and after presentation; accumulated dt in milliseconds. | NOT IMPLEMENTED |
 | `setResolution(width,height), width, height` | B | Resize canvas, output histories and sources; verify resized sampling resolution. | NOT IMPLEMENTED |
 | `init({src,dynamic}), dynamic` | C | DOM-backed source handles require an adapter; native source API may provide alternatives. | NOT IMPLEMENTED |
-| `initImage(url="", params)` | B | Asynchronous still image slot; native file/URI policy and errors must be defined. | NOT IMPLEMENTED |
-| `initVideo(url="", params)` | B | Autoplay, loop, muted dynamic video; native decoder must have bounded buffering. | NOT IMPLEMENTED |
+| `initImage(url="", params)` | B | Native alternative: `h.image(slot,path,action)`, PNG/JPEG/PNM local files. Browser URL/params parity unsupported. | IMPLEMENTED native Step 19; [IMAGES.md](IMAGES.md) |
+| `initVideo(url="", params)` | B | Native alternative: `h.video(slot,path,decoder,loop,rate,action)`, opt-in external FFmpeg and local files. Browser URL/params parity unsupported. | IMPLEMENTED native Step 20; [VIDEO.md](VIDEO.md) |
 | `initCam(index,params)` | B | Permission-controlled camera source; handle absent device. | NOT IMPLEMENTED |
 | `initScreen(index=0,params)` | B | Permission-controlled desktop capture; upstream browser helper ignores index. | NOT IMPLEMENTED |
 | `initStream(streamName,params), pb` | C | Patch-bay video event transport; adapter required, outside core. | NOT IMPLEMENTED |
 | `initCanvas(width=1000,height=1000)` | C | Returns browser 2D context; native texture bridge does not reproduce Canvas API. | NOT IMPLEMENTED |
-| `source.clear()` | B | Stops source tracks and resets to a 1x1 texture; native resources must be released. | NOT IMPLEMENTED |
+| `source.clear()` | B | Native `h.clearSource(slot,action)` releases an image/video source; cleared samples are transparent black. | IMPLEMENTED native Steps 19–20 |
 | `screencap(), getScreenImage(callback), canvasToImage(callback)` | B | One requested frame image; native file/result API must be explicit. | NOT IMPLEMENTED |
 | `vidRecorder.start(), vidRecorder.stop()` | B | Optional 25 fps canvas stream and WebM browser recording; native format/encoder declared. | NOT IMPLEMENTED |
 | `a.fft, a.vol, a.bins, a.settings` | B | Browser Meyda loudness-derived bands, not a conventional raw FFT; reuse SC analysis with documented numerical differences. | NOT IMPLEMENTED |

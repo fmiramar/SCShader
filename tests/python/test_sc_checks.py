@@ -4,10 +4,18 @@ import sys
 from unittest import TestCase
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
-from run_sc_checks import check_passed, isolated_script
+from run_sc_checks import check_passed, default_checks, isolated_script
 
 
 class SCCheckTests(TestCase):
+    def test_external_decoder_is_not_started_by_default_suite(self):
+        tests = Path(__file__).resolve().parents[1] / "sc"
+        defaults = default_checks(tests)
+        self.assertNotIn("hydra_video_smoke", defaults)
+        self.assertNotIn("timing_benchmark", defaults)
+        self.assertEqual(set(defaults), {p.stem for p in tests.glob("*.scd")}
+                         - {"hydra_video_smoke", "timing_benchmark"})
+
     def test_success_marker_cannot_hide_shutdown_or_server_errors(self):
         marker = "SCSHADER_TEST_OK\n"
         self.assertTrue(check_passed("compile_check", marker, 0))

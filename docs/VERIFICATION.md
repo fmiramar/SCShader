@@ -1,5 +1,49 @@
 # Verification
 
+## Hydra local video adapter — Step 20
+
+Parent `be96282`; source identified by the commit containing this record. Native
+macOS 26.6.2 / Apple M5 / Metal, aarch64-apple-darwin, Rust 1.97.1 and SC 3.14.1;
+version 0.0.18, dependencies and lockfile unchanged. Ordinary renderer SHA-256
+`cf491f64170bdea1af0ebb4c649e94c89904739988a94e0389603aec00fba41a`.
+The external decoder is the locally installed FFmpeg 9.0.1 GPL/version3 build;
+it is not included in the package. GStreamer launcher is absent. The adapter
+comparison, distribution decision and timing/lifetime limits are in [VIDEO.md](hydra/VIDEO.md).
+
+PASS: formatting, strict all-target/all-feature Clippy, 85 primary Rust tests
+(plus 32 example-module tests) and the separate opt-in native lifecycle test.
+The latter uses an owned one-second FFV1 test-pattern clip, tests looping beyond
+clip duration, pause/resume at that unwrapped position, rate/seek/nonlooping EOS,
+restart, bounded pending-frame overwrite, pacing, decoder failure and disappearance
+of owned decoder PIDs after cleanup. The ordinary Rust suite leaves this test
+ignored unless its decoder/clip environment is supplied. Python: 137 tests run,
+five platform skips; all remaining tests pass. The default SC suite excludes only
+the existing timing benchmark and the new opt-in video check, so ordinary checks
+do not implicitly require or launch an external decoder.
+
+Production Metal pixels pass: 32 in-place RGBA source uploads remain visible
+through unchanged bindings, with fixed texture-byte accounting. Prior source
+orientation/RGB/replacement/resize, output/temporal/numeric/presentation and
+resource-disposal checks remain enabled; ownership counts return to baseline.
+Seven installed SC checks pass: actual video example startup/control flow, image
+example, AST, four outputs, concurrent Patterns, legacy graph and texture/feedback.
+The video smoke covers loop/effect/pause/rate/seek/EOS/resize, running source
+replacement by an image, clear and free with active decoders. No owned clip decoder
+remained after the suite. Source-class compile and AST checks also pass. Ordinary
+arm64 packaging and notice assembly pass; previous extensions are backed up outside
+Extensions. The final installed package retains the same tested renderer hash.
+
+Evidence: `build/hydra-tests/video-20/` (`check.log`, `clippy-final.log`,
+`rust-final.log`, `lifecycle-final.log`, `python-final.log`, `pixels.log`,
+`source-classes-02/`, `installed-candidate/`, `installed-final/`, package logs).
+Initial borrow-check failure remains in `check.log`. An initial lifecycle test
+failed on a test-only PID/readiness race after restart; it now waits for a newly
+published frame before reading the owned PID, and the native rerun passes.
+No initial failing test assertion was removed. No private media or raw logs are
+committed. Manual file-dialog/video appearance, arbitrary codecs/HDR/VFR parity,
+source-specific recovery injection, maximum concurrency, other platforms and long
+runs are NOT RUN. Native camera/screen access remains Step 21 and requires consent.
+
 ## Hydra static image sources — Step 19
 
 Parent `d94c08d`; source identified by the commit containing this record. Native

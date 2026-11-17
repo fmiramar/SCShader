@@ -1,5 +1,10 @@
 # Implementation checkpoint
 
+Hydra Step 20: [opt-in local video](hydra/VIDEO.md) adds an external FFmpeg adapter,
+one pending frame per source, stable texture uploads and playback controls. Native
+loop/controls/cleanup, GPU pixels and seven installed SC checks pass. No decoder is
+bundled; manual video appearance, capture sources and other platforms remain open.
+
 Hydra Step 19: [static source images](hydra/IMAGES.md) add managed s0…s3 bindings,
 shared bounded PNG/JPEG/PNM decoding, atomic replacement, explicit source clearing,
 and preserved image data across window resize. Native source pixels and installed

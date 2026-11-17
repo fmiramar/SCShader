@@ -125,6 +125,25 @@ SCHydra : Object {
             presenting=false;lastError=result[\ok].if({nil},{result});action.value(result);
         }).play(SystemClock);^this
     }
+    videoRequest { |operation,slot,arguments,action|
+        var id,index=this.sourceIndex(slot),suffix=(operation=="video-status").if({"video-status.reply"},{"ack"});
+        this.checkLive;if(isReady.not or:{server.isRunning.not or:{uploading or:{presenting}}}){Error("Hydra is not ready or a request is active").throw};
+        id=this.nextSequence;presenting=true;
+        presentTask=Routine({
+            var result=this.request([("/scshader/v1/hydra/"++operation).asSymbol,epoch,session,id,index]++arguments,suffix,{|msg|msg[1].asString==epoch and:{msg[2]==session and:{msg[3]==id}}});
+            presenting=false;
+            if(result[\ok] and:{operation=="video-status"}) {
+                var msg=result[\message];result=(ok:true,state:msg[5].asString,position:msg[6],decoded:msg[7],dropped:msg[8],error:msg[9].asString);
+            };
+            lastError=result[\ok].if({nil},{result});action.value(result);
+        }).play(SystemClock);^this
+    }
+    video { |slot,path,decoder,loop=true,rate=1,action|
+        ^this.videoRequest("video",slot,[path.asString.standardizePath,decoder.asString.standardizePath,loop.if({1},{0}),rate.asFloat],action)
+    }
+    videoControl { |slot,command,value=0,action| ^this.videoRequest("video-control",slot,[command.asString,value.asFloat],action) }
+    videoStatus { |slot=\s0,action| ^this.videoRequest("video-status",slot,[],action) }
+
     clearSource { |slot=\s0,action| ^this.image(slot,nil,action) }
 
     clear { |output = \o0, action|

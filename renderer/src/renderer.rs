@@ -203,6 +203,7 @@ pub struct Renderer {
     hydra_output: Option<crate::hydra::outputs::Outputs>,
     hydra_program: [Option<crate::hydra::ir::Program>; 4],
     hydra_selected: i32,
+    hydra_videos: [Option<crate::hydra::video::Video>; 4],
     hydra_clock: Option<crate::hydra::clock::Clock>,
     hydra_diagnostic: Option<String>,
     instance: wgpu::Instance,
@@ -299,6 +300,7 @@ impl Renderer {
         Ok(())
     }
     pub fn clear_hydra_candidate(&mut self) {
+        self.hydra_videos = std::array::from_fn(|_| None);
         self.hydra_output = None;
         self.hydra_program = std::array::from_fn(|_| None);
         self.hydra_selected = -1;
@@ -646,6 +648,7 @@ impl Renderer {
             hydra_program: std::array::from_fn(|_| None),
             hydra_selected: -1,
             hydra_clock: None,
+            hydra_videos: std::array::from_fn(|_| None),
             hydra_diagnostic: None,
             last_reload_check: Instant::now(),
             last_uniform_time: 0.0,
@@ -758,6 +761,7 @@ impl Renderer {
     }
 
     pub fn recover(mut self, vsync: bool) -> Result<Self, String> {
+        let videos = std::mem::replace(&mut self.hydra_videos, std::array::from_fn(|_| None));
         let hydra_state = (
             self.hydra_program.clone(),
             self.hydra_selected,
@@ -933,6 +937,7 @@ impl Renderer {
         }
         restored.select_hydra(hydra_state.1)?;
         restored.hydra_clock = hydra_state.2;
+        restored.hydra_videos = videos;
         restored.queue.submit([]);
         restored.poll_gpu();
         if let Some(issue) = restored.gpu_issue() {
@@ -1093,6 +1098,69 @@ impl Renderer {
             .map(|image| image.to_rgba8())
             .map_err(|error| error.to_string())
     }
+    pub fn load_hydra_video(
+        &mut self,
+        slot: usize,
+        path: &str,
+        decoder: &str,
+        looping: bool,
+        rate: f32,
+    ) -> Result<(), String> {
+        let video = crate::hydra::video::Video::new(path, decoder, looping, rate)?;
+        self.hydra_videos[slot] = Some(video);
+        Ok(())
+    }
+    pub fn control_hydra_video(
+        &mut self,
+        slot: usize,
+        command: &str,
+        value: f32,
+    ) -> Result<(), String> {
+        self.hydra_videos[slot]
+            .as_ref()
+            .ok_or("source is not video")?
+            .control(command, value)
+    }
+    pub fn hydra_video_status(&self, slot: usize) -> Result<crate::hydra::video::Snapshot, String> {
+        Ok(self.hydra_videos[slot]
+            .as_ref()
+            .ok_or("source is not video")?
+            .snapshot())
+    }
+    fn upload_hydra_video_frames(&mut self) {
+        for slot in 0..4 {
+            let frame = self.hydra_videos[slot].as_ref().and_then(|v| v.take());
+            if let Some(pixels) = frame {
+                if self.hydra_output.is_none() {
+                    match crate::hydra::outputs::Outputs::new(
+                        &self.device,
+                        self.config.width,
+                        self.config.height,
+                        self.config.format,
+                    ) {
+                        Ok(o) => self.hydra_output = Some(o),
+                        Err(e) => {
+                            self.hydra_diagnostic = Some(e);
+                            continue;
+                        }
+                    }
+                }
+                let outputs = self.hydra_output.as_mut().unwrap();
+                if let Some(source) = outputs.sources[slot].as_mut().filter(|s| {
+                    s.texture.width() == pixels.width() && s.texture.height() == pixels.height()
+                }) {
+                    if let Err(e) = source.update(&self.queue, pixels) {
+                        self.hydra_diagnostic = Some(e);
+                    }
+                } else {
+                    match crate::hydra::outputs::Source::new(&self.device, &self.queue, pixels) {
+                        Ok(source) => outputs.set_source(&self.device, slot, Some(source)),
+                        Err(e) => self.hydra_diagnostic = Some(e),
+                    }
+                }
+            }
+        }
+    }
     pub fn load_hydra_image(&mut self, slot: usize, path: &str) -> Result<(), String> {
         let source = if path.is_empty() {
             None
@@ -1111,6 +1179,7 @@ impl Renderer {
                 self.config.format,
             )?);
         }
+        self.hydra_videos[slot] = None;
         self.hydra_output
             .as_mut()
             .unwrap()
@@ -1707,6 +1776,7 @@ impl Renderer {
                 label: Some("SCShader frame encoder"),
             });
 
+        self.upload_hydra_video_frames();
         if self.hydra_selected >= 0 {
             if let Some(output) = &mut self.hydra_output {
                 let frame = self.hydra_clock.map_or_else(

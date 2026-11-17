@@ -284,6 +284,25 @@ fn main() -> Result<(), Box<dyn Error>> {
             expected,
             "Image row orientation/color changed"
         );
+        // Video frames update the already bound texture, without set_source/rebinding.
+        for n in 0..32 {
+            sources.sources[0].as_mut().unwrap().update(
+                &queue,
+                std::sync::Arc::new(image::RgbaImage::from_pixel(
+                    8,
+                    8,
+                    image::Rgba([n, 60, 120, 255]),
+                )),
+            )?;
+            sources.encode_outputs(&device, &queue, 0., 0., n as u32);
+            assert!(
+                read(&device, &queue, &sources.current(0).texture)?
+                    .chunks_exact(4)
+                    .all(|p| p == [n, 60, 120, 255])
+            );
+            assert_eq!(sources.texture_bytes(), 4 + 2 * 8 * 8 * 4 + 8 * 8 * 4);
+        }
+        println!("video uploads: 32 in-place RGBA updates through unchanged source bindings PASS");
         for n in 0..32 {
             let image = std::sync::Arc::new(image::RgbaImage::from_pixel(
                 4,

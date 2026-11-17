@@ -315,6 +315,20 @@ impl App {
                             crate::hydra::Preparation::Commit(output, program) => {
                                 renderer.prepare_hydra(output, program)
                             }
+                            crate::hydra::Preparation::Video(
+                                slot,
+                                path,
+                                decoder,
+                                looping,
+                                rate,
+                            ) => renderer.load_hydra_video(slot, path, decoder, looping, rate),
+                            crate::hydra::Preparation::VideoControl(slot, command, value) => {
+                                renderer.control_hydra_video(slot, command, value)
+                            }
+                            crate::hydra::Preparation::VideoStatus(slot, status) => {
+                                *status = renderer.hydra_video_status(slot)?;
+                                Ok(())
+                            }
                             crate::hydra::Preparation::Image(slot, path) => {
                                 renderer.load_hydra_image(slot, path)
                             }

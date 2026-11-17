@@ -2,7 +2,9 @@
 
 2026-11-13. Additive to [SCShader v1](protocol.md) and implementing the first
 output/temporal portion of [ADR 001](../docs/hydra/ARCHITECTURE.md). 50 procedural/composition/modulation operators plus output-only `src` and native `prev`,
-four paired output histories and presentation are available. Live media sources remain unavailable. Step 15 adds the bounded numeric API below.
+four paired output histories and presentation are available. Steps 19–20 add image
+and opt-in local video sources; camera/screen sources remain unavailable.
+Step 15 adds the bounded numeric API below.
 
 All suffixes below use `/scshader/v1/hydra/`. Fields use ordinary OSC types:
 `i` = int32, `s` = string, `b` = blob. Clock and single numeric parameter controls may use inherited future timetags.
@@ -30,7 +32,7 @@ session; retrying a closed handle currently reports `E_HYDRA_SESSION`.
 
 `limits` is exactly five big-endian u32 values, in order: maximum IR bytes
 (65536), chunk bytes (2048), nodes (256), depth (64), expanded operations (4096).
-`features` is `staging-ir-v1;wgsl-v1:<comma-separated supported registry names>;output-o0-v1;outputs-temporal-v1;numeric-v1;clock-v1;image-sources-v1`. The 52 names and their defaults/types are in `renderer/src/hydra/registry.rs`; discovery order is not an ABI guarantee.
+`features` is `staging-ir-v1;wgsl-v1:<comma-separated supported registry names>;output-o0-v1;outputs-temporal-v1;numeric-v1;clock-v1;image-sources-v1;video-ffmpeg-v1`. The 52 names and their defaults/types are in `renderer/src/hydra/registry.rs`; discovery order is not an ABI guarantee.
 This narrower discovery payload supersedes the ADR's provisional full-limit
 payload for the staging feature only. Future compiler/source/presentation
 capabilities must explicitly document their additional fields before advertising.
@@ -102,3 +104,26 @@ Step 16 adds `clock(epoch:s,session:i,sequence:i,bpm:f,speed:f,phase:f,setPhase:
 Step 18 makes parameter sequence guards independent per `(output revision, parameter ID)`, using a fixed 4×256 table cleared on accepted output replacement. Distinct controls may interleave without rejecting each other; same-parameter stale updates remain rejected. Wire fields do not change.
 
 Step 19 advertises `image-sources-v1` and adds immediate `image(epoch:s,session:i,sequence:i,slot:i,path:s)` with ack, empty-path clear, per-slot retry/sequence guards and E_HYDRA_IMAGE. HYIR sampler tag 3 is source s0…s3, distinct from output tag 4. [IMAGES.md](../docs/hydra/IMAGES.md) defines decoding, lifecycle, aspect/color policy and limits; earlier media-unavailable statements describe previous checkpoints.
+
+Step 20 advertises `video-ffmpeg-v1` (adapter available; an external FFmpeg executable
+is still required). All video requests are immediate-only and session/owner scoped:
+
+| Request | Arguments | Reply |
+| --- | --- | --- |
+| video | epoch:s, session:i, sequence:i, slot:i, path:s, decoder:s, loop:i, rate:f | ack(epoch, session, sequence), after worker acceptance |
+| video-control | epoch:s, session:i, sequence:i, slot:i, command:s, value:f | ack(epoch, session, sequence) |
+| video-status | epoch:s, session:i, request:i, slot:i | video-status.reply(epoch, session, request, slot:i, state:s, position:f, decoded:i, dropped:i, error:s) |
+
+Slots are 0…3; paths are nonempty, NUL-free and at most 4096 UTF-8 bytes. The
+executable path must be absolute. Initial loop is 0/1 and rate is finite 0.1…4.
+Controls are play/pause (value 0), loop (0/1), rate (0.1…4) and seek (0…86400
+seconds). Image, video and video-control share one accepted sequence/signature
+per slot. An exact retry acknowledges without repeating its effect; older or
+conflicting sequences fail E_HYDRA_STALE. Failed preparation does not advance
+that sequence. Status queries do not mutate ordering.
+
+Preflight/control/status errors use E_HYDRA_VIDEO. Decoding is asynchronous:
+accepted media can later fail, reported by video-status, while the retained
+picture remains. [VIDEO.md](../docs/hydra/VIDEO.md) defines resampled timestamps,
+one-frame pending queue, stable texture uploads, controls/EOS and cleanup. No
+native video audio, camera/screen capture, or original-packet PTS is promised.

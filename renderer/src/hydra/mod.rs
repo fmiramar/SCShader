@@ -9,6 +9,7 @@ pub mod output;
 pub mod outputs;
 pub mod parameters;
 pub mod registry;
+pub mod video;
 use crate::protocol::{ErrorReply, ReplyTarget};
 use rosc::OscType;
 use std::{
@@ -65,6 +66,30 @@ impl Request {
             }
             "commit" | "abort" | "close" => {
                 args.len() == 3 && scoped && integer(&args, 2, 1, i32::MAX)
+            }
+            "video" => {
+                args.len() == 8
+                    && scoped
+                    && integer(&args, 2, 1, i32::MAX)
+                    && integer(&args, 3, 0, 3)
+                    && matches!(&args[4],OscType::String(p) if !p.is_empty() && p.len()<=4096 && !p.contains('\0'))
+                    && matches!(&args[5],OscType::String(p) if !p.is_empty() && p.len()<=4096 && !p.contains('\0'))
+                    && integer(&args, 6, 0, 1)
+                    && matches!(args[7],OscType::Float(v) if v.is_finite() && (0.1..=4.).contains(&v))
+            }
+            "video-control" => {
+                args.len() == 6
+                    && scoped
+                    && integer(&args, 2, 1, i32::MAX)
+                    && integer(&args, 3, 0, 3)
+                    && matches!(&args[4],OscType::String(c) if ["play","pause","loop","seek","rate"].contains(&c.as_str()))
+                    && matches!(args[5],OscType::Float(v) if v.is_finite() && (0.0..=86400.).contains(&v))
+            }
+            "video-status" => {
+                args.len() == 4
+                    && scoped
+                    && integer(&args, 2, 1, i32::MAX)
+                    && integer(&args, 3, 0, 3)
             }
             "image" => {
                 args.len() == 5
@@ -171,7 +196,7 @@ struct Session {
     committed_outputs: VecDeque<(i32, i32)>,
     selected: i32,
     present_sequence: i32,
-    image_sequences: [Option<(i32, String)>; 4],
+    source_sequences: [Option<(i32, String)>; 4],
     clock_sequence: Option<(i32, f32, f32, f32, i32)>,
     parameter_sequences: [[Option<(i32, f32)>; 256]; 4],
     upload: Option<Upload>,
@@ -183,6 +208,9 @@ pub enum Preparation<'a> {
     Parameter(usize, u32, f32),
     Clock(f32, f32, Option<f32>),
     Image(usize, &'a str),
+    Video(usize, &'a str, &'a str, bool, f32),
+    VideoControl(usize, &'a str, f32),
+    VideoStatus(usize, &'a mut video::Snapshot),
 }
 pub struct Transport {
     epoch: String,
@@ -262,7 +290,10 @@ impl Transport {
             Preparation::Present(_)
             | Preparation::Clock(..)
             | Preparation::Parameter(..)
-            | Preparation::Image(..) => Ok(()),
+            | Preparation::Image(..)
+            | Preparation::Video(..)
+            | Preparation::VideoControl(..)
+            | Preparation::VideoStatus(..) => Ok(()),
         })
     }
     pub fn execute_with(
@@ -292,7 +323,7 @@ impl Transport {
                     0.into(),
                     OscType::Blob(limits.into_iter().flat_map(u32::to_be_bytes).collect()),
                     format!(
-                        "staging-ir-v1;wgsl-v1:{};output-o0-v1;outputs-temporal-v1;numeric-v1;clock-v1;image-sources-v1",
+                        "staging-ir-v1;wgsl-v1:{};output-o0-v1;outputs-temporal-v1;numeric-v1;clock-v1;image-sources-v1;video-ffmpeg-v1",
                         registry::supported()
                             .map(|s| s.name)
                             .collect::<Vec<_>>()
@@ -333,7 +364,7 @@ impl Transport {
                     present_sequence: 0,
                     parameter_sequences: [[None; 256]; 4],
                     clock_sequence: None,
-                    image_sequences: std::array::from_fn(|_| None),
+                    source_sequences: std::array::from_fn(|_| None),
                     upload: None,
                     results: VecDeque::new(),
                 });
@@ -366,6 +397,22 @@ impl Transport {
             suffix: "ack",
             args: vec![self.epoch.clone().into(), session.id.into(), tx.into()],
         };
+        let source_signature =
+            if ["image", "video", "video-control"].contains(&r.operation.as_str()) {
+                let slot = r.int(3) as usize;
+                let sig = format!("{}:{:?}", r.operation, &r.args[4..]);
+                if let Some((last, old)) = &session.source_sequences[slot] {
+                    if tx == *last && *old == sig {
+                        return Ok(reply);
+                    }
+                    if tx <= *last {
+                        return Err(failure(target, "E_HYDRA_STALE", "stale source sequence"));
+                    }
+                }
+                Some((slot, sig))
+            } else {
+                None
+            };
         match r.operation.as_str() {
             "begin" => {
                 if let Some(u) = &session.upload {
@@ -506,22 +553,51 @@ impl Transport {
                 }
                 reply.suffix = "aborted";
             }
+            "video" => {
+                let OscType::Float(rate) = r.args[7] else {
+                    unreachable!()
+                };
+                prepare(Preparation::Video(
+                    r.int(3) as usize,
+                    r.text(4),
+                    r.text(5),
+                    r.int(6) == 1,
+                    rate,
+                ))
+                .map_err(|e| failure(target, "E_HYDRA_VIDEO", e))?;
+            }
+            "video-control" => {
+                let OscType::Float(value) = r.args[5] else {
+                    unreachable!()
+                };
+                prepare(Preparation::VideoControl(
+                    r.int(3) as usize,
+                    r.text(4),
+                    value,
+                ))
+                .map_err(|e| failure(target, "E_HYDRA_VIDEO", e))?;
+            }
+            "video-status" => {
+                let mut status = video::Snapshot::default();
+                prepare(Preparation::VideoStatus(r.int(3) as usize, &mut status))
+                    .map_err(|e| failure(target, "E_HYDRA_VIDEO", e))?;
+                reply.suffix = "video-status.reply";
+                reply.args.extend([
+                    r.int(3).into(),
+                    status.state.into(),
+                    OscType::Float(status.position),
+                    status.decoded.into(),
+                    status.dropped.into(),
+                    status.error.into(),
+                ]);
+            }
             "image" => {
                 let slot = r.int(3) as usize;
                 let OscType::String(path) = &r.args[4] else {
                     unreachable!()
                 };
-                if let Some((last, old)) = &session.image_sequences[slot] {
-                    if tx == *last && path == old {
-                        return Ok(reply);
-                    }
-                    if tx <= *last {
-                        return Err(failure(target, "E_HYDRA_STALE", "stale image sequence"));
-                    }
-                }
                 prepare(Preparation::Image(slot, path))
                     .map_err(|m| failure(target, "E_HYDRA_IMAGE", m))?;
-                session.image_sequences[slot] = Some((tx, path.clone()));
             }
             "clock" => {
                 let (OscType::Float(bpm), OscType::Float(speed), OscType::Float(phase)) =
@@ -618,8 +694,12 @@ impl Transport {
             "close" => {
                 self.session = None;
                 reply.suffix = "closed";
+                return Ok(reply);
             }
             _ => unreachable!(),
+        }
+        if let Some((slot, signature)) = source_signature {
+            session.source_sequences[slot] = Some((tx, signature));
         }
         Ok(reply)
     }
@@ -688,13 +768,62 @@ mod tests {
             t.execute_with(request, 0., |_| Err("decode failed".into()))
                 .is_err()
         );
-        assert!(t.session.as_ref().unwrap().image_sequences[0].is_none());
+        assert!(t.session.as_ref().unwrap().source_sequences[0].is_none());
         run(&mut t, "image", args.clone(), 0.).unwrap();
         run(&mut t, "image", args, 0.).unwrap();
         let args = scoped(&t, vec![9.into(), 1.into(), "other.ppm".into()]);
         run(&mut t, "image", args, 0.).unwrap();
         let args = scoped(&t, vec![8.into(), 0.into(), "".into()]);
         assert!(run(&mut t, "image", args, 0.).is_err());
+    }
+    #[test]
+    fn video_image_and_controls_share_slot_ordering() {
+        let mut t = Transport::default();
+        open(&mut t);
+        let args = scoped(
+            &t,
+            vec![
+                10.into(),
+                0.into(),
+                "clip.mkv".into(),
+                "/decoder".into(),
+                1.into(),
+                OscType::Float(1.),
+            ],
+        );
+        let request = Request::parse("video", args.clone(), sender()).unwrap();
+        assert!(
+            t.execute_with(request, 0., |_| Err("decoder unavailable".into()))
+                .is_err()
+        );
+        assert!(t.session.as_ref().unwrap().source_sequences[0].is_none());
+        run(&mut t, "video", args.clone(), 0.).unwrap();
+        let request = Request::parse("video", args, sender()).unwrap();
+        t.execute_with(request, 0., |_| panic!("duplicate restarted decoder"))
+            .unwrap();
+        let args = scoped(
+            &t,
+            vec![11.into(), 0.into(), "pause".into(), OscType::Float(0.)],
+        );
+        run(&mut t, "video-control", args, 0.).unwrap();
+        let args = scoped(&t, vec![10.into(), 0.into(), "old.ppm".into()]);
+        assert!(run(&mut t, "image", args, 0.).is_err());
+        let args = scoped(&t, vec![10.into(), 1.into(), "independent.ppm".into()]);
+        run(&mut t, "image", args, 0.).unwrap();
+        let args = scoped(&t, vec![12.into(), 0.into()]);
+        let request = Request::parse("video-status", args, sender()).unwrap();
+        let reply = t
+            .execute_with(request, 0., |p| {
+                if let Preparation::VideoStatus(_, status) = p {
+                    status.state = "playing".into();
+                    status.decoded = 7;
+                }
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(reply.suffix, "video-status.reply");
+        assert_eq!(reply.args[4], OscType::String("playing".into()));
+        assert_eq!(reply.args[6], OscType::Int(7));
     }
     #[test]
     fn concurrent_parameters_keep_independent_sequence_order() {

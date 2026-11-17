@@ -53,6 +53,27 @@ impl Source {
         }
         Ok(Self { texture, pixels })
     }
+    pub fn update(
+        &mut self,
+        queue: &wgpu::Queue,
+        pixels: std::sync::Arc<image::RgbaImage>,
+    ) -> Result<(), String> {
+        if pixels.dimensions() != (self.texture.width(), self.texture.height()) {
+            return Err("source frame dimensions changed".into());
+        }
+        queue.write_texture(
+            self.texture.as_image_copy(),
+            pixels.as_raw(),
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(pixels.width() * 4),
+                rows_per_image: Some(pixels.height()),
+            },
+            self.texture.size(),
+        );
+        self.pixels = pixels;
+        Ok(())
+    }
 }
 pub struct Outputs {
     pub sources: [Option<Source>; 4],
