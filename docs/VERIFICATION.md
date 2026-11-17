@@ -2,7 +2,7 @@
 
 ## Hydra local video adapter — Step 20
 
-Parent `be96282`; source identified by the commit containing this record. Native
+Implementation `8f7bceb` (parent `be96282`). Native
 macOS 26.6.2 / Apple M5 / Metal, aarch64-apple-darwin, Rust 1.97.1 and SC 3.14.1;
 version 0.0.18, dependencies and lockfile unchanged. Ordinary renderer SHA-256
 `cf491f64170bdea1af0ebb4c649e94c89904739988a94e0389603aec00fba41a`.
@@ -40,7 +40,10 @@ Initial borrow-check failure remains in `check.log`. An initial lifecycle test
 failed on a test-only PID/readiness race after restart; it now waits for a newly
 published frame before reading the owned PID, and the native rerun passes.
 No initial failing test assertion was removed. No private media or raw logs are
-committed. Manual file-dialog/video appearance, arbitrary codecs/HDR/VFR parity,
+committed. On 2026-11-17, the user reports that the installed video example seems
+to be working fine. This confirms observed appearance on the tested machine, without
+claiming a separate manual check of every control. Individual file-dialog behavior,
+arbitrary codecs/HDR/VFR parity,
 source-specific recovery injection, maximum concurrency, other platforms and long
 runs are NOT RUN. Native camera/screen access remains Step 21 and requires consent.
 
