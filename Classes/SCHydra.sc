@@ -107,7 +107,25 @@ SCHydra : Object {
 
     prev { this.checkLive; ^SCHydraExpr.new(this, \prev, []) }
 
-    src { |output = \o0| ^SCHydraExpr.new(this, \src, [this.outputIndex(output)]) }
+    sourceIndex { |slot|
+        ^switch(slot,\s0,{0},\s1,{1},\s2,{2},\s3,{3},{Error("Hydra source must be s0, s1, s2 or s3").throw})
+    }
+    src { |slot = \o0|
+        var ref;
+        this.checkLive;
+        ref=([\s0,\s1,\s2,\s3].includes(slot)).if({[\source,this.sourceIndex(slot)]},{[\output,this.outputIndex(slot)]});
+        ^SCHydraExpr.new(this,\src,[ref])
+    }
+    image { |slot,path,action|
+        var id,index=this.sourceIndex(slot),file=path.isNil.if({""},{path.asString.standardizePath});
+        this.checkLive;if(isReady.not or:{server.isRunning.not or:{uploading or:{presenting}}}){Error("Hydra is not ready or a request is active").throw};
+        id=this.nextSequence;presenting=true;
+        presentTask=Routine({
+            var result=this.request(['/scshader/v1/hydra/image',epoch,session,id,index,file],"ack",{|msg|msg[1].asString==epoch and:{msg[2]==session and:{msg[3]==id}}});
+            presenting=false;lastError=result[\ok].if({nil},{result});action.value(result);
+        }).play(SystemClock);^this
+    }
+    clearSource { |slot=\s0,action| ^this.image(slot,nil,action) }
 
     clear { |output = \o0, action|
         this.solid(0,0,0,0).out(output, action); ^this

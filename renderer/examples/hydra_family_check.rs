@@ -33,7 +33,7 @@ fn defaults(spec: &registry::Spec) -> Vec<Argument> {
     spec.args
         .iter()
         .map(|kind| match kind {
-            registry::ValueType::Output => unreachable!(),
+            registry::ValueType::Texture => unreachable!(),
             registry::ValueType::Expression => Argument::Expression(6),
             registry::ValueType::Float => {
                 let value = spec._defaults[cursor];
@@ -135,7 +135,7 @@ fn reference(
                         .collect::<Vec<_>>()
                         .join(",")
                 ),
-                Argument::Output(_) => unreachable!(),
+                Argument::Output(_) | Argument::Source(_) => unreachable!(),
                 Argument::Expression(id) => format!("ref{id}(p)"),
             })
             .collect::<Vec<_>>()
@@ -286,6 +286,7 @@ fn checked(program: Program) -> Program {
                         bytes.extend(value.to_be_bytes());
                     }
                 }
+                Argument::Source(_) => unreachable!(),
                 Argument::Output(slot) => {
                     bytes.extend([4, slot]);
                 }

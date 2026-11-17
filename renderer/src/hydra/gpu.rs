@@ -55,7 +55,7 @@ impl Candidate {
             .iter()
             .any(|node| matches!(node.name.as_str(), "src" | "prev"))
             .then(|| {
-                let mut entries = [0, 1, 2, 3, 5]
+                let mut entries = [0, 1, 2, 3, 5, 6, 7, 8, 9]
                     .into_iter()
                     .map(|binding| wgpu::BindGroupLayoutEntry {
                         binding,

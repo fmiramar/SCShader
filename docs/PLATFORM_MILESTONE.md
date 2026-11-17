@@ -1,5 +1,11 @@
 # Milestone P1 — native desktop compatibility first
 
+Hydra Step 19: [static source images](hydra/IMAGES.md) add managed s0…s3 bindings,
+shared bounded PNG/JPEG/PNM decoding, atomic replacement, explicit source clearing,
+and preserved image data across window resize. Native source pixels and installed
+examples pass; manual appearance and video/media decoding remain separate.
+
+
 Hydra Step 18 / Checkpoint C: [Pattern controls](hydra/PATTERNS.md) run two
 concurrent numeric Pbinds alongside an audio Pbind on one TempoClock. Existing
 shader Event behavior is preserved. Ordering is independent per parameter;

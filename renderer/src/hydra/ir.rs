@@ -9,6 +9,7 @@ pub enum Argument {
     Float(f32),
     Parameter(u32),
     Output(u8),
+    Source(u8),
     Vector([f32; 4]),
     Expression(u32),
 }
@@ -138,7 +139,14 @@ impl Program {
                         }
                         arguments.push(Argument::Parameter(id));
                     }
-                    4 if *expected_type == ValueType::Output => {
+                    3 if *expected_type == ValueType::Texture => {
+                        let slot = input.byte()?;
+                        if slot > 3 {
+                            return Err("invalid source slot".into());
+                        }
+                        arguments.push(Argument::Source(slot));
+                    }
+                    4 if *expected_type == ValueType::Texture => {
                         let slot = input.byte()?;
                         if slot > 3 {
                             return Err("invalid output slot".into());

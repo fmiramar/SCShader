@@ -2,7 +2,7 @@
 
 2026-11-13. Additive to [SCShader v1](protocol.md) and implementing the first
 output/temporal portion of [ADR 001](../docs/hydra/ARCHITECTURE.md). 50 procedural/composition/modulation operators plus output-only `src` and native `prev`,
-four paired output histories and presentation are available. Media sources remain unavailable. Step 15 adds the bounded numeric API below.
+four paired output histories and presentation are available. Live media sources remain unavailable. Step 15 adds the bounded numeric API below.
 
 All suffixes below use `/scshader/v1/hydra/`. Fields use ordinary OSC types:
 `i` = int32, `s` = string, `b` = blob. Clock and single numeric parameter controls may use inherited future timetags.
@@ -30,7 +30,7 @@ session; retrying a closed handle currently reports `E_HYDRA_SESSION`.
 
 `limits` is exactly five big-endian u32 values, in order: maximum IR bytes
 (65536), chunk bytes (2048), nodes (256), depth (64), expanded operations (4096).
-`features` is `staging-ir-v1;wgsl-v1:<comma-separated supported registry names>;output-o0-v1;outputs-temporal-v1;numeric-v1;clock-v1`. The 52 names and their defaults/types are in `renderer/src/hydra/registry.rs`; discovery order is not an ABI guarantee.
+`features` is `staging-ir-v1;wgsl-v1:<comma-separated supported registry names>;output-o0-v1;outputs-temporal-v1;numeric-v1;clock-v1;image-sources-v1`. The 52 names and their defaults/types are in `renderer/src/hydra/registry.rs`; discovery order is not an ABI guarantee.
 This narrower discovery payload supersedes the ADR's provisional full-limit
 payload for the staging feature only. Future compiler/source/presentation
 capabilities must explicitly document their additional fields before advertising.
@@ -100,3 +100,5 @@ Step 15 advertises `numeric-v1`, accepts HYIR 1.1 numeric declarations and scala
 Step 16 adds `clock(epoch:s,session:i,sequence:i,bpm:f,speed:f,phase:f,setPhase:i)` returning ack, timed admission of clock/parameter controls, and HYIR 1.1 numeric kinds 4/5/6 for beat/frame/delta. [CLOCK.md](../docs/hydra/CLOCK.md) defines units, bounds, ordering, reset and application timing. Structural timed requests still fail atomically.
 
 Step 18 makes parameter sequence guards independent per `(output revision, parameter ID)`, using a fixed 4×256 table cleared on accepted output replacement. Distinct controls may interleave without rejecting each other; same-parameter stale updates remain rejected. Wire fields do not change.
+
+Step 19 advertises `image-sources-v1` and adds immediate `image(epoch:s,session:i,sequence:i,slot:i,path:s)` with ack, empty-path clear, per-slot retry/sequence guards and E_HYDRA_IMAGE. HYIR sampler tag 3 is source s0…s3, distinct from output tag 4. [IMAGES.md](../docs/hydra/IMAGES.md) defines decoding, lifecycle, aspect/color policy and limits; earlier media-unavailable statements describe previous checkpoints.

@@ -763,6 +763,9 @@ impl Renderer {
             self.hydra_selected,
             self.hydra_clock,
             self.hydra_output.as_ref().map(|output| output.dimensions()),
+            self.hydra_output.as_ref().map(|o| {
+                std::array::from_fn::<_, 4, _>(|i| o.sources[i].as_ref().map(|s| s.pixels.clone()))
+            }),
         );
         let shaders: Vec<_> = self
             .shaders
@@ -906,6 +909,22 @@ impl Renderer {
                 height,
                 restored.config.format,
             )?);
+        }
+        if let Some(sources) = hydra_state.4 {
+            for (i, pixels) in sources.into_iter().enumerate() {
+                if let Some(pixels) = pixels {
+                    let source = crate::hydra::outputs::Source::new(
+                        &restored.device,
+                        &restored.queue,
+                        pixels,
+                    )?;
+                    restored.hydra_output.as_mut().unwrap().set_source(
+                        &restored.device,
+                        i,
+                        Some(source),
+                    );
+                }
+            }
         }
         for (i, program) in hydra_state.0.iter().enumerate() {
             if let Some(program) = program {
@@ -1059,6 +1078,45 @@ impl Renderer {
             .map(|shader| &shader.controls)
     }
 
+    fn decode_image(&self, path: &std::path::Path) -> Result<image::RgbaImage, String> {
+        let mut reader = image::ImageReader::open(path).map_err(|error| error.to_string())?;
+        let mut limits = image::Limits::default();
+        // Bound both cached RGBA storage and device dimensions. The decoder's
+        // allocation hint is additional protection, not a hard process cap.
+        let dimension = 4096.min(self.device.limits().max_texture_dimension_2d);
+        limits.max_image_width = Some(dimension);
+        limits.max_image_height = Some(dimension);
+        limits.max_alloc = Some(128 * 1024 * 1024);
+        reader.limits(limits);
+        reader
+            .decode()
+            .map(|image| image.to_rgba8())
+            .map_err(|error| error.to_string())
+    }
+    pub fn load_hydra_image(&mut self, slot: usize, path: &str) -> Result<(), String> {
+        let source = if path.is_empty() {
+            None
+        } else {
+            Some(crate::hydra::outputs::Source::new(
+                &self.device,
+                &self.queue,
+                std::sync::Arc::new(self.decode_image(std::path::Path::new(path))?),
+            )?)
+        };
+        if self.hydra_output.is_none() {
+            self.hydra_output = Some(crate::hydra::outputs::Outputs::new(
+                &self.device,
+                self.config.width,
+                self.config.height,
+                self.config.format,
+            )?);
+        }
+        self.hydra_output
+            .as_mut()
+            .unwrap()
+            .set_source(&self.device, slot, source);
+        Ok(())
+    }
     pub fn create_texture(&mut self, texture_id: i32, path: PathBuf) -> Result<(), String> {
         if texture_id <= 0 {
             return Err("texture ID must be positive".to_owned());
@@ -1066,21 +1124,7 @@ impl Renderer {
         if self.textures.contains_key(&texture_id) {
             return Err(format!("texture resource {texture_id} already exists"));
         }
-        let decoded = (|| {
-            let mut reader = image::ImageReader::open(&path).map_err(|error| error.to_string())?;
-            let mut limits = image::Limits::default();
-            // Bound both cached RGBA storage and device dimensions. The decoder's
-            // allocation hint is additional protection, not a hard process cap.
-            let dimension = 4096.min(self.device.limits().max_texture_dimension_2d);
-            limits.max_image_width = Some(dimension);
-            limits.max_image_height = Some(dimension);
-            limits.max_alloc = Some(128 * 1024 * 1024);
-            reader.limits(limits);
-            reader
-                .decode()
-                .map(|image| image.to_rgba8())
-                .map_err(|error| error.to_string())
-        })();
+        let decoded = self.decode_image(&path);
         let image = match decoded {
             Ok(image) => image,
             Err(error) => {

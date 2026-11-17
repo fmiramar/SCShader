@@ -140,13 +140,15 @@ fn lower(program: &Program) -> Result<Vec<(u32, Operation)>, String> {
                 (0, Operation::Sample(5))
             }
             "src" => {
-                let [Argument::Output(slot)] = node.arguments.as_slice() else {
-                    return Err("src requires output slot".into());
+                let (slot, source) = match node.arguments.as_slice() {
+                    [Argument::Output(i)] => (*i, false),
+                    [Argument::Source(i)] => (*i, true),
+                    _ => return Err("src requires a source/output slot".into()),
                 };
-                if *slot > 3 {
-                    return Err("invalid output slot".into());
+                if slot > 3 {
+                    return Err("invalid texture slot".into());
                 }
-                (0, Operation::Sample(*slot))
+                (0, Operation::Sample(if source { slot + 6 } else { slot }))
             }
             "solid" => (0, Operation::Solid(scalars(&node.arguments)?)),
             "osc" => {
@@ -269,7 +271,7 @@ pub fn compile(program: &Program) -> Result<String, String> {
         .any(|node| matches!(node.name.as_str(), "src" | "prev"))
     {
         source.push_str("@group(1) @binding(4) var output_sampler: sampler;\n");
-        for slot in [0, 1, 2, 3, 5] {
+        for slot in [0, 1, 2, 3, 5, 6, 7, 8, 9] {
             writeln!(
                 source,
                 "@group(1) @binding({slot}) var output{slot}: texture_2d<f32>;"

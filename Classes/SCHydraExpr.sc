@@ -74,8 +74,8 @@ SCHydraExpr : Object {
                     Error("SCHydra nested expression belongs to another session or is invalid.").throw;
                 };
             } {
-                if(spec[1][index] == \output) {
-                    if(value.isInteger.not or: { value < 0 or: { value > 3 } }) { Error("Invalid output slot").throw };
+                if(spec[1][index] == \texture) {
+                    if(value.isArray.not or:{value.size!=2 or:{[\output,\source].includes(value[0]).not or:{value[1].isInteger.not or:{value[1]<0 or:{value[1]>3}}}}}) {Error("Invalid texture reference").throw};
                 } {
                     if(value.isKindOf(SCHydraNumber)) {
                         if(value.hydra!==hydra or:{spec[1][index]!=\float}) {Error("Invalid Hydra numeric argument").throw};
@@ -118,7 +118,7 @@ SCHydraExpr : Object {
 
     spec { |name|
         ^switch(name,
-            \src, { [\src, [\output]] },
+            \src, { [\src, [\texture]] },
             \prev, { [\src, []] },
             \noise, { [\src, [\float, \float]] },
             \voronoi, { [\src, [\float, \float, \float]] },
@@ -194,8 +194,8 @@ SCHydraExpr : Object {
         operations.do { |operation|
             var name = operation[0], args = operation[1], spec = this.spec(name), encodedArgs;
             encodedArgs = args.collect { |value, index|
-                value.isKindOf(SCHydraExpr).if({ [\expr, value.collectNodes(nodes, visiting, memo, depth + 1)] },
-                    { value.isKindOf(SCHydraNumber).if({[\number,value]}, { [spec[1][index], (spec[1][index] == \output).if({ value }, { ShaderDef.validateValue(spec[1][index], value) })] }) });
+                (spec[1][index]==\texture).if({value.copy},{value.isKindOf(SCHydraExpr).if({ [\expr, value.collectNodes(nodes, visiting, memo, depth + 1)] },
+                    { value.isKindOf(SCHydraNumber).if({[\number,value]}, { [spec[1][index], (spec[1][index] == \output).if({ value }, { ShaderDef.validateValue(spec[1][index], value) })] }) }) });
             };
             if(nodes.size >= 256) { Error("SCHydra snapshot exceeds 256 nodes.").throw };
             first = (id: nodes.size + 1, name: name, category: spec[0], receiver: receiver,
@@ -237,8 +237,8 @@ SCHydraExpr : Object {
                     this.writeInteger(bytes, 2, 1);
                     this.writeInteger(bytes, argument[1], 4);
                 } {
-                    if(argument[0] == \output) {
-                        this.writeInteger(bytes, 4, 1); this.writeInteger(bytes, argument[1], 1);
+                    if([\output,\source].includes(argument[0])) {
+                        this.writeInteger(bytes, (argument[0]==\output).if({4},{3}), 1); this.writeInteger(bytes, argument[1], 1);
                     } {
                         this.writeInteger(bytes, (argument[0] == \vec4).if({ 5 }, { 0 }), 1);
                         ShaderDef.encodeValue(argument[0], argument[1]).do { |byte| bytes.add(byte.bitAnd(255)) };

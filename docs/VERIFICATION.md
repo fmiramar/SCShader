@@ -1,5 +1,33 @@
 # Verification
 
+## Hydra static image sources — Step 19
+
+Parent `d94c08d`; source identified by the commit containing this record. Native
+Apple M5 / Metal, aarch64-apple-darwin, Rust 1.97.1 and SC 3.14.1; version 0.0.18,
+lockfile and dependencies unchanged. Ordinary installed renderer SHA-256
+`43d2231eba229da62940aea2c8fa4af270498afc9d455a370e7512621d122357`.
+
+PASS: formatting, strict all-target/all-feature Clippy, Rust suites and production
+Metal output helper. New pixel assertions cover unassigned images, row orientation,
+exact RGB, 32 image replacements, byte accounting, resize cache sharing and clear;
+prior temporal/numeric/presentation/disposal checks remain enabled. Resource counts
+return to baseline after disposal. Transport tests cover failed image preparation,
+idempotent retries, stale requests and independent source slots. Six installed SC
+checks pass: actual image example, output AST, output/cycle/hush, numeric, concurrent
+Patterns and legacy graph. The shared image-loader legacy texture/feedback check
+also passes with an explicit installed-renderer override. Ordinary arm64 package/
+notice checks pass; prior extensions are backed up outside Extensions.
+
+Evidence: `build/hydra-tests/images-19/` (`clippy-final.log`, `rust-final.log`,
+`pixels.log`, `installed/`, `legacy/`, package logs). Initial compile warnings for
+new source helper members before the image fixture was added are retained in
+`check.log`; final strict checks pass. The missing-file E_HYDRA_IMAGE in the SC
+log is an asserted negative case. No Python runtime changes; its full suite was
+not repeated. Source-specific device recovery injection, maximum image sizes,
+other backends and manual image appearance remain unqualified. Static decode
+uses the shared control-side loader; video decoding remains Step 20. See
+[IMAGES.md](hydra/IMAGES.md).
+
 ## Hydra Pattern integration — Step 18
 
 Parent `28854aa`; source identified by the commit containing this record. Native

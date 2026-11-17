@@ -255,6 +255,70 @@ fn main() -> Result<(), Box<dyn Error>> {
         );
     }
     temporal(&device, &queue)?;
+    {
+        let mut sources = outputs::Outputs::new(&device, 8, 8, wgpu::TextureFormat::Rgba8Unorm)?;
+        let source_program = program("src", vec![Argument::Source(0)]);
+        sources.prepare(&device, 0, &source_program)?;
+        sources.encode_outputs(&device, &queue, 0., 0., 0);
+        assert!(
+            read(&device, &queue, &sources.current(0).texture)?
+                .iter()
+                .all(|v| *v == 0)
+        );
+        let image = image::RgbaImage::from_fn(8, 8, |x, y| {
+            image::Rgba([x as u8 * 30, y as u8 * 30, 0, 255])
+        });
+        let expected = image.as_raw().clone();
+        sources.set_source(
+            &device,
+            0,
+            Some(outputs::Source::new(
+                &device,
+                &queue,
+                std::sync::Arc::new(image),
+            )?),
+        );
+        sources.encode_outputs(&device, &queue, 0., 0., 1);
+        assert_eq!(
+            read(&device, &queue, &sources.current(0).texture)?,
+            expected,
+            "Image row orientation/color changed"
+        );
+        for n in 0..32 {
+            let image = std::sync::Arc::new(image::RgbaImage::from_pixel(
+                4,
+                2,
+                image::Rgba([n, 50, 100, 255]),
+            ));
+            sources.set_source(
+                &device,
+                0,
+                Some(outputs::Source::new(&device, &queue, image)?),
+            );
+            sources.encode_outputs(&device, &queue, 0., 0., n as u32);
+            assert!(
+                read(&device, &queue, &sources.current(0).texture)?
+                    .chunks_exact(4)
+                    .all(|p| p == [n, 50, 100, 255])
+            );
+            assert_eq!(sources.texture_bytes(), 4 + 2 * 8 * 8 * 4 + 4 * 2 * 4);
+        }
+        let resized = sources.resized(&device, 16, 12)?;
+        assert!(std::sync::Arc::ptr_eq(
+            &sources.sources[0].as_ref().unwrap().pixels,
+            &resized.sources[0].as_ref().unwrap().pixels
+        ));
+        sources.set_source(&device, 0, None);
+        sources.encode_outputs(&device, &queue, 0., 0., 33);
+        assert!(
+            read(&device, &queue, &sources.current(0).texture)?
+                .iter()
+                .all(|v| *v == 0)
+        );
+        println!(
+            "image sources: blank, orientation, RGB, 32 replacements, resize retention, clear PASS"
+        );
+    }
     let mut numeric = solid(0., 0., 0.);
     numeric.parameters = vec![
         parameters::Parameter {

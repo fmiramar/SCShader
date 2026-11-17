@@ -66,6 +66,13 @@ impl Request {
             "commit" | "abort" | "close" => {
                 args.len() == 3 && scoped && integer(&args, 2, 1, i32::MAX)
             }
+            "image" => {
+                args.len() == 5
+                    && scoped
+                    && integer(&args, 2, 1, i32::MAX)
+                    && integer(&args, 3, 0, 3)
+                    && matches!(&args[4],OscType::String(p) if p.len()<=4096 && !p.contains('\0'))
+            }
             "clock" => {
                 args.len() == 7
                     && scoped
@@ -164,6 +171,7 @@ struct Session {
     committed_outputs: VecDeque<(i32, i32)>,
     selected: i32,
     present_sequence: i32,
+    image_sequences: [Option<(i32, String)>; 4],
     clock_sequence: Option<(i32, f32, f32, f32, i32)>,
     parameter_sequences: [[Option<(i32, f32)>; 256]; 4],
     upload: Option<Upload>,
@@ -174,6 +182,7 @@ pub enum Preparation<'a> {
     Present(i32),
     Parameter(usize, u32, f32),
     Clock(f32, f32, Option<f32>),
+    Image(usize, &'a str),
 }
 pub struct Transport {
     epoch: String,
@@ -250,7 +259,10 @@ impl Transport {
     pub fn execute(&mut self, r: Request, now: f64) -> Result<Reply, ErrorReply> {
         self.execute_with(r, now, |preparation| match preparation {
             Preparation::Commit(_, program) => compiler::compile(program).map(|_| ()),
-            Preparation::Present(_) | Preparation::Clock(..) | Preparation::Parameter(..) => Ok(()),
+            Preparation::Present(_)
+            | Preparation::Clock(..)
+            | Preparation::Parameter(..)
+            | Preparation::Image(..) => Ok(()),
         })
     }
     pub fn execute_with(
@@ -280,7 +292,7 @@ impl Transport {
                     0.into(),
                     OscType::Blob(limits.into_iter().flat_map(u32::to_be_bytes).collect()),
                     format!(
-                        "staging-ir-v1;wgsl-v1:{};output-o0-v1;outputs-temporal-v1;numeric-v1;clock-v1",
+                        "staging-ir-v1;wgsl-v1:{};output-o0-v1;outputs-temporal-v1;numeric-v1;clock-v1;image-sources-v1",
                         registry::supported()
                             .map(|s| s.name)
                             .collect::<Vec<_>>()
@@ -321,6 +333,7 @@ impl Transport {
                     present_sequence: 0,
                     parameter_sequences: [[None; 256]; 4],
                     clock_sequence: None,
+                    image_sequences: std::array::from_fn(|_| None),
                     upload: None,
                     results: VecDeque::new(),
                 });
@@ -493,6 +506,23 @@ impl Transport {
                 }
                 reply.suffix = "aborted";
             }
+            "image" => {
+                let slot = r.int(3) as usize;
+                let OscType::String(path) = &r.args[4] else {
+                    unreachable!()
+                };
+                if let Some((last, old)) = &session.image_sequences[slot] {
+                    if tx == *last && path == old {
+                        return Ok(reply);
+                    }
+                    if tx <= *last {
+                        return Err(failure(target, "E_HYDRA_STALE", "stale image sequence"));
+                    }
+                }
+                prepare(Preparation::Image(slot, path))
+                    .map_err(|m| failure(target, "E_HYDRA_IMAGE", m))?;
+                session.image_sequences[slot] = Some((tx, path.clone()));
+            }
             "clock" => {
                 let (OscType::Float(bpm), OscType::Float(speed), OscType::Float(phase)) =
                     (&r.args[3], &r.args[4], &r.args[5])
@@ -646,6 +676,25 @@ mod tests {
             vec![4.into(), 90f32.into(), 1f32.into(), 0f32.into(), 0.into()],
         );
         assert!(run(&mut t, "clock", args, 0.).is_err());
+    }
+    #[test]
+    fn image_retry_failure_and_independent_slots() {
+        let mut t = Transport::default();
+        open(&mut t);
+        let args = scoped(&t, vec![10.into(), 0.into(), "fixture.ppm".into()]);
+        let request =
+            Request::parse("image", args.clone(), "127.0.0.1:57120".parse().unwrap()).unwrap();
+        assert!(
+            t.execute_with(request, 0., |_| Err("decode failed".into()))
+                .is_err()
+        );
+        assert!(t.session.as_ref().unwrap().image_sequences[0].is_none());
+        run(&mut t, "image", args.clone(), 0.).unwrap();
+        run(&mut t, "image", args, 0.).unwrap();
+        let args = scoped(&t, vec![9.into(), 1.into(), "other.ppm".into()]);
+        run(&mut t, "image", args, 0.).unwrap();
+        let args = scoped(&t, vec![8.into(), 0.into(), "".into()]);
+        assert!(run(&mut t, "image", args, 0.).is_err());
     }
     #[test]
     fn concurrent_parameters_keep_independent_sequence_order() {

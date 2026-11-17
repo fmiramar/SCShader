@@ -2,7 +2,7 @@
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ValueType {
     Float,
-    Output,
+    Texture,
     Vector,
     Expression,
 }
@@ -417,7 +417,7 @@ pub const SAMPLING: &[Spec] = &[
     Spec {
         name: "src",
         category: 0,
-        args: &[ValueType::Output],
+        args: &[ValueType::Texture],
         _names: &["tex"],
         _defaults: &[],
     },

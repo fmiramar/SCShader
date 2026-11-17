@@ -315,6 +315,9 @@ impl App {
                             crate::hydra::Preparation::Commit(output, program) => {
                                 renderer.prepare_hydra(output, program)
                             }
+                            crate::hydra::Preparation::Image(slot, path) => {
+                                renderer.load_hydra_image(slot, path)
+                            }
                             crate::hydra::Preparation::Clock(bpm, speed, phase) => {
                                 renderer.configure_hydra_clock(bpm, speed, phase)
                             }

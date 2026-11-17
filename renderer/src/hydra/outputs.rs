@@ -4,7 +4,58 @@ use super::{
     ir::{Argument, Node, Program},
     output::Output,
 };
+#[derive(Clone)]
+pub struct Source {
+    pub texture: wgpu::Texture,
+    pub pixels: std::sync::Arc<image::RgbaImage>,
+}
+impl Source {
+    pub fn new(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        pixels: std::sync::Arc<image::RgbaImage>,
+    ) -> Result<Self, String> {
+        let (width, height) = pixels.dimensions();
+        if width == 0
+            || height == 0
+            || width > 4096.min(device.limits().max_texture_dimension_2d)
+            || height > 4096.min(device.limits().max_texture_dimension_2d)
+        {
+            return Err("source image dimensions exceed limit".into());
+        }
+        let scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Hydra source image"),
+            size: wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+        queue.write_texture(
+            texture.as_image_copy(),
+            pixels.as_raw(),
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(width * 4),
+                rows_per_image: Some(height),
+            },
+            texture.size(),
+        );
+        if let Some(error) = pollster::block_on(scope.pop()) {
+            return Err(error.to_string());
+        }
+        Ok(Self { texture, pixels })
+    }
+}
 pub struct Outputs {
+    pub sources: [Option<Source>; 4],
     pub programs: [Option<Program>; 4],
     slots: [Option<[Output; 2]>; 4],
     blank: Output,
@@ -51,6 +102,7 @@ impl Outputs {
             ..Default::default()
         });
         Ok(Self {
+            sources: std::array::from_fn(|_| None),
             programs: std::array::from_fn(|_| None),
             slots: std::array::from_fn(|_| None),
             blank,
@@ -60,6 +112,10 @@ impl Outputs {
             height,
             format,
         })
+    }
+    pub fn set_source(&mut self, device: &wgpu::Device, slot: usize, source: Option<Source>) {
+        self.sources[slot] = source;
+        self.bind(device);
     }
     pub fn prepare(
         &mut self,
@@ -133,8 +189,14 @@ impl Outputs {
                         // Before this pass, lower slots have already swapped;
                         // higher slots have not. Self reads its last completed
                         // image. Binding 5 is native prev(), always self history.
-                        let views: Vec<_> = (0..5)
+                        let views: Vec<_> = (0..9)
                             .map(|binding| {
+                                if binding >= 5 {
+                                    return self.sources[binding - 5]
+                                        .as_ref()
+                                        .map_or(&self.blank.texture, |s| &s.texture)
+                                        .create_view(&Default::default());
+                                }
                                 let slot = if binding == 4 { i } else { binding };
                                 let bank = if slot <= i { 1 - dst } else { dst };
                                 self.slots[slot]
@@ -148,7 +210,13 @@ impl Outputs {
                             .iter()
                             .enumerate()
                             .map(|(slot, view)| wgpu::BindGroupEntry {
-                                binding: if slot == 4 { 5 } else { slot as u32 },
+                                binding: if slot == 4 {
+                                    5
+                                } else if slot >= 5 {
+                                    slot as u32 + 1
+                                } else {
+                                    slot as u32
+                                },
                                 resource: wgpu::BindingResource::TextureView(view),
                             })
                             .collect();
@@ -175,6 +243,7 @@ impl Outputs {
     }
     pub fn resized(&self, device: &wgpu::Device, width: u32, height: u32) -> Result<Self, String> {
         let mut next = Self::new(device, width, height, self.format)?;
+        next.sources = self.sources.clone();
         for i in 0..4 {
             if let Some(program) = &self.programs[i] {
                 next.prepare(device, i, program)?;
@@ -187,12 +256,18 @@ impl Outputs {
     }
     pub fn texture_bytes(&self) -> u64 {
         4 + self
-            .slots
+            .sources
             .iter()
             .flatten()
-            .flatten()
-            .map(|o| u64::from(o.width) * u64::from(o.height) * 4)
+            .map(|s| u64::from(s.pixels.width()) * u64::from(s.pixels.height()) * 4)
             .sum::<u64>()
+            + self
+                .slots
+                .iter()
+                .flatten()
+                .flatten()
+                .map(|o| u64::from(o.width) * u64::from(o.height) * 4)
+                .sum::<u64>()
     }
     #[allow(dead_code)] // Compatibility wrapper for fixed-clock GPU fixtures.
     pub fn encode_outputs(
