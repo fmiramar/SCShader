@@ -98,3 +98,5 @@ Step 14: `SCHydra.clear(output, action)` is a client convenience using an ordina
 Step 15 advertises `numeric-v1`, accepts HYIR 1.1 numeric declarations and scalar tag 1, and implements `parameter(epoch:s,session:i,sequence:i,output:i,revision:i,parameterID:i,value:f)` with ack. [PARAMETERS.md](../docs/hydra/PARAMETERS.md) defines the bounded layout, supported operators, immediate control ordering and native differences. Earlier parameter-unavailable statements describe prior checkpoints.
 
 Step 16 adds `clock(epoch:s,session:i,sequence:i,bpm:f,speed:f,phase:f,setPhase:i)` returning ack, timed admission of clock/parameter controls, and HYIR 1.1 numeric kinds 4/5/6 for beat/frame/delta. [CLOCK.md](../docs/hydra/CLOCK.md) defines units, bounds, ordering, reset and application timing. Structural timed requests still fail atomically.
+
+Step 18 makes parameter sequence guards independent per `(output revision, parameter ID)`, using a fixed 4×256 table cleared on accepted output replacement. Distinct controls may interleave without rejecting each other; same-parameter stale updates remain rejected. Wire fields do not change.

@@ -165,7 +165,7 @@ struct Session {
     selected: i32,
     present_sequence: i32,
     clock_sequence: Option<(i32, f32, f32, f32, i32)>,
-    parameter_sequences: [Option<(i32, i32, f32)>; 4],
+    parameter_sequences: [[Option<(i32, f32)>; 256]; 4],
     upload: Option<Upload>,
     results: VecDeque<(i32, &'static str, String)>,
 }
@@ -319,7 +319,7 @@ impl Transport {
                     committed_outputs: VecDeque::new(),
                     selected: -1,
                     present_sequence: 0,
-                    parameter_sequences: [None; 4],
+                    parameter_sequences: [[None; 256]; 4],
                     clock_sequence: None,
                     upload: None,
                     results: VecDeque::new(),
@@ -469,6 +469,7 @@ impl Transport {
                     Ok(program) => match prepare(Preparation::Commit(output as usize, &program)) {
                         Ok(()) => {
                             session.revision[output as usize] = next_revision;
+                            session.parameter_sequences[output as usize] = [None; 256];
                             if session.committed_outputs.len() == 32 {
                                 session.committed_outputs.pop_front();
                             }
@@ -524,8 +525,8 @@ impl Transport {
                 if session.revision[slot] != r.int(4) {
                     return Err(failure(target, "E_HYDRA_STALE", "stale parameter revision"));
                 }
-                let entry = (tx, id, value);
-                if let Some(last) = session.parameter_sequences[slot] {
+                let entry = (tx, value);
+                if let Some(last) = session.parameter_sequences[slot][(id - 1) as usize] {
                     if entry == last {
                         return Ok(reply);
                     }
@@ -535,7 +536,7 @@ impl Transport {
                 }
                 prepare(Preparation::Parameter(slot, id as u32, value))
                     .map_err(|message| failure(target, "E_HYDRA_CAPABILITY", message))?;
-                session.parameter_sequences[slot] = Some(entry);
+                session.parameter_sequences[slot][(id - 1) as usize] = Some(entry);
             }
             "present" => {
                 if tx == session.present_sequence && r.int(3) == session.selected {
@@ -647,6 +648,30 @@ mod tests {
         assert!(run(&mut t, "clock", args, 0.).is_err());
     }
     #[test]
+    fn concurrent_parameters_keep_independent_sequence_order() {
+        let mut t = Transport::default();
+        open(&mut t);
+        t.session.as_mut().unwrap().revision[0] = 1;
+        for (sequence, id, value) in [(10, 1, 0.2), (9, 2, 0.7), (11, 1, 0.3)] {
+            let args = scoped(
+                &t,
+                vec![
+                    sequence.into(),
+                    0.into(),
+                    1.into(),
+                    id.into(),
+                    OscType::Float(value),
+                ],
+            );
+            run(&mut t, "parameter", args, 0.).unwrap();
+        }
+        let args = scoped(
+            &t,
+            vec![8.into(), 0.into(), 1.into(), 2.into(), OscType::Float(0.4)],
+        );
+        assert!(run(&mut t, "parameter", args, 0.).is_err());
+    }
+    #[test]
     fn numeric_updates_guard_revision_sequence_and_failure() {
         let mut t = Transport::default();
         open(&mut t);
@@ -665,7 +690,7 @@ mod tests {
             t.execute_with(request, 0., |_| Err("unknown parameter".into()))
                 .is_err()
         );
-        assert_eq!(t.session.as_ref().unwrap().parameter_sequences[0], None);
+        assert_eq!(t.session.as_ref().unwrap().parameter_sequences[0][0], None);
         run(&mut t, "parameter", args.clone(), 0.).unwrap();
         run(&mut t, "parameter", args, 0.).unwrap();
         let args = scoped(

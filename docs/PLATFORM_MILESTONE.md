@@ -1,5 +1,11 @@
 # Milestone P1 — native desktop compatibility first
 
+Hydra Step 18 / Checkpoint C: [Pattern controls](hydra/PATTERNS.md) run two
+concurrent numeric Pbinds alongside an audio Pbind on one TempoClock. Existing
+shader Event behavior is preserved. Ordering is independent per parameter;
+manual listening/visual checks and image/media-source work remain separate.
+
+
 Hydra Step 17: [audio bus mappings](hydra/AUDIO.md) connect existing ShaderAnalysis
 and ShaderBus values to named Hydra controls. FFT-bin and waveform-point buses
 reuse existing streams. The looping PlayBuf example drives amplitude/scale and

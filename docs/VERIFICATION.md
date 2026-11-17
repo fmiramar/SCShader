@@ -1,5 +1,31 @@
 # Verification
 
+## Hydra Pattern integration — Step 18
+
+Parent `28854aa`; source identified by the commit containing this record. Native
+Apple M5 / Metal, aarch64-apple-darwin, Rust 1.97.1 and SC 3.14.1. Version 0.0.18,
+dependencies and lockfile unchanged. Ordinary installed renderer SHA-256:
+`cef0cb9a0caae3b53565d4203bb3151227b949b4088f5f196b2330021d89cad5`.
+
+PASS: formatting, strict all-target/all-feature Clippy, 83 renderer tests,
+three ten-test helper suites and two overlay tests. The new transport test
+accepts interleaved out-of-order sequences for different parameters and rejects
+stale same-parameter updates. Installed example runs two concurrent control
+Pbinds and an audio Pbind on one TempoClock, applies exactly sixteen scalar
+updates, rejects an invalid named target and retains the original shader Event
+function. Only startup uploads the graph. Test audio is muted. Existing legacy
+Pattern, audio bridge, clock and numeric smokes pass (five checks). Ordinary
+arm64 package/notice checks pass, with the prior extension backed up outside
+Extensions. No test hooks are installed.
+
+Evidence: `build/hydra-tests/patterns-18/` (`clippy.log`, `rust.log`, `installed/`,
+package logs). The legacy Pattern smoke has an additional installed-renderer
+rerun in `legacy-installed/` to avoid its source-debug fallback. No Python runtime
+changes; its full suite was not repeated. GPU math/encoding is unchanged and
+native pixel suites were not repeated for the parameter-ordering change. Manual
+listening/desktop behavior, other backends and long soaks remain unqualified.
+Checkpoint C is reached within [the documented native scope](hydra/PATTERNS.md).
+
 ## Hydra audio bridge — Step 17
 
 Parent `d656c09`; source identified by the commit containing this record. Native
