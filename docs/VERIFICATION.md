@@ -1,5 +1,53 @@
 # Verification
 
+## Hydra Step 24 — pinned-source compatibility disclosure (2026-11-19)
+
+Implementation baseline `532af16` (export follow-up). No Rust/SC runtime,
+dependency, version or protocol change. Development version remains 0.0.18.
+[COMPATIBILITY.md](hydra/COMPATIBILITY.md) records the browser/adapter boundary,
+individual constructor choices, native semantics and deferred WebRTC/external
+texture decisions. [The API matrix](hydra/HYDRA_API_MATRIX.md) replaces obsolete
+NOT IMPLEMENTED labels with current scoped classifications and links evidence.
+
+The pinned Hydra reference remains `9d29a9f4fd8f9081b9759943f38db36f05b9a88f`.
+The audit reads its committed Git objects without executing or importing its JS.
+`python3 tools/check_hydra_compatibility.py --reference build/hydra-reference`
+passes: 52 shader rows, 32 original runtime/service rows, 20 array/dynamic rows
+and nine additional inspected surfaces = **113 rows**. Counts are 59 SUPPORTED,
+30 NATIVE ALTERNATIVE, four ADAPTER REQUIRED and 20 UNSUPPORTED. Rows can group
+names and have scoped argument limits; these are not a compatibility percentage.
+All 141 local evidence links resolve. The native/pinned shader names/categories,
+14 reference easing names, 13 constructor options and inspected public source
+method sets match. The standalone check also passes without the optional checkout.
+
+Negative controls deliberately remove an operator row, reintroduce a placeholder
+status and duplicate a row. Each fails with the intended diagnostic. This is
+inventory/document completeness evidence, not a new numerical/visual test.
+Raw evidence is under ignored `build/hydra-tests/compatibility-24/`.
+
+Findings include partial dynamic-argument coverage (five builtins/custom float
+inputs), only two native easing curves, native hush retaining media/producers,
+non-equivalent audio/mouse/callback contracts and unsupported browser FPS/manual
+stepping/JS/GLSL-object behavior. Browser DOM/canvas and patch-bay live streams
+need distinct unimplemented adapters. No provider, peer/signaling deployment or
+external texture producer was supplied for validation, so no new bridge protocol
+is frozen. OSC remains loopback-only. Standards/provider citations are in the
+compatibility note; no network service or credentials were provisioned.
+
+The user now confirms the corrected Step 23 example is working in the IDE after
+the old-buffer issue was identified. This closes that reported example check,
+without qualifying long recordings or individually itemized fullscreen controls.
+
+Only reviewed documentation is overlaid in the installed extension, after a full
+backup outside Extensions. Its renderer SHA-256 remains
+`60e3d99e52b932a9b39811481099772f54a78567b3788c83fb59648519ae55b1`.
+The prior binary/source ZIPs remain unchanged; the installed documentation overlay
+is recorded as such, not represented as a new byte-identical packaged release.
+No new GPU/SC/media run is required for this source/documentation audit. WebRTC,
+browser GPU, external-texture/native-other-platform/long-run tests are NOT RUN.
+Step 25's behavior, representative corpus, help and legacy regression checks
+remain separate; no full-browser or final-release compatibility claim is made.
+
 ## Hydra export IDE follow-up — window-independent capture and ordered steps
 
 2026-11-19, implementation based on `7f2f7d420daaa5635f7d19a497e5a0b703d885b9`.

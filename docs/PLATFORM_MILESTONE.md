@@ -1,5 +1,13 @@
 # Milestone P1 — native desktop compatibility first
 
+Hydra Step 24: [compatibility disclosure](hydra/COMPATIBILITY.md) now classifies
+all 113 inventory rows, including browser/network gaps and individual constructor
+options. The source audit matches the pinned 52 shader names/categories and 14
+easing names; no WebRTC, DOM/JS host or live external-texture adapter is installed.
+Native alternatives and unsupported behavior are explicit. The user confirms the
+corrected Step 23 example is now working in the IDE. Step 25 behavioral/regression
+audit is next; this documentation audit adds no runtime qualification.
+
 Hydra export IDE follow-up: a hidden/minimized window could prevent frame capture,
 leave an empty PNG and cause the following MP4 request to fail as busy. The old
 binary reproduces that failure under native minimization. Active export now
