@@ -2,7 +2,7 @@
 
 ## Camera IDE follow-up — native permission owner and repeatable cleanup
 
-Parent `4c38ced`; implementation is the commit introducing this record. The user
+Implementation `8b13ef2` (parent `4c38ced`). The user
 confirms screen capture and its SC permission prompt, but reports camera startup
 with a green camera indicator, no prompt/image, inputWidth/inputHeight zero and
 no decoded frames before the ten-second timeout. This is negative IDE evidence
@@ -57,8 +57,10 @@ the warm-up check retains its visible-frame assertion. `native-camera-warmup.log
 `native-video-final.log`, `rust-final2.log`, `clippy-final2.log`, `python-final.log`,
 `source-classes/`, `installed-candidate/`, `installed-final/` and final package logs
 record positive evidence. No test assertions were removed to claim a pass.
-Computer-use UI access was unavailable; the new camera IDE visual check remains
-pending with the user. Screen IDE appearance is user-confirmed. True OS denial,
+Computer-use UI access was unavailable. Following installation, the user reports
+that the updated capture example is "all good so far". This is user-reported
+appearance/operation confirmation, not a separately itemized check of every manual
+control. Screen IDE appearance was previously confirmed explicitly. True OS denial,
 USB camera, physical unplug/sleep, other backends/platforms and long runs remain
 NOT RUN. See [CAPTURE.md](hydra/CAPTURE.md).
 

@@ -6,7 +6,8 @@ AVFoundation. The helper owns its camera permission and supplies an explicit
 the user reported no frames from the SC IDE; their installed SC 3.14.1 bundle has
 no camera usage declaration. This is a launch/permission integration limitation,
 not evidence that the user denied access. Screen capture was confirmed working
-in the IDE after its separate macOS permission prompt.
+in the IDE after its separate macOS permission prompt. After the native camera
+update, the user reports the capture example is working well so far.
 
 The helper is launched through LaunchServices when a camera is explicitly opened;
 it does not modify SuperCollider's bundle or reset TCC permissions. Screen capture
@@ -99,7 +100,7 @@ checks are excluded from default suites.
 
 | Scope | Evidence and remaining limits |
 | --- | --- |
-| Native camera helper / macOS arm64 | Native frames, sizes, channel/stride/orientation proof, pause/resume and bridge/helper PID cleanup pass; IDE visual retest pending. |
+| Native camera helper / macOS arm64 | Native frames, sizes, channel/stride/orientation proof, pause/resume and bridge/helper PID cleanup pass; user reports the updated example working. |
 | FFmpeg display / macOS arm64 | Native and installed checks pass; user confirms IDE display appearance and OS prompt. Additional displays/window picker/ScreenCaptureKit NOT RUN. |
 | macOS Intel | Source/build path provided; native hardware NOT RUN. |
 | Windows / Linux camera/display | No adapter; no silent fallback. |
