@@ -300,6 +300,13 @@ impl Renderer {
         self.hydra_program[index] = Some(program.clone());
         Ok(())
     }
+    pub fn validate_hydra_function(
+        &self,
+        definition: &crate::hydra::custom::Definition,
+    ) -> Result<(), String> {
+        let mut candidate = None;
+        crate::hydra::gpu::Candidate::prepare(&self.device, &definition.fixture(), &mut candidate)
+    }
     pub fn clear_hydra_candidate(&mut self) {
         self.hydra_videos = std::array::from_fn(|_| None);
         self.hydra_discovery = None;

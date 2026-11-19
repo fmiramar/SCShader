@@ -2,6 +2,7 @@ SCHydra : Object {
     classvar all;
     var numbers, namedNumbers, mappedBuses;
     var captureList;
+    var customFunctions;
     var <server, <isFreed, <isReady, <lastError, epoch, session, sequence, startupTask, uploadTask;
     var readyAction, failureAction, responders, uploading, revisions, presentTask, presenting;
 
@@ -23,6 +24,7 @@ SCHydra : Object {
         numbers=List.new;namedNumbers=IdentityDictionary.new;
         responders = IdentitySet.new; revisions = [0,0,0,0];
         captureList=[];
+        customFunctions=Dictionary.new;
         if(server.notNil and: { server.isRunning }) { this.negotiate };
         ^this
     }
@@ -108,6 +110,77 @@ SCHydra : Object {
     shape { |sides = 3, radius = 0.3, smoothing = 0.01| this.checkLive; ^SCHydraExpr.new(this, \shape, [sides, radius, smoothing]) }
 
     prev { this.checkLive; ^SCHydraExpr.new(this, \prev, []) }
+
+    functionIdentifier { |value,limit|
+        var text=value.asString.copy,alpha={|c|(c>=65 and:{c<=90}) or:{c>=97 and:{c<=122}}};
+        if(text.isEmpty or:{text.size>limit}){Error("Custom identifier length is invalid").throw};
+        if(alpha.value(text[0].ascii).not){Error("Custom identifier must start with an ASCII letter").throw};
+        if(text.ascii.every{|c|alpha.value(c) or:{c>=48 and:{c<=57}} or:{c==95}}.not){Error("Custom identifier must use ASCII letters/digits/underscore").throw};
+        if(text.beginsWith("u_") or:{text.beginsWith("h_")}){Error("Custom identifier prefix is reserved").throw};
+        ^text
+    }
+    functionSpec { |wire|
+        var definition=customFunctions.values.detect{|d|d[\wire]==wire.asString},types;
+        if(definition.isNil){Error("Custom operation was removed/redefined or is unknown; rebuild the expression").throw};
+        types=definition[\inputs].collect{|i|i[1]};
+        if([\combine,\combineCoord].includes(definition[\category])){types=[\expr]++types};
+        ^[definition[\category],types]
+    }
+    functionArguments { |name,args|
+        var definition=customFunctions[name.asString],values=args.asArray,defaults;
+        this.checkLive;
+        if(definition.isNil){Error("Register the custom function before calling it").throw};
+        defaults=definition[\inputs].collect{|i|i[2].isArray.if({i[2].copy},{i[2]})};
+        if([\combine,\combineCoord].includes(definition[\category])){
+            if(values.isEmpty){Error("Custom combine needs a second expression").throw};defaults=[nil]++defaults;
+        };
+        if(values.size>defaults.size){Error("Too many custom function arguments").throw};
+        values.do{|value,index|defaults[index]=value};
+        ^[definition[\wire],defaults]
+    }
+    call { |name,args=#[]|
+        var prepared=this.functionArguments(name,args);
+        ^SCHydraExpr.new(this,prepared[0],prepared[1])
+    }
+    setFunction { |name,category,inputs,body,action|
+        var key=this.functionIdentifier(name,24),categories=[\src,\coord,\color,\combine,\combineCoord],kind=categories.indexOf(category);
+        var declarations=List.new,names=Set.new,bytes=List.new,blob,id,definition;
+        this.checkLive;if(this.canStream.not){Error("Hydra is not ready or a request is active").throw};
+        if(kind.isNil){Error("Invalid custom function category").throw};
+        if(inputs.isArray.not or:{inputs.size>8}){Error("Custom function accepts up to eight inputs").throw};
+        if(body.isString.not){Error("Custom function body must be WGSL text").throw};
+        if(body.isEmpty or:{body.size>2048 or:{body.ascii.any{|c|c<1 or:{c>127}}}}){Error("Custom body must contain 1..2048 ASCII WGSL bytes").throw};
+        if(customFunctions[key].isNil and:{customFunctions.size>=16}){Error("Custom function registry limit is 16").throw};
+        inputs.do{|input|
+            var label,type,value;
+            if(input.isArray.not or:{input.size!=3}){Error("Custom input must be [name,type,default]").throw};
+            label=this.functionIdentifier(input[0],16);type=input[1];
+            if([\float,\vec4].includes(type).not or:{["uv","time","color","other"].includes(label) or:{names.includes(label)}}){Error("Invalid/duplicate/reserved custom input").throw};
+            value=ShaderDef.validateValue(type,input[2]);names.add(label);declarations.add([label,type,value.isArray.if({value.copy},{value})]);
+        };
+        bytes.addAll([72,67,70,78,0,1,key.size,kind,declarations.size,body.size>>8,body.size.bitAnd(255)]);bytes.addAll(key.ascii);
+        declarations.do{|input|
+            bytes.add(input[0].size);bytes.add((input[1]==\float).if({0},{1}));bytes.addAll(input[0].ascii);
+            ShaderDef.encodeValue(input[1],input[2]).do{|b|bytes.add(b.bitAnd(255))};
+        };bytes.addAll(body.ascii);
+        blob=Int8Array.newFrom(bytes);id=this.nextSequence;presenting=true;
+        definition=(category:category,inputs:declarations.asArray);
+        presentTask=Routine({
+            var result=this.request(['/scshader/v1/hydra/function-set',epoch,session,id,blob],"function-set",{|msg|msg[1].asString==epoch and:{msg[2]==session and:{msg[3]==id}}});
+            if(result[\ok]){definition[\wire]=result[\message][4].asString;customFunctions[key]=definition};
+            presenting=false;lastError=result[\ok].if({nil},{result});action.value(result);
+        }).play(SystemClock);^this
+    }
+    removeFunction { |name,action|
+        var key=this.functionIdentifier(name,24),id;
+        this.checkLive;if(this.canStream.not){Error("Hydra is not ready or a request is active").throw};
+        id=this.nextSequence;presenting=true;
+        presentTask=Routine({
+            var result=this.request(['/scshader/v1/hydra/function-remove',epoch,session,id,key],"ack",{|msg|msg[1].asString==epoch and:{msg[2]==session and:{msg[3]==id}}});
+            if(result[\ok]){customFunctions.removeAt(key)};
+            presenting=false;lastError=result[\ok].if({nil},{result});action.value(result);
+        }).play(SystemClock);^this
+    }
 
     sourceIndex { |slot|
         ^switch(slot,\s0,{0},\s1,{1},\s2,{2},\s3,{3},{Error("Hydra source must be s0, s1, s2 or s3").throw})
@@ -358,6 +431,7 @@ SCHydra : Object {
 
     free {
         if(isFreed.not) {
+            customFunctions.clear;
             mappedBuses.do {|bus|bus.unmapHydra(this)};mappedBuses.clear;
             if(presentTask !== thisThread) { presentTask.tryPerform(\stop) };
             if(startupTask !== thisThread) { startupTask.tryPerform(\stop) };

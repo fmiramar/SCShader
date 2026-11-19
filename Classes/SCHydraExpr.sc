@@ -11,6 +11,10 @@ SCHydraExpr : Object {
     }
 
     rotate { |angle = 10, speed = 0| ^this.append(\rotate, [angle, speed]) }
+    call { |name,args=#[]|
+        var prepared=hydra.functionArguments(name,args);
+        ^this.append(prepared[0],prepared[1])
+    }
 
     scale { |amount = 1.5, xMult = 1, yMult = 1, offsetX = 0.5, offsetY = 0.5|
         ^this.append(\scale, [amount, xMult, yMult, offsetX, offsetY])
@@ -170,7 +174,7 @@ SCHydraExpr : Object {
             \modulateRotate, { [\combineCoord, [\expr,\float,\float]] },
             \modulateHue, { [\combineCoord, [\expr,\float]] },
             \blend, { [\combine, [\expr, \float]] },
-            { Error("Unsupported SCHydra operation: %".format(name)).throw })
+            { ^hydra.functionSpec(name) })
     }
 
     snapshot { |output = \o0|

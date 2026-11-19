@@ -1,3 +1,6 @@
+#[allow(dead_code)] // Compiler fixtures do not exercise the transport decoder.
+#[path = "../src/hydra/custom.rs"]
+mod custom;
 #[path = "../src/hydra/parameters.rs"]
 mod parameters;
 // Native production output/sampling/presentation proof; no device hooks.
@@ -21,6 +24,7 @@ use ir::{Argument, Node, Program};
 use std::{error::Error, sync::mpsc, time::Duration};
 fn program(name: &str, args: Vec<Argument>) -> Program {
     Program {
+        custom: vec![],
         parameters: vec![],
         nodes: vec![Node {
             id: 1,
@@ -255,6 +259,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         );
     }
     temporal(&device, &queue)?;
+    custom_pixels(&device, &queue)?;
     {
         let mut sources = outputs::Outputs::new(&device, 8, 8, wgpu::TextureFormat::Rgba8Unorm)?;
         let source_program = program("src", vec![Argument::Source(0)]);
@@ -462,6 +467,124 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("resource baseline={baseline:?}\nafter disposal={after:?}");
     println!("32 edits: unrelated pixels, rejected edits, bounded images and disposal completed");
     println!("SCSHADER_HYDRA_OUTPUTS_GPU_OK");
+    Ok(())
+}
+
+fn custom_pixels(device: &wgpu::Device, queue: &wgpu::Queue) -> Result<(), Box<dyn Error>> {
+    use custom::{Definition, Input};
+    use registry::ValueType;
+    let mut outputs = outputs::Outputs::new(device, 8, 8, wgpu::TextureFormat::Rgba8Unorm)?;
+    for (category, body, expected) in [
+        (0, "return vec4<f32>(gain,0.0,0.6,1.0);", [64, 0, 153, 255]),
+        (1, "return vec2<f32>(0.75,uv.y);", [191, 0, 0, 255]),
+        (
+            2,
+            "return vec4<f32>(color.b,gain,color.r,color.a);",
+            [153, 64, 51, 255],
+        ),
+        (3, "return mix(color,other,gain);", [89, 89, 121, 223]),
+        (4, "return uv+other.xy*gain;", [194, 0, 0, 255]),
+    ] {
+        let d = Definition {
+            name: "pixelFn".into(),
+            generation: i32::from(category) + 1,
+            category,
+            inputs: vec![Input {
+                name: "gain".into(),
+                kind: ValueType::Float,
+                defaults: vec![0.25],
+            }],
+            body: body.into(),
+        };
+        let mut p = d.fixture();
+        if category == 1 || category == 4 {
+            p.nodes[0].name = "gradient".into();
+            p.nodes[0].arguments = vec![Argument::Float(0.)];
+        }
+        if category >= 3 {
+            p.nodes[1].arguments = [0.8, 0.2, 0.1, 0.5].map(Argument::Float).into();
+        }
+        outputs.prepare(device, 0, &p)?;
+        outputs.encode_outputs(device, queue, 0., 0., 0);
+        let pixels = read(device, queue, &outputs.current(0).texture)?;
+        let center = &pixels[(4 * 8 + 4) * 4..(4 * 8 + 4) * 4 + 4];
+        for component in if category == 1 || category == 4 {
+            vec![0, 3]
+        } else {
+            vec![0, 1, 2, 3]
+        } {
+            assert!(
+                (i32::from(center[component]) - expected[component]).abs() <= 1,
+                "custom category {category}, got {center:?}, expected {expected:?}"
+            );
+        }
+        let mut bad = p.clone();
+        bad.custom[0].body = "return missing_identifier;".into();
+        assert!(outputs.prepare(device, 0, &bad).is_err());
+        outputs.encode_outputs(device, queue, 0., 0., 1);
+        assert_eq!(
+            pixels,
+            read(device, queue, &outputs.current(0).texture)?,
+            "bad custom edit replaced accepted pixels"
+        );
+        let mut resized = outputs.resized(device, 16, 16)?;
+        resized.encode_outputs(device, queue, 0., 0., 2);
+        let resized_pixels = read(device, queue, &resized.current(0).texture)?;
+        assert_eq!(resized_pixels.len(), 16 * 16 * 4);
+        let center = &resized_pixels[(8 * 16 + 8) * 4..(8 * 16 + 8) * 4 + 4];
+        let mut expected = expected;
+        if category == 4 {
+            expected[0] = 186; // (8.5 / 16 + other.r * gain) * 255
+        }
+        for component in if category == 1 || category == 4 {
+            vec![0, 3]
+        } else {
+            vec![0, 1, 2, 3]
+        } {
+            assert!(
+                (i32::from(center[component]) - expected[component]).abs() <= 1,
+                "resize lost custom category {category}: {center:?}"
+            );
+        }
+    }
+    let d = Definition {
+        name: "uniformFn".into(),
+        generation: 9,
+        category: 2,
+        inputs: vec![
+            Input {
+                name: "gain".into(),
+                kind: ValueType::Float,
+                defaults: vec![0.25],
+            },
+            Input {
+                name: "tint".into(),
+                kind: ValueType::Vector,
+                defaults: vec![1., 0.5, 0.25, 1.],
+            },
+        ],
+        body: "return color*tint*gain;".into(),
+    };
+    let mut p = d.fixture();
+    p.parameters = vec![parameters::Parameter {
+        id: 1,
+        kind: 0,
+        values: vec![0.5],
+    }];
+    p.nodes.last_mut().unwrap().arguments[0] = Argument::Parameter(1);
+    outputs.prepare(device, 0, &p)?;
+    outputs.encode_outputs(device, queue, 0., 0., 0);
+    let before = read(device, queue, &outputs.current(0).texture)?;
+    outputs.update(0, 1, 1.)?;
+    outputs.encode_outputs(device, queue, 0., 0., 1);
+    let after = read(device, queue, &outputs.current(0).texture)?;
+    assert!(
+        after[0] > before[0] + 20 && after[1] > before[1] + 20 && after[2] > before[2] + 10,
+        "custom float uniform/vec4 arguments failed"
+    );
+    println!(
+        "custom functions: all five categories, vec4/default/number inputs, invalid-edit pixels and frozen resize PASS"
+    );
     Ok(())
 }
 

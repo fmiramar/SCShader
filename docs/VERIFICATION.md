@@ -1,5 +1,60 @@
 # Verification
 
+## Hydra Step 22 — custom WGSL functions (2026-11-19)
+
+Working-tree implementation based on `cd55ed8c840a9c8d17ddd9ecdc2c9e7c88dd6152`;
+version remains **0.0.18**. Native arm64 macOS 26.6.2, Apple M5 / Metal,
+SuperCollider 3.14.1 and pinned Rust 1.97.1. Dependency graph/lockfile unchanged.
+No GPU test hooks are shipped. This is a development checkpoint, not a release.
+
+The ordinary arm64 renderer SHA-256 is
+`644a087b1e9e8a150436ec634772995b95bc0665dce2885d1ff2b6f458ba1f37`.
+The unchanged native camera helper SHA-256 remains
+`6fbebc59ff2d27cbd1e7327424d0a3077483be74dec59b600249e4b97e247d8f`.
+The final package prefix is `fmiramar-hydra22-reviewed`; its matching vendored
+source archive/checksum accompanies the binary ZIP. The prior extension is
+backed up outside Extensions. Candidate and final installations each verify all 152 packaged files
+byte-for-byte; their executable hashes match the values above.
+
+Passed:
+
+- `cargo fmt --check`, locked all-target/all-feature warnings-as-errors Clippy;
+  94 main Rust tests and 44 example-fixture tests pass. Two opt-in live camera
+  tests remain ignored; they were not enabled for custom-function work.
+- Python: 138 tests run, 133 pass and five platform-specific skips.
+- Native production compiler/output GPU checker: all five custom categories,
+  float/vec4/default/numeric inputs, invalid-edit pixel preservation and actual
+  8×8 to 16×16 resize with frozen definitions. Existing temporal/source/uniform
+  checks pass; 32 edits and disposal return all eight tracked resource classes
+  to baseline. Checker SHA-256:
+  `1cabf8d9e5e9c50bd4355e1b81ad6ac0ae05b32914ff03207977284aaf2d910d`.
+- Source SC compile/AST and actual custom example startup; all five call
+  categories, nested composition, bad replacement, reserved builtin, catalog
+  removal, stale generations, session isolation and repeated cleanup pass.
+- Nine installed checks: `compile_check`, `hydra_ast_unit`,
+  `hydra_custom_smoke`, `hydra_outputs_smoke`, `hydra_feedback_smoke`,
+  `hydra_params_example_smoke`, `hydra_images_smoke`, `graph_smoke`, and
+  `hydra_patterns_smoke`. The first seven use automatic installed discovery;
+  the two regression checks explicitly select the installed renderer. Pattern
+  audio uses a private muted server with hardware input disabled.
+- Native package format/target and camera-helper pixel self-test pass. The
+  packaging notice inventory matches its existing review. This does not expand
+  the distribution/signing conclusions in NOTICE_REVIEW.md.
+
+Preserved negative evidence: an initial source SC class compile exposed mismatched
+braces in identifier validation; corrected and recompiled successfully. The first
+live custom check selected the previous installed renderer, whose older protocol
+rejected `function-set` and timed out. The test now explicitly selects a supplied
+renderer override; source and installed reruns pass. No assertions were removed.
+Local raw evidence is under ignored `build/hydra-tests/custom-22/`.
+
+Scope: WGSL-native typed functional parity is supported; arbitrary browser Hydra
+GLSL/JavaScript snippets are unsupported. Physical IDE appearance awaits the user.
+Custom-function logical-device recovery, Windows/Linux/Intel hardware and browser
+GPU parity are NOT RUN. Existing platform, signing and long-duration release gates
+remain separate. No camera/display capture or permission-setting change was
+needed for this step. See [CUSTOM_FUNCTIONS.md](hydra/CUSTOM_FUNCTIONS.md).
+
 ## Camera IDE follow-up — native permission owner and repeatable cleanup
 
 Implementation `8b13ef2` (parent `4c38ced`). The user

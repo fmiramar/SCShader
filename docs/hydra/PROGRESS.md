@@ -1,6 +1,6 @@
 # Hydra implementation progress
 
-Updated: 2026-11-18
+Updated: 2026-11-19
 
 | Step | Status | Evidence |
 | --- | --- | --- |
@@ -25,12 +25,13 @@ Updated: 2026-11-18
 | 19 — Static image sources | PASS in native automated scope | [IMAGES.md](IMAGES.md): four typed image sources, shared decoder, replacement/clear/resize and native pixel regressions. Manual image appearance pending. |
 | 20 — Local video playback | PASS in native automated scope; user reports video example working | [VIDEO.md](VIDEO.md): explicit external FFmpeg, one pending RGBA frame, stable GPU uploads, loop/play/pause/rate/seek/EOS and decoder cleanup. Seven installed SC regressions pass. Other platforms and camera/screen input NOT RUN. |
 | 21 — Camera/display sources | Native automation passes; user reports updated capture example working | [CAPTURE.md](CAPTURE.md): native camera helper owns permission; FFmpeg display/discovery, bounded frames, source controls, timeout diagnostics and repeated cleanup. Original FFmpeg camera failed in IDE. Other platforms/deny/unplug NOT RUN. |
+| 22 — Custom shader functions | PASS in native automated/installed scope | [CUSTOM_FUNCTIONS.md](CUSTOM_FUNCTIONS.md): typed WGSL bodies, all five categories, frozen generations, rollback and session-local registration; arbitrary GLSL source unsupported. |
 
 Checkpoint A is available for one-output procedural visuals and live replacement.
 The user confirms `01_osc.scd` runs perfectly; new Step 09 visuals have automated
 native checks but await user observation. This is a development checkpoint.
 
-Checkpoint B is available in the documented native scope. Checkpoint C is available in the documented native scope. Next: Step 22 custom WGSL operations, `gpt-6.1-sol` / `high`. The user reports
+Checkpoint B is available in the documented native scope. Checkpoint C is available in the documented native scope. Next after the Step 22 visual check: Step 23 recording/presentation, `gpt-6.1-sol` / `medium`. The user reports
 the updated capture example is working well so far; broader hardware/permission
 qualification remains separate.
 The user confirms clock v2 looks correct; their log shows all eight events,

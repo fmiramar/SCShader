@@ -3,6 +3,7 @@ pub mod camera;
 pub mod capture;
 pub mod clock;
 pub mod compiler;
+pub mod custom;
 pub mod families;
 pub mod gpu;
 pub mod ir;
@@ -68,6 +69,18 @@ impl Request {
             }
             "commit" | "abort" | "close" => {
                 args.len() == 3 && scoped && integer(&args, 2, 1, i32::MAX)
+            }
+            "function-set" => {
+                args.len() == 4
+                    && scoped
+                    && integer(&args, 2, 1, i32::MAX)
+                    && matches!(&args[3],OscType::Blob(v) if !v.is_empty() && v.len()<=3072)
+            }
+            "function-remove" => {
+                args.len() == 4
+                    && scoped
+                    && integer(&args, 2, 1, i32::MAX)
+                    && matches!(&args[3],OscType::String(v) if custom::identifier(v,24))
             }
             "capture-scan" => {
                 args.len() == 4
@@ -204,6 +217,8 @@ struct Upload {
     touched: f64,
 }
 struct Session {
+    functions: Vec<custom::Definition>,
+    function_sequence: Option<(i32, String, Vec<OscType>, String)>,
     id: i32,
     owner: SocketAddr,
     target: ReplyTarget,
@@ -221,6 +236,7 @@ struct Session {
     results: VecDeque<(i32, &'static str, String)>,
 }
 pub enum Preparation<'a> {
+    Function(&'a custom::Definition),
     CaptureScan(&'a str),
     CaptureDevices(&'a mut capture::Devices),
     Capture(usize, &'a str, i32),
@@ -307,6 +323,9 @@ impl Transport {
     #[cfg(test)]
     pub fn execute(&mut self, r: Request, now: f64) -> Result<Reply, ErrorReply> {
         self.execute_with(r, now, |preparation| match preparation {
+            Preparation::Function(definition) => {
+                compiler::compile(&definition.fixture()).map(|_| ())
+            }
             Preparation::Commit(_, program) => compiler::compile(program).map(|_| ()),
             Preparation::Present(_)
             | Preparation::Clock(..)
@@ -347,7 +366,7 @@ impl Transport {
                     0.into(),
                     OscType::Blob(limits.into_iter().flat_map(u32::to_be_bytes).collect()),
                     format!(
-                        "staging-ir-v1;wgsl-v1:{};output-o0-v1;outputs-temporal-v1;numeric-v1;clock-v1;image-sources-v1;video-ffmpeg-v1{}",
+                        "staging-ir-v1;wgsl-v1:{};output-o0-v1;outputs-temporal-v1;numeric-v1;clock-v1;image-sources-v1;video-ffmpeg-v1;custom-wgsl-v1{}",
                         registry::supported()
                             .map(|s| s.name)
                             .collect::<Vec<_>>()
@@ -378,6 +397,8 @@ impl Transport {
                     .checked_add(1)
                     .ok_or_else(|| failure(target, "E_HYDRA_LIMIT", "session IDs exhausted"))?;
                 self.session = Some(Session {
+                    functions: vec![],
+                    function_sequence: None,
                     id,
                     owner: r.sender,
                     target,
@@ -440,6 +461,58 @@ impl Transport {
                 None
             };
         match r.operation.as_str() {
+            "function-set" | "function-remove" => {
+                if let Some((last, operation, args, wire)) = &session.function_sequence {
+                    if tx == *last && operation == &r.operation && *args == r.args[3..] {
+                        if r.operation == "function-set" {
+                            reply.suffix = "function-set";
+                            reply.args.push(wire.clone().into());
+                        }
+                        return Ok(reply);
+                    }
+                    if tx <= *last {
+                        return Err(failure(
+                            target,
+                            "E_HYDRA_STALE",
+                            "stale function registry sequence",
+                        ));
+                    }
+                }
+                let wire = if r.operation == "function-set" {
+                    let OscType::Blob(bytes) = &r.args[3] else {
+                        unreachable!()
+                    };
+                    let definition = custom::Definition::decode(bytes, tx)
+                        .map_err(|e| failure(target, "E_HYDRA_FUNCTION", e))?;
+                    let existing = session
+                        .functions
+                        .iter()
+                        .position(|d| d.name == definition.name);
+                    if existing.is_none() && session.functions.len() >= custom::MAX_FUNCTIONS {
+                        return Err(failure(
+                            target,
+                            "E_HYDRA_LIMIT",
+                            "custom function registry limit is 16",
+                        ));
+                    }
+                    prepare(Preparation::Function(&definition))
+                        .map_err(|e| failure(target, "E_HYDRA_FUNCTION", e))?;
+                    let wire = definition.wire_name();
+                    if let Some(index) = existing {
+                        session.functions[index] = definition;
+                    } else {
+                        session.functions.push(definition);
+                    }
+                    reply.suffix = "function-set";
+                    reply.args.push(wire.clone().into());
+                    wire
+                } else {
+                    session.functions.retain(|d| d.name != r.text(3));
+                    String::new()
+                };
+                session.function_sequence =
+                    Some((tx, r.operation.clone(), r.args[3..].to_vec(), wire));
+            }
             "begin" => {
                 if let Some(u) = &session.upload {
                     if u.tx == tx
@@ -551,24 +624,27 @@ impl Transport {
                     .flat_map(|chunk| chunk.as_ref().unwrap().iter().copied())
                     .collect();
                 session.upload = None;
-                let (code, message) = match ir::Program::decode(&bytes) {
-                    Ok(program) => match prepare(Preparation::Commit(output as usize, &program)) {
-                        Ok(()) => {
-                            session.revision[output as usize] = next_revision;
-                            session.parameter_sequences[output as usize] = [None; 256];
-                            if session.committed_outputs.len() == 32 {
-                                session.committed_outputs.pop_front();
+                let (code, message) =
+                    match ir::Program::decode_with_custom(&bytes, &session.functions) {
+                        Ok(program) => {
+                            match prepare(Preparation::Commit(output as usize, &program)) {
+                                Ok(()) => {
+                                    session.revision[output as usize] = next_revision;
+                                    session.parameter_sequences[output as usize] = [None; 256];
+                                    if session.committed_outputs.len() == 32 {
+                                        session.committed_outputs.pop_front();
+                                    }
+                                    session.committed_outputs.push_back((tx, output));
+                                    remember(session, tx, "", &next_revision.to_string());
+                                    reply.suffix = "committed";
+                                    reply.args.extend([output.into(), next_revision.into()]);
+                                    return Ok(reply);
+                                }
+                                Err(message) => ("E_HYDRA_COMPILE", message),
                             }
-                            session.committed_outputs.push_back((tx, output));
-                            remember(session, tx, "", &next_revision.to_string());
-                            reply.suffix = "committed";
-                            reply.args.extend([output.into(), next_revision.into()]);
-                            return Ok(reply);
                         }
-                        Err(message) => ("E_HYDRA_COMPILE", message),
-                    },
-                    Err(message) => ("E_HYDRA_IR", message),
-                };
+                        Err(message) => ("E_HYDRA_IR", message),
+                    };
                 remember(session, tx, code, &message);
                 return Err(failure(target, code, message));
             }
@@ -941,6 +1017,38 @@ mod tests {
             bytes.len() < 4096,
             "device labels exceeded the bounded reply"
         );
+    }
+    #[test]
+    fn custom_registry_retry_rollback_and_generation_lifetime() {
+        let mut t = Transport::default();
+        open(&mut t);
+        let d = custom::tests::definition(0, "return vec4<f32>(gain);");
+        let args = scoped(
+            &t,
+            vec![10.into(), OscType::Blob(custom::tests::payload(&d))],
+        );
+        let reply = run(&mut t, "function-set", args.clone(), 0.).unwrap();
+        assert_eq!(reply.args[3], OscType::String("u_testFn_10".into()));
+        let request = Request::parse("function-set", args, sender()).unwrap();
+        t.execute_with(request, 0., |_| panic!("retry compiled twice"))
+            .unwrap();
+        let snapshot = t.session.as_ref().unwrap().functions[0].fixture();
+        let args = scoped(
+            &t,
+            vec![11.into(), OscType::Blob(custom::tests::payload(&d))],
+        );
+        let request = Request::parse("function-set", args, sender()).unwrap();
+        assert!(
+            t.execute_with(request, 0., |_| Err("GPU validation failed".into()))
+                .is_err()
+        );
+        assert_eq!(t.session.as_ref().unwrap().functions[0].generation, 10);
+        let args = scoped(&t, vec![9.into(), "testFn".into()]);
+        assert!(run(&mut t, "function-remove", args, 0.).is_err());
+        let args = scoped(&t, vec![12.into(), "testFn".into()]);
+        run(&mut t, "function-remove", args, 0.).unwrap();
+        assert!(t.session.as_ref().unwrap().functions.is_empty());
+        compiler::compile(&snapshot).unwrap(); // accepted programs outlive registry removal
     }
     #[test]
     fn concurrent_parameters_keep_independent_sequence_order() {

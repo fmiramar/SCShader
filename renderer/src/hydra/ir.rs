@@ -23,6 +23,7 @@ pub struct Node {
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct Program {
+    pub custom: Vec<super::custom::Definition>,
     pub parameters: Vec<super::parameters::Parameter>,
     pub nodes: Vec<Node>,
     pub root: u32,
@@ -51,7 +52,14 @@ impl<'a> Reader<'a> {
 }
 
 impl Program {
+    #[allow(dead_code)] // Builtin-only decoder used by native fixtures and compatibility callers.
     pub fn decode(bytes: &[u8]) -> Result<Self, String> {
+        Self::decode_with_custom(bytes, &[])
+    }
+    pub fn decode_with_custom(
+        bytes: &[u8],
+        functions: &[super::custom::Definition],
+    ) -> Result<Self, String> {
         if bytes.len() > MAX_BYTES {
             return Err("IR exceeds 64 KiB".into());
         }
@@ -95,6 +103,7 @@ impl Program {
             parameters.push(p);
         }
         let mut nodes = Vec::with_capacity(count);
+        let mut custom = Vec::new();
         let mut known: HashMap<u32, (usize, usize)> = HashMap::new();
         for _ in 0..count {
             let id = input.word()?;
@@ -115,9 +124,23 @@ impl Program {
             }
             let receiver = input.word()?;
             use super::registry::ValueType;
-            let spec = super::registry::spec(&name)
-                .ok_or_else(|| format!("unsupported operation {name}"))?;
-            let (expected_category, types) = (spec.category, spec.args);
+            let (expected_category, types) = if let Some(spec) = super::registry::spec(&name) {
+                (spec.category, spec.args.to_vec())
+            } else {
+                let definition = functions
+                    .iter()
+                    .find(|d| d.wire_name() == name)
+                    .ok_or_else(|| {
+                        format!("custom operation removed, redefined or unknown: {name}")
+                    })?;
+                if !custom
+                    .iter()
+                    .any(|d: &super::custom::Definition| d.wire_name() == name)
+                {
+                    custom.push(definition.clone());
+                }
+                (definition.category, definition.types())
+            };
             if category != expected_category || argc != types.len() {
                 return Err("operation category/arity mismatch".into());
             }
@@ -130,7 +153,7 @@ impl Program {
                 dependencies.push(receiver);
             }
             let mut arguments = Vec::with_capacity(argc);
-            for expected_type in types {
+            for expected_type in &types {
                 match input.byte()? {
                     1 if *expected_type == ValueType::Float => {
                         let id = input.word()?;
@@ -225,6 +248,7 @@ impl Program {
             return Err("unreachable IR node".into());
         }
         Ok(Self {
+            custom,
             nodes,
             root,
             parameters,
@@ -259,6 +283,29 @@ mod tests {
         let mut trailing = bytes;
         trailing.push(0);
         assert!(Program::decode(&trailing).is_err());
+    }
+    #[test]
+    fn custom_wire_names_freeze_definitions_and_reject_stale_generations() {
+        let mut definition = super::super::custom::tests::definition(0, "return vec4<f32>(gain);");
+        let name = definition.wire_name();
+        let mut bytes = b"HYIR\0\x01\0\0".to_vec();
+        for n in [1u32, 0, 1, 1] {
+            bytes.extend(n.to_be_bytes());
+        }
+        bytes.extend([0, 1]);
+        bytes.extend((name.len() as u16).to_be_bytes());
+        bytes.extend(name.as_bytes());
+        bytes.extend(0u32.to_be_bytes());
+        bytes.push(0);
+        bytes.extend(0.5f32.to_be_bytes());
+        let accepted = Program::decode_with_custom(&bytes, &[definition.clone()]).unwrap();
+        assert_eq!(accepted.custom, vec![definition.clone()]);
+        assert!(Program::decode(&bytes).is_err());
+        definition.generation += 1;
+        assert!(Program::decode_with_custom(&bytes, &[definition]).is_err());
+        super::super::compiler::compile(&accepted).unwrap();
+        bytes[25] = 0; // a custom node must retain its registered arity
+        assert!(Program::decode_with_custom(&bytes, &accepted.custom).is_err());
     }
     #[test]
     fn nonfinite_and_bad_references() {

@@ -103,6 +103,7 @@ impl Outputs {
             return Err("four-output dimensions exceed 4096/device limit".into());
         }
         let program = Program {
+            custom: vec![],
             parameters: vec![],
             nodes: vec![Node {
                 id: 1,

@@ -3,7 +3,7 @@
 2026-11-13. Additive to [SCShader v1](protocol.md) and implementing the first
 output/temporal portion of [ADR 001](../docs/hydra/ARCHITECTURE.md). 50 procedural/composition/modulation operators plus output-only `src` and native `prev`,
 four paired output histories and presentation are available. Steps 19–20 add image
-and opt-in local video sources; Step 21 adds macOS camera/display capture.
+and opt-in local video sources; Step 21 adds macOS camera/display capture; Step 22 adds custom WGSL functions.
 Step 15 adds the bounded numeric API below.
 
 All suffixes below use `/scshader/v1/hydra/`. Fields use ordinary OSC types:
@@ -32,7 +32,7 @@ session; retrying a closed handle currently reports `E_HYDRA_SESSION`.
 
 `limits` is exactly five big-endian u32 values, in order: maximum IR bytes
 (65536), chunk bytes (2048), nodes (256), depth (64), expanded operations (4096).
-`features` is `staging-ir-v1;wgsl-v1:<comma-separated supported registry names>;output-o0-v1;outputs-temporal-v1;numeric-v1;clock-v1;image-sources-v1;video-ffmpeg-v1`. The 52 names and their defaults/types are in `renderer/src/hydra/registry.rs`; discovery order is not an ABI guarantee.
+`features` is `staging-ir-v1;wgsl-v1:<comma-separated supported registry names>;output-o0-v1;outputs-temporal-v1;numeric-v1;clock-v1;image-sources-v1;video-ffmpeg-v1;custom-wgsl-v1`. The 52 names and their defaults/types are in `renderer/src/hydra/registry.rs`; discovery order is not an ABI guarantee.
 This narrower discovery payload supersedes the ADR's provisional full-limit
 payload for the staging feature only. Future compiler/source/presentation
 capabilities must explicitly document their additional fields before advertising.
@@ -167,3 +167,52 @@ ordinary no-frame failure remains ten seconds. Existing fields/ordering do not
 change. Timeout errors retain bounded native diagnostics. The local bridge and
 helper protocol are internal, not new OSC endpoints. See CAPTURE.md for source
 ownership, helper discovery and development build requirements.
+
+## Custom WGSL functions (Step 22)
+
+Capability `custom-wgsl-v1` adds immediate structural requests. These use the
+same epoch/session/owner checks as output uploads; they cannot be scheduled.
+
+| Request suffix | Arguments | Reply suffix and arguments |
+| --- | --- | --- |
+| `function-set` | epoch:s, session:i, sequence:i, definition:b | `function-set(epoch, session, sequence, wireName:s)` after CPU/GPU validation |
+| `function-remove` | epoch:s, session:i, sequence:i, publicName:s | `ack(epoch, session, sequence)` |
+
+One monotonically increasing sequence is shared by successful registry mutations.
+An exact retry of the latest successful mutation returns its reply without
+repeating GPU compilation. Older or conflicting sequence reuse fails
+`E_HYDRA_STALE`. A failed registration does not publish a definition or advance
+this registry sequence. A successful replacement uses the request sequence as its
+new generation. At most 16 definitions are active. Removing an absent name is a
+successful no-op. `E_HYDRA_FUNCTION` reports schema/source/GPU validation failures;
+`E_HYDRA_LIMIT` reports catalog exhaustion. Malformed OSC shape/size is `E_PROTOCOL`.
+
+Definition blob, maximum 3072 bytes, in network byte order:
+
+1. Six magic/version bytes `48 43 46 4e 00 01` (`HCFN`, version 1).
+2. u8 public-name length, u8 category (0 source, 1 coordinate, 2 color,
+   3 combine, 4 combine-coordinate), u8 explicit-input count, u16 body length.
+3. Public-name ASCII bytes (1–24).
+4. For each of at most eight inputs: u8 name length (1–16), u8 type (0 float,
+   1 vec4), name bytes, then one or four big-endian IEEE f32 defaults.
+5. Exactly body-length ASCII WGSL bytes (1–2048), without a NUL or trailing data.
+
+All defaults must be finite. Name, body purity and compilation bounds are in
+[CUSTOM_FUNCTIONS.md](../docs/hydra/CUSTOM_FUNCTIONS.md). Code crosses only this
+explicit registration endpoint; the HYIR expression payload remains data-only.
+
+The reply wire name is `u_<publicName>_<generation>` (at most 37 bytes). HYIR 1.0
+and 1.1 keep their existing fields; a custom node names this exact generation,
+uses the registered category and a full positional argument list including
+filled defaults. Float/vec4 inputs use existing float/numeric-reference/vector
+tags. Combine categories prepend a required expression reference. Builtins
+retain precedence and cannot be overridden.
+
+Commit resolves only active registrations and copies the definitions actually
+used into the accepted program. Unknown/removed/redefined wire names fail
+`E_HYDRA_IR`. Accepted outputs retain these copies after catalog changes;
+registration/removal never implicitly replaces an output. A new composition
+must use the newly returned wire name. Resizing and retained-program recovery
+do not look up the current catalog. Session close clears the catalog; it is
+neither process-global nor persistent across epochs. No arbitrary GLSL snippet
+compatibility is advertised.

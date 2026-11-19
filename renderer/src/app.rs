@@ -312,6 +312,9 @@ impl App {
                             .as_mut()
                             .ok_or_else(|| "renderer is not initialized".to_owned())?;
                         match preparation {
+                            crate::hydra::Preparation::Function(definition) => {
+                                renderer.validate_hydra_function(definition)
+                            }
                             crate::hydra::Preparation::Commit(output, program) => {
                                 renderer.prepare_hydra(output, program)
                             }

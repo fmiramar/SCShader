@@ -1,5 +1,12 @@
 # Milestone P1 — native desktop compatibility first
 
+Hydra Step 22: [custom WGSL operations](hydra/CUSTOM_FUNCTIONS.md) add typed,
+session-local registration and all five categories. Invalid code preserves the
+last working output; accepted programs retain frozen definitions after removal.
+Native pixel and nine installed SC checks pass; the ordered example is installed.
+Arbitrary browser GLSL snippets are unsupported. Physical appearance and other
+platforms remain separate.
+
 Hydra capture follow-up: the user confirmed screen capture in the IDE but initially
 reported camera startup with no frames. Camera now uses a bundled native AVFoundation app
 with its own usage declaration and permission prompt; SuperCollider is unchanged.

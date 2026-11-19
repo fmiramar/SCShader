@@ -1,3 +1,6 @@
+#[allow(dead_code)] // Compiler fixtures do not exercise the transport decoder.
+#[path = "../src/hydra/custom.rs"]
+mod custom;
 #[path = "../src/hydra/parameters.rs"]
 mod parameters;
 // Short native offscreen pixel proof for the initial independently implemented compiler.
@@ -115,6 +118,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             gpu::Candidate::prepare(&device, program, &mut cached)?;
             let before = cached.as_ref().unwrap().source.clone();
             let invalid = Program {
+                custom: vec![],
                 parameters: vec![],
                 nodes: vec![node(1, "osc", 0, 0, &[0., 0.1, 0.])],
                 root: 1,

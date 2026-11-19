@@ -28,6 +28,7 @@ struct VertexOutput {
 
 #[derive(Debug)]
 enum Operation {
+    Custom(super::custom::Definition, super::ir::Node),
     Numeric(super::ir::Node),
     Sample(u8),
     Combine {
@@ -95,6 +96,12 @@ fn lower(program: &Program) -> Result<Vec<(u32, Operation)>, String> {
         }
         if depth > 64 || expanded > 4096 {
             return Err("compiler depth or expansion limit".into());
+        }
+        if let Some(definition) = program.custom.iter().find(|d| d.wire_name() == node.name) {
+            definition.check_node(node, program)?;
+            known.insert(node.id, (depth, expanded));
+            result.push((node.id, Operation::Custom(definition.clone(), node.clone())));
+            continue;
         }
         if node
             .arguments
@@ -252,6 +259,16 @@ fn vector(values: &[f32]) -> String {
 }
 
 pub fn compile(program: &Program) -> Result<String, String> {
+    if program.custom.len() > super::custom::MAX_FUNCTIONS {
+        return Err("custom function snapshot limit".into());
+    }
+    let mut custom_names = std::collections::HashSet::new();
+    for definition in &program.custom {
+        if !custom_names.insert(definition.wire_name()) {
+            return Err("duplicate custom function".into());
+        }
+        definition.validate()?;
+    }
     let mut ids = std::collections::HashSet::new();
     for p in &program.parameters {
         if !ids.insert(p.id) {
@@ -262,6 +279,9 @@ pub fn compile(program: &Program) -> Result<String, String> {
     let nodes = lower(program)?;
     let mut source = String::from(PRELUDE);
     source.push_str(include_str!("procedural.wgsl"));
+    for definition in &program.custom {
+        source.push_str(&definition.declaration(&definition.wire_name()));
+    }
     if !program.parameters.is_empty() {
         source.push_str("@group(0) @binding(1) var<uniform> numbers: array<vec4<f32>,64>;\n");
     }
@@ -282,6 +302,38 @@ pub fn compile(program: &Program) -> Result<String, String> {
     for (id, operation) in nodes {
         writeln!(source, "fn n{id}(uv: vec2<f32>) -> vec4<f32> {{").unwrap();
         match operation {
+            Operation::Custom(definition, node) => {
+                let mut args = vec!["uv".to_string(), "hydra.clock.x".to_string()];
+                if definition.category == 2 || definition.category == 3 {
+                    args.push(format!("n{}(uv)", node.receiver));
+                }
+                if definition.category >= 3 {
+                    let Argument::Expression(other) = node.arguments[0] else {
+                        unreachable!()
+                    };
+                    args.push(format!("n{other}(uv)"));
+                }
+                for value in
+                    node.arguments
+                        .iter()
+                        .skip(if definition.category >= 3 { 1 } else { 0 })
+                {
+                    args.push(match value {
+                        Argument::Float(v) => literal(*v),
+                        Argument::Vector(v) => vector(v),
+                        Argument::Parameter(id) => {
+                            format!("numbers[{}][{}]", (id - 1) / 4, (id - 1) % 4)
+                        }
+                        _ => unreachable!(),
+                    });
+                }
+                let call = format!("{}({})", definition.wire_name(), args.join(","));
+                if definition.category == 1 || definition.category == 4 {
+                    writeln!(source, "return n{}({call});", node.receiver).unwrap();
+                } else {
+                    writeln!(source, "return {call};").unwrap();
+                }
+            }
             Operation::Numeric(node) => {
                 for (i, a) in node.arguments.iter().enumerate() {
                     let text = match a {
@@ -442,6 +494,7 @@ mod tests {
     #[test]
     fn numeric_frequency_preserves_literal_domain_check() {
         let mut p = super::Program {
+            custom: vec![],
             parameters: vec![super::super::parameters::Parameter {
                 id: 1,
                 kind: 0,
@@ -484,6 +537,7 @@ mod tests {
             node(1, "gradient", 0, 0, &[0.5]),
         ] {
             let program = Program {
+                custom: vec![],
                 parameters: vec![],
                 nodes: vec![
                     source,
@@ -533,6 +587,7 @@ mod tests {
                 arguments: args,
             });
             compile(&Program {
+                custom: vec![],
                 parameters: vec![],
                 nodes,
                 root: id,
@@ -560,6 +615,7 @@ mod tests {
                 arguments: args,
             });
             let mut program = Program {
+                custom: vec![],
                 parameters: vec![],
                 nodes,
                 root: 4,
@@ -583,6 +639,7 @@ mod tests {
         }
         assert!(
             compile(&Program {
+                custom: vec![],
                 parameters: vec![],
                 nodes,
                 root: 13
@@ -597,6 +654,7 @@ mod tests {
             let mut args = vec![Argument::Expression(2)];
             args.extend(spec._defaults.iter().copied().map(Argument::Float));
             let mut program = Program {
+                custom: vec![],
                 parameters: vec![],
                 nodes: vec![
                     node(1, "osc", 0, 0, &[10., 0.1, 0.]),
@@ -641,6 +699,7 @@ mod tests {
         ] {
             assert!(
                 compile(&Program {
+                    custom: vec![],
                     parameters: vec![],
                     nodes: vec![n],
                     root: 1

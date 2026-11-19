@@ -1,3 +1,6 @@
+#[allow(dead_code)] // Compiler fixtures do not exercise the transport decoder.
+#[path = "../src/hydra/custom.rs"]
+mod custom;
 #[path = "../src/hydra/parameters.rs"]
 mod parameters;
 // Small numerical differential check. Reads AGPL reference GLSL from an external
@@ -426,6 +429,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             ]
         };
         let program = checked(Program {
+            custom: vec![],
             parameters: vec![],
             root: nodes.last().unwrap().id,
             nodes,
