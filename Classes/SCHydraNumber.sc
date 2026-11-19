@@ -9,7 +9,11 @@ SCHydraNumber : Object {
     setValue { |value| values=[value];this.validate;^this }
     sequenceOnly { if(kind!=3) {Error("Sequence modifier requires h.seq").throw};^this }
     fast { |speed=1| this.sequenceOnly;values[0]=speed;this.validate;^this }
-    offset { |phase=0.5| this.sequenceOnly;values[1]=phase%1;this.validate;^this }
+    offset { |phase=0.5|
+        this.sequenceOnly;ShaderDef.validateValue(\float,phase);
+        // JS remainder keeps the dividend sign; SC modulo wraps it positive.
+        values[1]=phase-(phase.abs.floor*phase.sign);this.validate;^this
+    }
     smooth { |amount=1| this.sequenceOnly;if(amount<0 or:{amount>1}) {Error("Smooth must be 0..1").throw};values[2]=amount;^this }
     ease { |name=\linear| this.sequenceOnly;
         if([\linear,\easeInOutQuad].includes(name).not) {Error("Supported native easing: linear, easeInOutQuad").throw};

@@ -17,9 +17,11 @@ function run() {
  if(JSON.stringify(trace)!==JSON.stringify([0.5,0,0.5,1,0.5,1])) throw Error("centered interpolation");
  if(arrayUtils.getValue([0,1].fast(0))({time:2,bpm:30})!==1) throw Error("speed zero fallback");
  if(arrayUtils.getValue([0,1].ease('easeInOutQuad'))({time:1.5,bpm:30})!==0.125) throw Error("quadratic ease");
+ const negative=[0,1].offset(-0.25).smooth();
+ if(negative._offset!==-0.25 || arrayUtils.getValue(negative)({time:0,bpm:30})!==0.75) throw Error("negative signed offset");
  const fit=[1,3].offset(0.5).fit(2,6);
  if(fit._offset!==undefined || fit[0]!==2 || fit[1]!==6) throw Error("fit metadata");
- return JSON.stringify({smoothed_trace:trace,speed_zero_fallback:true,fit_drops_offset:true});
+ return JSON.stringify({smoothed_trace:trace,speed_zero_fallback:true,negative_signed_offset:true,fit_drops_offset:true});
 }
 '''
 result=subprocess.run(['/usr/bin/osascript','-l','JavaScript','-'],input=script,text=True,capture_output=True,check=True,timeout=20)

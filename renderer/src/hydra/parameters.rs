@@ -116,6 +116,15 @@ mod tests {
         assert_eq!(p.value(4.), 11.);
     }
     #[test]
+    fn negative_offset_preserves_signed_phase() {
+        let sequence = Parameter {
+            id: 1,
+            kind: 3,
+            values: vec![1., -0.25, 1., 0., 0., 1.],
+        };
+        assert_eq!(sequence.value(0.), 0.75);
+    }
+    #[test]
     fn bounds_and_invalid_sources() {
         for p in [
             Parameter {

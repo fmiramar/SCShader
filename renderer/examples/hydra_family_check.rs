@@ -160,9 +160,20 @@ fn draw(
     pipeline: &wgpu::RenderPipeline,
     layout: &wgpu::BindGroupLayout,
 ) -> Result<Vec<u8>, Box<dyn Error>> {
+    draw_size(device, queue, pipeline, layout, (3, 3))
+}
+fn draw_size(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    pipeline: &wgpu::RenderPipeline,
+    layout: &wgpu::BindGroupLayout,
+    dimensions: (u32, u32),
+) -> Result<Vec<u8>, Box<dyn Error>> {
+    let (width, height) = dimensions;
+    let stride = (width * 4).div_ceil(256) * 256;
     let size = wgpu::Extent3d {
-        width: 3,
-        height: 3,
+        width,
+        height,
         depth_or_array_layers: 1,
     };
     let texture = device.create_texture(&wgpu::TextureDescriptor {
@@ -186,10 +197,10 @@ fn draw(
         1.,
         30.,
         0.,
-        3.,
-        3.,
-        1. / 3.,
-        1. / 3.,
+        width as f32,
+        height as f32,
+        1. / width as f32,
+        1. / height as f32,
         0.,
         0.,
         0.,
@@ -210,7 +221,7 @@ fn draw(
     });
     let buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: None,
-        size: 768,
+        size: u64::from(stride) * u64::from(height),
         usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
@@ -240,8 +251,8 @@ fn draw(
             buffer: &buffer,
             layout: wgpu::TexelCopyBufferLayout {
                 offset: 0,
-                bytes_per_row: Some(256),
-                rows_per_image: Some(3),
+                bytes_per_row: Some(stride),
+                rows_per_image: Some(height),
             },
         },
         size,
@@ -258,8 +269,9 @@ fn draw(
     rx.recv_timeout(Duration::from_secs(5))??;
     let mapped = buffer.get_mapped_range(..)?;
     let mut pixels = Vec::new();
-    for row in 0..3 {
-        pixels.extend_from_slice(&mapped[row * 256..row * 256 + 12]);
+    for row in 0..height as usize {
+        let begin = row * stride as usize;
+        pixels.extend_from_slice(&mapped[begin..begin + width as usize * 4]);
     }
     drop(mapped);
     buffer.unmap();
@@ -301,6 +313,136 @@ fn checked(program: Program) -> Program {
         }
     }
     Program::decode(&bytes).unwrap()
+}
+// Ten compact font-free compositions. History/source/numeric checks stay in
+// the production output fixture, independently of the external GLSL comparator.
+fn corpus() -> Vec<(String, Program)> {
+    let f = |id, name, receiver, values: &[f32]| node(id, name, receiver, scalars(values));
+    let e = |id, name, receiver, other, value| {
+        node(
+            id,
+            name,
+            receiver,
+            vec![Argument::Expression(other), Argument::Float(value)],
+        )
+    };
+    let cases: Vec<(&str, Vec<Node>)> = vec![
+        (
+            "rgba-weights",
+            vec![
+                f(1, "solid", 0, &[0.17, 0.38, 0.63, 0.72]),
+                f(2, "color", 1, &[-0.4, 0.8, 1.2, 0.6]),
+                node(3, "sum", 2, vec![Argument::Vector([0.1, 0.2, 0.3, 0.4])]),
+            ],
+        ),
+        (
+            "coordinate-order",
+            vec![
+                f(1, "gradient", 0, &[0.4]),
+                f(2, "rotate", 1, &[0.2, 0.03]),
+                f(3, "scale", 2, &[1.3, 1.1, 0.8, 0.4, 0.6]),
+                f(4, "scroll", 3, &[-0.2, 0.1, 0.03, -0.02]),
+                f(5, "color", 4, &[0.8, 0.6, 0.7, 0.9]),
+            ],
+        ),
+        (
+            "nested-alpha",
+            vec![
+                f(1, "osc", 0, &[8., 0.1, 0.4]),
+                f(2, "shape", 0, &[5., 0.4, 0.02]),
+                f(3, "color", 2, &[0.7, 0.5, 0.3, 0.35]),
+                f(4, "solid", 0, &[0.1, 0.3, 0.8, 0.2]),
+                e(5, "blend", 3, 4, 0.25),
+                f(6, "rotate", 5, &[0.2, 0.]),
+                node(7, "layer", 1, vec![Argument::Expression(6)]),
+            ],
+        ),
+        (
+            "nested-modulation",
+            vec![
+                f(1, "osc", 0, &[10., 0.1, 0.8]),
+                f(2, "rotate", 1, &[0.24, 0.03]),
+                f(3, "gradient", 0, &[0.4]),
+                f(4, "color", 3, &[0.7, 0.4, 0.8, 0.6]),
+                e(5, "blend", 4, 3, 0.2),
+                f(6, "rotate", 5, &[-0.13, 0.02]),
+                e(7, "modulate", 2, 6, 0.07),
+                f(8, "kaleid", 7, &[4.]),
+                f(9, "rotate", 8, &[-0.35, 0.01]),
+            ],
+        ),
+        (
+            "negative-repeat",
+            vec![
+                f(1, "gradient", 0, &[0.2]),
+                f(2, "repeat", 1, &[-3., 2., 0.35, -0.2]),
+                f(3, "scrollX", 2, &[-0.8, 0.13]),
+                f(4, "rotate", 3, &[0.31, -0.02]),
+            ],
+        ),
+        (
+            "luma-mask",
+            vec![
+                f(1, "gradient", 0, &[0.3]),
+                f(2, "luma", 1, &[0.35, 0.2]),
+                f(3, "shape", 0, &[4., 0.4, 0.03]),
+                f(4, "rotate", 3, &[0.2, 0.02]),
+                node(5, "mask", 2, vec![Argument::Expression(4)]),
+                f(6, "color", 5, &[0.7, 0.8, 0.6, 0.5]),
+            ],
+        ),
+        (
+            "posterize-hue",
+            vec![
+                f(1, "osc", 0, &[7., 0.1, 0.8]),
+                f(2, "saturate", 1, &[1.2]),
+                f(3, "hue", 2, &[0.1]),
+                f(4, "posterize", 3, &[3., 0.6]),
+                f(5, "shift", 4, &[-0.2, 0.9, 0.7, -0.25]),
+            ],
+        ),
+        (
+            "default-shape",
+            vec![
+                f(1, "shape", 0, &[3., 0.3, 0.01]),
+                f(2, "repeat", 1, &[3., 3., 0., 0.]),
+                f(3, "rotate", 2, &[0.2, 0.05]),
+                f(4, "color", 3, &[0.2, 0.8, 0.5, 0.7]),
+            ],
+        ),
+        (
+            "gradient-channels",
+            vec![
+                f(1, "gradient", 0, &[0.1]),
+                f(2, "r", 1, &[0.8, 0.1]),
+                f(3, "invert", 2, &[0.4]),
+                f(4, "scale", 3, &[1.2, 1., 0.9, 0.5, 0.5]),
+            ],
+        ),
+        (
+            "noise-warp",
+            vec![
+                f(1, "noise", 0, &[1.4, 0.3]),
+                f(2, "scale", 1, &[1.1, 1., 1., 0.5, 0.5]),
+                f(3, "rotate", 2, &[0.1, 0.02]),
+                f(4, "color", 3, &[0.8, 0.7, 1., 1.]),
+            ],
+        ),
+    ];
+    cases
+        .into_iter()
+        .map(|(name, nodes)| {
+            (
+                name.into(),
+                checked(Program {
+                    custom: vec![],
+                    parameters: vec![],
+                    root: nodes.last().unwrap().id,
+                    nodes,
+                }),
+            )
+        })
+        .collect()
 }
 fn main() -> Result<(), Box<dyn Error>> {
     let root = std::env::args()
@@ -344,96 +486,114 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("adapter={:?}", adapter.get_info());
     let (device, queue) = pollster::block_on(adapter.request_device(&Default::default()))?;
     let mut cached = None;
+    let corpus_mode = std::env::args().nth(3).as_deref() == Some("--corpus");
+    let output = if corpus_mode {
+        let path = std::path::PathBuf::from(
+            std::env::args()
+                .nth(4)
+                .ok_or("corpus needs a fresh artifact directory")?,
+        );
+        std::fs::create_dir(&path)?;
+        Some(path)
+    } else {
+        None
+    };
+    let mut cases = if corpus_mode { corpus() } else { vec![] };
     // Texture/history operations have the separate production output fixture.
-    for spec in registry::supported().filter(|spec| !matches!(spec.name, "src" | "prev")) {
-        let mut args = defaults(spec);
-        match spec.name {
-            "add" | "sub" | "mult" => args[1] = Argument::Float(0.35),
-            "modulateRepeat" => args[1..].clone_from_slice(&scalars(&[-3., 2., 0.35, -0.2])),
-            "modulateRepeatX" | "modulateRepeatY" => {
-                args[1..].clone_from_slice(&scalars(&[-3., -0.4]))
+    if !corpus_mode {
+        for spec in registry::supported().filter(|spec| !matches!(spec.name, "src" | "prev")) {
+            let mut args = defaults(spec);
+            match spec.name {
+                "add" | "sub" | "mult" => args[1] = Argument::Float(0.35),
+                "modulateRepeat" => args[1..].clone_from_slice(&scalars(&[-3., 2., 0.35, -0.2])),
+                "modulateRepeatX" | "modulateRepeatY" => {
+                    args[1..].clone_from_slice(&scalars(&[-3., -0.4]))
+                }
+                "modulateScrollX" | "modulateScrollY" => {
+                    args[1..].clone_from_slice(&scalars(&[-0.8, 0.13]))
+                }
+                "noise" => args = scalars(&[1.4, 0.3]),
+                "voronoi" => args = scalars(&[3., 0.2, 0.4]),
+                "shape" => args = scalars(&[5., 0.4, 0.08]),
+                "osc" => args = scalars(&[7., 0.1, 0.8]),
+                "repeat" => args = scalars(&[-3., 2., 0.35, -0.2]),
+                "repeatX" | "repeatY" => args = scalars(&[-3., 0.4]),
+                "scroll" => args = scalars(&[-0.8, -0.6, 0.1, -0.2]),
+                "scrollX" | "scrollY" => args = scalars(&[-0.8, -0.2]),
+                "shift" => args = scalars(&[-0.2, 0.9, 0.7, -0.25]),
+                "luma" | "thresh" => args = scalars(&[0.35, 0.2]),
+                "sum" => args = vec![Argument::Vector([0.1, 0.2, 0.3, 0.4])],
+                _ => {}
             }
-            "modulateScrollX" | "modulateScrollY" => {
-                args[1..].clone_from_slice(&scalars(&[-0.8, 0.13]))
-            }
-            "noise" => args = scalars(&[1.4, 0.3]),
-            "voronoi" => args = scalars(&[3., 0.2, 0.4]),
-            "shape" => args = scalars(&[5., 0.4, 0.08]),
-            "osc" => args = scalars(&[7., 0.1, 0.8]),
-            "repeat" => args = scalars(&[-3., 2., 0.35, -0.2]),
-            "repeatX" | "repeatY" => args = scalars(&[-3., 0.4]),
-            "scroll" => args = scalars(&[-0.8, -0.6, 0.1, -0.2]),
-            "scrollX" | "scrollY" => args = scalars(&[-0.8, -0.2]),
-            "shift" => args = scalars(&[-0.2, 0.9, 0.7, -0.25]),
-            "luma" | "thresh" => args = scalars(&[0.35, 0.2]),
-            "sum" => args = vec![Argument::Vector([0.1, 0.2, 0.3, 0.4])],
-            _ => {}
+            let nodes = if spec.category == 4 {
+                vec![
+                    node(1, "osc", 0, scalars(&[10., 0.1, 0.8])),
+                    node(2, "rotate", 1, scalars(&[0.24, 0.03])),
+                    node(3, "gradient", 0, scalars(&[0.4])),
+                    node(4, "color", 3, scalars(&[0.7, 0.4, 0.8, 0.6])),
+                    node(
+                        5,
+                        "blend",
+                        4,
+                        vec![Argument::Expression(3), Argument::Float(0.2)],
+                    ),
+                    node(6, "rotate", 5, scalars(&[-0.13, 0.02])),
+                    node(
+                        7,
+                        "modulate",
+                        2,
+                        vec![Argument::Expression(6), Argument::Float(0.07)],
+                    ),
+                    node(8, spec.name, 7, args),
+                    node(9, "rotate", 8, scalars(&[-0.35, 0.01])),
+                ]
+            } else if spec.category == 3 {
+                vec![
+                    node(1, "osc", 0, scalars(&[10., 0.1, 0.])),
+                    node(2, "shape", 0, scalars(&[4., 0.4, 0.01])),
+                    node(3, "color", 2, scalars(&[0.7, 0.5, 0.3, 0.35])),
+                    node(4, "solid", 0, scalars(&[0.1, 0.3, 0.8, 0.2])),
+                    node(
+                        5,
+                        "blend",
+                        3,
+                        vec![Argument::Expression(4), Argument::Float(0.25)],
+                    ),
+                    node(6, "rotate", 5, scalars(&[0.2, 0.])),
+                    node(7, spec.name, 1, args),
+                    node(8, "rotate", 7, scalars(&[0.13, 0.02])),
+                ]
+            } else if spec.category == 0 {
+                vec![node(1, spec.name, 0, args)]
+            } else {
+                vec![
+                    node(
+                        1,
+                        if spec.category == 1 {
+                            "gradient"
+                        } else {
+                            "solid"
+                        },
+                        0,
+                        if spec.category == 1 {
+                            scalars(&[0.4])
+                        } else {
+                            scalars(&[0.17, 0.38, 0.63, 0.72])
+                        },
+                    ),
+                    node(2, spec.name, 1, args),
+                ]
+            };
+            let program = checked(Program {
+                custom: vec![],
+                parameters: vec![],
+                root: nodes.last().unwrap().id,
+                nodes,
+            });
+            cases.push((spec.name.to_string(), program));
         }
-        let nodes = if spec.category == 4 {
-            vec![
-                node(1, "osc", 0, scalars(&[10., 0.1, 0.8])),
-                node(2, "rotate", 1, scalars(&[0.24, 0.03])),
-                node(3, "gradient", 0, scalars(&[0.4])),
-                node(4, "color", 3, scalars(&[0.7, 0.4, 0.8, 0.6])),
-                node(
-                    5,
-                    "blend",
-                    4,
-                    vec![Argument::Expression(3), Argument::Float(0.2)],
-                ),
-                node(6, "rotate", 5, scalars(&[-0.13, 0.02])),
-                node(
-                    7,
-                    "modulate",
-                    2,
-                    vec![Argument::Expression(6), Argument::Float(0.07)],
-                ),
-                node(8, spec.name, 7, args),
-                node(9, "rotate", 8, scalars(&[-0.35, 0.01])),
-            ]
-        } else if spec.category == 3 {
-            vec![
-                node(1, "osc", 0, scalars(&[10., 0.1, 0.])),
-                node(2, "shape", 0, scalars(&[4., 0.4, 0.01])),
-                node(3, "color", 2, scalars(&[0.7, 0.5, 0.3, 0.35])),
-                node(4, "solid", 0, scalars(&[0.1, 0.3, 0.8, 0.2])),
-                node(
-                    5,
-                    "blend",
-                    3,
-                    vec![Argument::Expression(4), Argument::Float(0.25)],
-                ),
-                node(6, "rotate", 5, scalars(&[0.2, 0.])),
-                node(7, spec.name, 1, args),
-                node(8, "rotate", 7, scalars(&[0.13, 0.02])),
-            ]
-        } else if spec.category == 0 {
-            vec![node(1, spec.name, 0, args)]
-        } else {
-            vec![
-                node(
-                    1,
-                    if spec.category == 1 {
-                        "gradient"
-                    } else {
-                        "solid"
-                    },
-                    0,
-                    if spec.category == 1 {
-                        scalars(&[0.4])
-                    } else {
-                        scalars(&[0.17, 0.38, 0.63, 0.72])
-                    },
-                ),
-                node(2, spec.name, 1, args),
-            ]
-        };
-        let program = checked(Program {
-            custom: vec![],
-            parameters: vec![],
-            root: nodes.last().unwrap().id,
-            nodes,
-        });
+    }
+    for (name, program) in cases {
         gpu::Candidate::prepare(&device, &program, &mut cached)?;
         let candidate = cached.as_ref().unwrap().clone();
         let glsl = reference(&program, &functions, &utilities)?;
@@ -477,10 +637,33 @@ fn main() -> Result<(), Box<dyn Error>> {
             cache: None,
         });
         if let Some(error) = pollster::block_on(scope.pop()) {
-            return Err(format!("{} reference compile: {error}", spec.name).into());
+            return Err(format!("{} reference compile: {error}", name).into());
         }
-        let native = draw(&device, &queue, &candidate._pipeline, &candidate._layout)?;
-        let reference = draw(&device, &queue, &pipeline, &candidate._layout)?;
+        let dimensions = if corpus_mode { (64, 36) } else { (3, 3) };
+        let native = draw_size(
+            &device,
+            &queue,
+            &candidate._pipeline,
+            &candidate._layout,
+            dimensions,
+        )?;
+        let reference = draw_size(&device, &queue, &pipeline, &candidate._layout, dimensions)?;
+        if let Some(output) = &output {
+            image::save_buffer(
+                output.join(format!("{name}-native.png")),
+                &native,
+                64,
+                36,
+                image::ColorType::Rgba8,
+            )?;
+            image::save_buffer(
+                output.join(format!("{name}-reference.png")),
+                &reference,
+                64,
+                36,
+                image::ColorType::Rgba8,
+            )?;
+        }
         let error = native
             .iter()
             .zip(&reference)
@@ -488,13 +671,15 @@ fn main() -> Result<(), Box<dyn Error>> {
             .max()
             .unwrap();
         if error > 2 {
-            return Err(format!(
-                "{} difference {error}: native={native:?} reference={reference:?}",
-                spec.name
-            )
-            .into());
+            let details = match &output {
+                Some(path) => format!("pixel artifacts: {}", path.display()),
+                None => format!("native={native:?} reference={reference:?}"),
+            };
+            return Err(
+                format!("{name} max channel difference {error} exceeds 2; {details}").into(),
+            );
         }
-        if spec.category >= 3 {
+        if !corpus_mode && registry::spec(&name).unwrap().category >= 3 {
             let mut bad = program.clone();
             bad.nodes[0].arguments[0] = Argument::Float(0.0);
             assert!(gpu::Candidate::prepare(&device, &bad, &mut cached).is_err());
@@ -505,8 +690,15 @@ fn main() -> Result<(), Box<dyn Error>> {
                 native
             );
         }
-        println!("{} PASS max_channel_error={error}", spec.name);
+        println!("{name} PASS max_channel_error={error}");
     }
-    println!("SCSHADER_HYDRA_FAMILIES_GPU_OK");
+    println!(
+        "{}",
+        if corpus_mode {
+            "SCSHADER_HYDRA_CORPUS_GPU_OK"
+        } else {
+            "SCSHADER_HYDRA_FAMILIES_GPU_OK"
+        }
+    );
     Ok(())
 }
