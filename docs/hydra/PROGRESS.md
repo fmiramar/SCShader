@@ -24,13 +24,14 @@ Updated: 2026-11-17
 | 18 — Pattern integration / Checkpoint C | PASS in installed native scope | [PATTERNS.md](PATTERNS.md): two concurrent control Pbinds, audio Pbind, independent parameter ordering, legacy Event identity and regression checks. Manual performance observation pending. |
 | 19 — Static image sources | PASS in native automated scope | [IMAGES.md](IMAGES.md): four typed image sources, shared decoder, replacement/clear/resize and native pixel regressions. Manual image appearance pending. |
 | 20 — Local video playback | PASS in native automated scope; user reports video example working | [VIDEO.md](VIDEO.md): explicit external FFmpeg, one pending RGBA frame, stable GPU uploads, loop/play/pause/rate/seek/EOS and decoder cleanup. Seven installed SC regressions pass. Other platforms and camera/screen input NOT RUN. |
+| 21 — Camera/display sources | PASS in native automated scope; physical IDE appearance pending | [CAPTURE.md](CAPTURE.md): macOS external FFmpeg/AVFoundation, bounded discovery and frame queue, explicit kind/index selection, native sizes, two installed sources/effects, pause/resume, timeout and cleanup. Other platforms/OS denial/physical unplug NOT RUN. |
 
 Checkpoint A is available for one-output procedural visuals and live replacement.
 The user confirms `01_osc.scd` runs perfectly; new Step 09 visuals have automated
 native checks but await user observation. This is a development checkpoint.
 
-Checkpoint B is available in the documented native scope. Checkpoint C is available in the documented native scope. Next: Step 21 camera/screen feasibility, `gpt-6.1-sol` / `high`; device access requires
-explicit consent and macOS permissions. The user reports the installed video example works visually.
+Checkpoint B is available in the documented native scope. Checkpoint C is available in the documented native scope. Next: Step 22 custom WGSL operations, `gpt-6.1-sol` / `high`. First verify the
+installed capture example in the IDE; Terminal/CLI permission success is not an IDE qualification.
 The user confirms clock v2 looks correct; their log shows all eight events,
 speed/reset and cleanup without late warnings. Physical audio/display alignment
 remains unqualified.

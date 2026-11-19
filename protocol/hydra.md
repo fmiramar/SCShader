@@ -3,7 +3,7 @@
 2026-11-13. Additive to [SCShader v1](protocol.md) and implementing the first
 output/temporal portion of [ADR 001](../docs/hydra/ARCHITECTURE.md). 50 procedural/composition/modulation operators plus output-only `src` and native `prev`,
 four paired output histories and presentation are available. Steps 19–20 add image
-and opt-in local video sources; camera/screen sources remain unavailable.
+and opt-in local video sources; Step 21 adds macOS camera/display capture.
 Step 15 adds the bounded numeric API below.
 
 All suffixes below use `/scshader/v1/hydra/`. Fields use ordinary OSC types:
@@ -127,3 +127,34 @@ accepted media can later fail, reported by video-status, while the retained
 picture remains. [VIDEO.md](../docs/hydra/VIDEO.md) defines resampled timestamps,
 one-frame pending queue, stable texture uploads, controls/EOS and cleanup. No
 native video audio, camera/screen capture, or original-packet PTS is promised.
+
+Step 21 advertises `capture-avfoundation-v1` only on macOS; it indicates adapter
+support, not an installed decoder, device availability or permission. Requests are
+immediate-only and session/owner scoped:
+
+| Request | Arguments | Reply |
+| --- | --- | --- |
+| capture-scan | epoch:s, session:i, sequence:i, decoder:s | ack(epoch, session, sequence), after discovery worker acceptance |
+| capture-devices | epoch:s, session:i, request:i | capture-devices.reply(epoch, session, request, state:s, error:s, count:i, repeated kind:s/index:i/name:s triples) |
+| capture | epoch:s, session:i, sequence:i, slot:i, kind:s, index:i | ack(epoch, session, sequence), after capture worker acceptance |
+
+Decoder path is absolute, nonempty, NUL-free and at most 4096 UTF-8 bytes. Discovery
+retains its own sequence/signature: exact retries do not restart it; stale or
+conflicting retries fail. Poll capture-devices for loading/ready/error. Up to 16
+devices are returned; labels truncate to 96 UTF-8 bytes without splitting characters.
+The selected full name is retained internally. Kind is camera/screen and index
+0…255 must match the most recent ready enumeration. Nil/automatic selection is a
+client convenience selecting the first matching returned kind. No implicit rescan
+or other-device fallback is performed on source open.
+
+Capture shares the image/video/video-control per-slot sequence guard and ack
+semantics. Preparation/discovery errors use E_HYDRA_CAPTURE. Asynchronous source
+failure, timeout and metadata are queried through video-status. That reply now
+appends kind:s, inputWidth:i, inputHeight:i, width:i, height:i, fps:f after its
+previous error:s field. Existing prefix fields are unchanged; fps is nominal
+output rate and input dimensions are startup-reported (zero if unknown/file).
+Shared video-control accepts play/pause for capture; unsupported seek/rate/loop
+returns E_HYDRA_VIDEO without mutation. [CAPTURE.md](../docs/hydra/CAPTURE.md)
+defines explicit permission handling, timing, bounded storage, disposal and the
+platform matrix. Microphones/audio, ScreenCaptureKit and Windows/Linux adapters
+are not implemented by this feature.

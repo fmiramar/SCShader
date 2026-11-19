@@ -1,5 +1,11 @@
 # Milestone P1 — native desktop compatibility first
 
+Hydra Step 21: [camera/display capture](hydra/CAPTURE.md) adds explicit macOS
+AVFoundation device discovery and source selection through external FFmpeg. Native
+camera/display frames, pause/resume, stall detection and installed SC checks pass.
+Permissions were preserved; physical IDE appearance, denial/unplug and other
+platforms remain unqualified. Capture is never enabled by default.
+
 Hydra Step 20: [opt-in local video](hydra/VIDEO.md) adds an external FFmpeg adapter,
 one pending frame per source, stable texture uploads and playback controls. Native
 loop/controls/cleanup, GPU pixels and seven installed SC checks pass. No decoder is

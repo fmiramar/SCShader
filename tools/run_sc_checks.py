@@ -3,7 +3,7 @@
 
 Live checks open short-lived renderer windows and some boot a private audio server.
 Install Classes/HelpSource and build the debug renderer before running this tool.
-The timing benchmark and external-decoder video check require explicit selection.
+The timing benchmark and external-decoder video/capture checks require explicit selection.
 """
 from __future__ import annotations
 
@@ -72,13 +72,13 @@ def check_passed(check, text, returncode, timed_out=False):
 
 def default_checks(tests: Path):
     return [path.stem for path in sorted(tests.glob("*.scd"))
-            if path.stem not in {"timing_benchmark", "hydra_video_smoke"}]
+            if path.stem not in {"timing_benchmark", "hydra_video_smoke", "hydra_capture_smoke"}]
 
 
 def main() -> int:
     project = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("checks", nargs="*", help="test stems (default: all except timing benchmark and opt-in video)")
+    parser.add_argument("checks", nargs="*", help="test stems (default: all except timing benchmark and opt-in video/capture)")
     parser.add_argument("--sclang", default=find_sclang(), help="sclang executable, required if absent from PATH")
     parser.add_argument("--renderer", type=Path, help="test a particular native/packaged renderer")
     parser.add_argument("--sclang-config", type=Path, help="explicit class-library configuration for an isolated check")

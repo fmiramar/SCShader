@@ -315,6 +315,16 @@ impl App {
                             crate::hydra::Preparation::Commit(output, program) => {
                                 renderer.prepare_hydra(output, program)
                             }
+                            crate::hydra::Preparation::CaptureScan(decoder) => {
+                                renderer.scan_hydra_capture(decoder)
+                            }
+                            crate::hydra::Preparation::CaptureDevices(devices) => {
+                                *devices = renderer.hydra_capture_devices()?;
+                                Ok(())
+                            }
+                            crate::hydra::Preparation::Capture(slot, kind, index) => {
+                                renderer.load_hydra_capture(slot, kind, index)
+                            }
                             crate::hydra::Preparation::Video(
                                 slot,
                                 path,

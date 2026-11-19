@@ -10,6 +10,11 @@ use std::{
 pub const WIDTH: u32 = 640;
 pub const HEIGHT: u32 = 360;
 const FPS: f64 = 30.;
+#[derive(Clone)]
+enum Input {
+    File(String),
+    Capture(super::capture::Device),
+}
 #[derive(Default)]
 pub struct Snapshot {
     pub state: String,
@@ -17,6 +22,9 @@ pub struct Snapshot {
     pub decoded: i32,
     pub dropped: i32,
     pub error: String,
+    pub kind: String,
+    pub input_width: i32,
+    pub input_height: i32,
 }
 struct State {
     stop: bool,
@@ -30,23 +38,43 @@ struct State {
     decoded: u64,
     dropped: u64,
     ready: Option<Arc<image::RgbaImage>>,
+    kind: &'static str,
+    input_width: i32,
+    input_height: i32,
+    last_frame: Instant,
 }
 pub struct Video {
     shared: Arc<(Mutex<State>, Condvar)>,
     child: Arc<Mutex<Option<Child>>>,
     worker: Option<JoinHandle<()>>,
+    watchdog: Option<JoinHandle<()>>,
+    live: bool,
 }
 impl Video {
     pub fn new(path: &str, decoder: &str, looping: bool, rate: f32) -> Result<Self, String> {
         if !Path::new(path).is_file() {
             return Err("video file does not exist".into());
         }
+        Self::start(Input::File(path.into()), decoder, looping, rate)
+    }
+    pub fn capture(device: super::capture::Device, decoder: &str) -> Result<Self, String> {
+        if !cfg!(target_os = "macos") {
+            return Err("live capture is currently supported only on macOS/AVFoundation".into());
+        }
+        Self::start(Input::Capture(device), decoder, false, 1.)
+    }
+    fn start(input: Input, decoder: &str, looping: bool, rate: f32) -> Result<Self, String> {
         if !Path::new(decoder).is_absolute() || !Path::new(decoder).is_file() {
             return Err("supply an absolute path to an installed FFmpeg executable".into());
         }
         if !rate.is_finite() || !(0.1..=4.).contains(&rate) {
             return Err("video rate must be 0.1..4".into());
         }
+        let kind = match &input {
+            Input::File(_) => "file",
+            Input::Capture(d) => d.kind,
+        };
+        let live = kind != "file";
         let shared = Arc::new((
             Mutex::new(State {
                 stop: false,
@@ -60,27 +88,41 @@ impl Video {
                 decoded: 0,
                 dropped: 0,
                 ready: None,
+                kind,
+                input_width: 0,
+                input_height: 0,
+                last_frame: Instant::now(),
             }),
             Condvar::new(),
         ));
         let child = Arc::new(Mutex::new(None));
-        let (s, c, p, d) = (
-            shared.clone(),
-            child.clone(),
-            path.to_owned(),
-            decoder.to_owned(),
-        );
+        let (s, c, d) = (shared.clone(), child.clone(), decoder.to_owned());
         let worker = thread::Builder::new()
             .name("hydra-video".into())
-            .spawn(move || run(s, c, &p, &d))
+            .spawn(move || run(s, c, input, &d))
             .map_err(|e| e.to_string())?;
-        Ok(Self {
+        let mut video = Self {
             shared,
             child,
             worker: Some(worker),
-        })
+            watchdog: None,
+            live,
+        };
+        if live {
+            let (s, c) = (video.shared.clone(), video.child.clone());
+            video.watchdog = Some(
+                thread::Builder::new()
+                    .name("hydra-capture-watchdog".into())
+                    .spawn(move || watchdog(s, c))
+                    .map_err(|e| e.to_string())?,
+            );
+        }
+        Ok(video)
     }
     pub fn control(&self, command: &str, value: f32) -> Result<(), String> {
+        if self.live && !["play", "pause"].contains(&command) {
+            return Err("live capture supports play/pause; seek/rate/loop are file-only".into());
+        }
         let mut s = self.shared.0.lock().unwrap();
         match command {
             "play" if value == 0. => {
@@ -102,6 +144,7 @@ impl Video {
         s.version = s.version.wrapping_add(1);
         s.ready = None;
         s.error.clear();
+        s.last_frame = Instant::now();
         // Interrupt a pipe read; the worker owns wait/reap and restart.
         if let Some(child) = self.child.lock().unwrap().as_mut() {
             let _ = child.kill();
@@ -131,6 +174,9 @@ impl Video {
             decoded: s.decoded.min(i32::MAX as u64) as i32,
             dropped: s.dropped.min(i32::MAX as u64) as i32,
             error: s.error.clone(),
+            kind: s.kind.into(),
+            input_width: s.input_width,
+            input_height: s.input_height,
         }
     }
 }
@@ -147,12 +193,15 @@ impl Drop for Video {
         if let Some(worker) = self.worker.take() {
             let _ = worker.join();
         }
+        if let Some(worker) = self.watchdog.take() {
+            let _ = worker.join();
+        }
     }
 }
 fn run(
     shared: Arc<(Mutex<State>, Condvar)>,
     child: Arc<Mutex<Option<Child>>>,
-    path: &str,
+    input: Input,
     decoder: &str,
 ) {
     loop {
@@ -167,11 +216,13 @@ fn run(
             (s.version, s.position, s.rate, s.looping)
         };
         let mut cmd = Command::new(decoder);
+        let live = matches!(input, Input::Capture(_));
         cmd.args([
             "-nostdin",
             "-hide_banner",
             "-loglevel",
-            "error",
+            if live { "info" } else { "error" },
+            "-nostats",
             "-threads",
             "1",
             "-filter_threads",
@@ -179,10 +230,31 @@ fn run(
             "-protocol_whitelist",
             "file,pipe",
         ]);
-        if looping {
-            cmd.args(["-stream_loop", "-1"]);
+        match &input {
+            Input::File(path) => {
+                if looping {
+                    cmd.args(["-stream_loop", "-1"]);
+                }
+                cmd.args(["-ss", &position.to_string(), "-i", path]);
+            }
+            Input::Capture(device) => {
+                cmd.args([
+                    "-f",
+                    "avfoundation",
+                    "-pixel_format",
+                    "bgr0",
+                    "-framerate",
+                    "30",
+                    "-drop_late_frames",
+                    "true",
+                ]);
+                if device.kind == "camera" {
+                    cmd.args(["-video_size", "640x480"]);
+                }
+                cmd.args(["-i", &format!("{}:none", device.name)]);
+            }
         }
-        cmd.args(["-ss",&position.to_string(),"-i",path,"-map","0:v:0","-an","-sn","-dn","-vf","fps=30,scale=640:360:force_original_aspect_ratio=decrease,pad=640:360:(ow-iw)/2:(oh-ih)/2","-pix_fmt","rgba","-threads","1","-f","rawvideo","pipe:1"]).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+        cmd.args(["-map","0:v:0","-an","-sn","-dn","-vf","fps=30,scale=640:360:force_original_aspect_ratio=decrease,pad=640:360:(ow-iw)/2:(oh-ih)/2","-pix_fmt","rgba","-threads","1","-f","rawvideo","pipe:1"]).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
         let mut process = match cmd.spawn() {
             Ok(c) => c,
             Err(e) => {
@@ -196,16 +268,39 @@ fn run(
         };
         let mut stdout = process.stdout.take().unwrap();
         let mut stderr = process.stderr.take().unwrap();
+        let metadata = shared.clone();
         let diagnostic = thread::Builder::new()
             .name("hydra-video-stderr".into())
             .spawn(move || {
                 let mut tail = Vec::new();
                 let mut bytes = [0u8; 1024];
+                let mut lines = String::new();
+                let mut input_header = true;
                 while let Ok(n) = stderr.read(&mut bytes) {
                     if n == 0 {
                         break;
                     }
                     tail.extend_from_slice(&bytes[..n]);
+                    if live && input_header {
+                        lines.push_str(&String::from_utf8_lossy(&bytes[..n]));
+                        while let Some(end) = lines.find('\n') {
+                            let line = lines.drain(..=end).collect::<String>();
+                            if line.starts_with("Output #") {
+                                input_header = false;
+                                break;
+                            }
+                            if let Some((w, h)) = super::capture::input_dimensions(&line) {
+                                let mut s = metadata.0.lock().unwrap();
+                                if s.version == version {
+                                    s.input_width = w;
+                                    s.input_height = h;
+                                }
+                            }
+                        }
+                        if lines.len() > 8192 {
+                            lines.clear();
+                        }
+                    }
                     if tail.len() > 2048 {
                         tail.drain(..tail.len() - 2048);
                     }
@@ -255,22 +350,44 @@ fn run(
                 break;
             }
             s.decoded = s.decoded.saturating_add(1);
+            s.last_frame = Instant::now();
             if s.ready.is_some() {
                 s.dropped = s.dropped.saturating_add(1);
             }
-            s.position = position + index as f32 / 30.;
+            s.position = if live {
+                anchor.elapsed().as_secs_f32()
+            } else {
+                position + index as f32 / 30.
+            };
             s.ready = Some(Arc::new(
                 image::RgbaImage::from_raw(WIDTH, HEIGHT, bytes).unwrap(),
             ));
             index = index.saturating_add(1);
         }
         let status = {
-            let mut c = child.lock().unwrap();
-            let mut c = c.take().unwrap();
+            let mut c = child.lock().unwrap().take().unwrap();
             if !eof {
                 let _ = c.kill();
             }
-            c.wait()
+            // Do not hold the child mutex while reaping. A decoder that closes
+            // stdout without exiting gets a short grace period, then is killed.
+            let deadline = Instant::now() + Duration::from_secs(1);
+            loop {
+                match c.try_wait() {
+                    Ok(Some(status)) => break Ok(status),
+                    Err(error) => {
+                        let _ = c.kill();
+                        let _ = c.wait();
+                        break Err(error);
+                    }
+                    Ok(None) => {}
+                }
+                if Instant::now() >= deadline {
+                    let _ = c.kill();
+                    break c.wait();
+                }
+                thread::sleep(Duration::from_millis(5));
+            }
         };
         let mut detail = diagnostic.join().unwrap_or_default();
         detail.truncate(detail.floor_char_boundary(1024));
@@ -281,10 +398,34 @@ fn run(
         if s.version == version {
             s.playing = false;
             s.ended = true;
-            if !matches!(status,Ok(status) if status.success()) {
-                s.error = format!("decoder failed: {detail}");
+            if s.error.is_empty() && (live || !matches!(status,Ok(status) if status.success())) {
+                s.error = if live {
+                    format!(
+                        "capture stopped/disconnected or unavailable. Check macOS Camera or Screen Recording permission for the launching app, then enumerate/reopen. {detail}"
+                    )
+                } else {
+                    format!("decoder failed: {detail}")
+                };
             }
         }
+    }
+}
+
+fn watchdog(shared: Arc<(Mutex<State>, Condvar)>, child: Arc<Mutex<Option<Child>>>) {
+    let mut s = shared.0.lock().unwrap();
+    while !s.stop {
+        if s.playing && s.last_frame.elapsed() > Duration::from_secs(10) {
+            s.error="capture delivered no frame for 10 seconds; check device connection and macOS Camera/Screen Recording permissions, then enumerate/reopen".into();
+            s.playing = false;
+            if let Some(child) = child.lock().unwrap().as_mut() {
+                let _ = child.kill();
+            }
+        }
+        s = shared
+            .1
+            .wait_timeout(s, Duration::from_millis(250))
+            .unwrap()
+            .0;
     }
 }
 
@@ -322,6 +463,83 @@ mod tests {
                 .success(),
             "decoder PID {pid} survived cleanup"
         );
+    }
+    #[cfg(target_os = "macos")]
+    #[test]
+    #[ignore = "authorized real camera and screen capture; SCSHADER_FFMPEG"]
+    fn native_capture_lifecycle() {
+        let decoder = std::env::var("SCSHADER_FFMPEG").unwrap();
+        let discovery = super::super::capture::Discovery::new(&decoder).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(6);
+        while discovery.snapshot().state == "loading" {
+            assert!(Instant::now() < deadline);
+            thread::sleep(Duration::from_millis(20));
+        }
+        let devices = discovery.snapshot();
+        assert_eq!(devices.state, "ready", "{}", devices.error);
+        for kind in ["camera", "screen"] {
+            let selected = devices
+                .devices
+                .iter()
+                .find(|d| d.kind == kind)
+                .expect("native capture device");
+            assert!(
+                discovery
+                    .select(
+                        if kind == "camera" { "screen" } else { "camera" },
+                        selected.index
+                    )
+                    .is_err()
+            );
+            let video =
+                Video::capture(discovery.select(kind, selected.index).unwrap(), &decoder).unwrap();
+            let state = until(&video, |s| {
+                s.decoded > 2 && s.input_width > 0 && s.input_height > 0
+            });
+            println!(
+                "{kind}: native {}x{}, RGBA {}x{}, frames {}",
+                state.input_width, state.input_height, WIDTH, HEIGHT, state.decoded
+            );
+            let first_pid = pid(&video);
+            let image = video.take().unwrap();
+            assert_eq!(image.dimensions(), (WIDTH, HEIGHT));
+            assert!(
+                image.pixels().any(|p| p.0[..3].iter().any(|&v| v > 20)),
+                "capture is entirely black"
+            );
+            assert!(video.control("seek", 1.).is_err());
+            video.control("pause", 0.).unwrap();
+            let paused = video.snapshot().decoded;
+            thread::sleep(Duration::from_millis(100));
+            assert_eq!(video.snapshot().decoded, paused);
+            video.control("play", 0.).unwrap();
+            until(&video, |s| s.decoded > paused + 2);
+            reaped(first_pid);
+            let final_pid = pid(&video);
+            if kind == "screen" {
+                // Stop only this test-owned capture process to simulate a stalled source.
+                assert!(
+                    Command::new("/bin/kill")
+                        .args(["-STOP", &final_pid.to_string()])
+                        .status()
+                        .unwrap()
+                        .success()
+                );
+                // Advance the timeout state without making the live check wait ten seconds.
+                thread::sleep(Duration::from_millis(100));
+                video.shared.0.lock().unwrap().last_frame =
+                    Instant::now() - Duration::from_secs(11);
+                video.shared.1.notify_all();
+                let deadline = Instant::now() + Duration::from_secs(3);
+                while video.snapshot().state != "error" {
+                    assert!(Instant::now() < deadline);
+                    thread::sleep(Duration::from_millis(20));
+                }
+                assert!(video.snapshot().error.contains("permission"));
+            }
+            drop(video);
+            reaped(final_pid);
+        }
     }
     #[test]
     #[ignore = "opt-in native FFmpeg check: SCSHADER_TEST_VIDEO and SCSHADER_FFMPEG"]

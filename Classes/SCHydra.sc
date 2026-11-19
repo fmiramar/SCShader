@@ -1,6 +1,7 @@
 SCHydra : Object {
     classvar all;
     var numbers, namedNumbers, mappedBuses;
+    var captureList;
     var <server, <isFreed, <isReady, <lastError, epoch, session, sequence, startupTask, uploadTask;
     var readyAction, failureAction, responders, uploading, revisions, presentTask, presenting;
 
@@ -21,6 +22,7 @@ SCHydra : Object {
         mappedBuses=IdentitySet.new;
         numbers=List.new;namedNumbers=IdentityDictionary.new;
         responders = IdentitySet.new; revisions = [0,0,0,0];
+        captureList=[];
         if(server.notNil and: { server.isRunning }) { this.negotiate };
         ^this
     }
@@ -133,7 +135,8 @@ SCHydra : Object {
             var result=this.request([("/scshader/v1/hydra/"++operation).asSymbol,epoch,session,id,index]++arguments,suffix,{|msg|msg[1].asString==epoch and:{msg[2]==session and:{msg[3]==id}}});
             presenting=false;
             if(result[\ok] and:{operation=="video-status"}) {
-                var msg=result[\message];result=(ok:true,state:msg[5].asString,position:msg[6],decoded:msg[7],dropped:msg[8],error:msg[9].asString);
+                var msg=result[\message];result=(ok:true,state:msg[5].asString,position:msg[6],decoded:msg[7],dropped:msg[8],error:msg[9].asString,
+                    kind:msg[10].asString,inputWidth:msg[11],inputHeight:msg[12],width:msg[13],height:msg[14],fps:msg[15]);
             };
             lastError=result[\ok].if({nil},{result});action.value(result);
         }).play(SystemClock);^this
@@ -143,6 +146,47 @@ SCHydra : Object {
     }
     videoControl { |slot,command,value=0,action| ^this.videoRequest("video-control",slot,[command.asString,value.asFloat],action) }
     videoStatus { |slot=\s0,action| ^this.videoRequest("video-status",slot,[],action) }
+
+    captureDevices { |decoder,action|
+        var id,result;
+        this.checkLive;if(this.canStream.not){Error("Hydra is not ready or a request is active").throw};
+        id=this.nextSequence;presenting=true;
+        presentTask=Routine({
+            var deadline,finished=false;
+            result=this.request(['/scshader/v1/hydra/capture-scan',epoch,session,id,decoder.asString.standardizePath],"ack",{|msg|msg[1].asString==epoch and:{msg[2]==session and:{msg[3]==id}}});
+            if(result[\ok]){
+                captureList=[];deadline=Main.elapsedTime+7;
+                while{finished.not and:{Main.elapsedTime<deadline}}{
+                    id=this.nextSequence;
+                    result=this.request(['/scshader/v1/hydra/capture-devices',epoch,session,id],"capture-devices.reply",{|msg|msg[1].asString==epoch and:{msg[2]==session and:{msg[3]==id}}});
+                    if(result[\ok].not){finished=true}{
+                        var msg=result[\message],state=msg[4].asString;
+                        if(state=="ready"){
+                            captureList=Array.fill(msg[6],{|i|var n=7+(i*3);(kind:msg[n].asSymbol,index:msg[n+1],name:msg[n+2].asString)});
+                            result=(ok:true,state:"ready",devices:captureList);finished=true;
+                        }{
+                            if(state=="error"){result=(ok:false,code:"E_HYDRA_CAPTURE",message:msg[5].asString);finished=true}{0.1.wait};
+                        };
+                    };
+                };
+                if(finished.not){result=(ok:false,code:"E_HYDRA_CAPTURE",message:"Capture discovery timed out; check FFmpeg/macOS permissions")};
+            };
+            presenting=false;lastError=result[\ok].if({nil},{result});action.value(result);
+        }).play(SystemClock);^this
+    }
+    captureSource { |kind,slot,index,action|
+        var selected=index,row;
+        if(selected.isNil){
+            row=captureList.detect{|d|d[\kind]==kind.asSymbol};
+            if(row.isNil){Error("Enumerate capture devices first; no matching camera/screen was found").throw};selected=row[\index];
+        };
+        if(selected.isInteger.not or:{selected<0 or:{selected>255}}){Error("Capture device index must be an integer in 0..255").throw};
+        ^this.videoRequest("capture",slot,[kind.asString,selected],action)
+    }
+    initCam { |slot=\s0,index,action| ^this.captureSource(\camera,slot,index,action) }
+    initScreen { |slot=\s0,index,action| ^this.captureSource(\screen,slot,index,action) }
+    captureStatus { |slot=\s0,action| ^this.videoStatus(slot,action) }
+    captureControl { |slot,command,action| ^this.videoControl(slot,command,0,action) }
 
     clearSource { |slot=\s0,action| ^this.image(slot,nil,action) }
 

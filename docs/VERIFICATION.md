@@ -1,5 +1,57 @@
 # Verification
 
+## Hydra camera/display adapter — Step 21
+
+Parent `bf07c70`; implementation is the commit introducing this record. Native
+macOS 26.6.2 / Apple M5 / Metal, aarch64-apple-darwin, Rust 1.97.1 and SC 3.14.1;
+version 0.0.18, dependencies and lockfile unchanged. Ordinary renderer SHA-256
+`b05237fab289d8546d23716f2db52d8ee51dc678f90ff566651727b619ca66c2`.
+External FFmpeg 9.0.1 with AVFoundation remains separately provisioned, not bundled.
+The user authorized proceeding with camera/screen checks. Existing OS permissions
+were preserved; no permission reset or preference change was performed.
+
+PASS: feasibility enumeration and short live probes before implementation, camera
+640×480 and display 2940×1912, converted to 640×360 RGBA. Native worker checks cover
+both real sources, actual dimensions, nonblack RGBA frames, pause/resume, file-only
+control rejection and owned decoder PID disappearance after disposal. A SIGSTOP
+on the test-owned screen decoder plus an advanced timeout timestamp verifies stall
+failure/cleanup without waiting ten seconds. This is not a physical unplug or
+permission-denial test. The separate file-video lifecycle regression also passes.
+
+Formatting and strict all-target/all-feature Clippy pass. Rust: 87 primary tests
+and 32 example-module tests pass; the two live opt-in native checks pass separately.
+Python: 137 tests run, five platform skips, all remaining tests pass. Default SC
+selection excludes explicit live capture/video checks, and default Rust tests do
+not access either device. Protocol tests cover discovery failed preparation,
+idempotent retry, source sequence ordering and bounded multibyte device-label
+replies. Parser tests separate camera/display entries from audio and read input
+sizes. Production Metal pixel/source/temporal/resource checks pass unchanged;
+owned resource counts return to baseline after disposal.
+
+Seven installed SC checks pass: actual capture example startup/helper, video
+example, image example, AST, concurrent Patterns, legacy graph and texture/feedback.
+The capture smoke runs camera and display together through source effects, queries
+native/output dimensions, tests independent camera pause/resume, resize, image
+replacement, clear and free with active capture. The focused follow-up also asserts
+wrong-kind E_HYDRA_CAPTURE and unsupported-live-seek E_HYDRA_VIDEO rejections.
+These warnings are expected negative cases. Installed tests use the actual bundled
+example/helper and shader assets; the final capture check uses normal renderer
+autodiscovery. Ordinary arm64 packaging and notice assembly pass. Existing
+extensions are backed up outside Extensions, and the final installed renderer
+matches the tested hash.
+
+Evidence: `build/hydra-tests/capture-21/` (preflight logs, `native-capture.log`,
+`native-video-regression.log`, `clippy-final.log`, `rust-final.log`,
+`python-final.log`, `pixels.log`, `source-classes/`, `installed-candidate/`,
+`installed-negative/`, `installed-final/`, package logs). FFmpeg enumeration exits
+nonzero after printing devices by design. Its initial pixel-format/screen-config
+warnings are preserved in preflight logs; the explicit supported pixel format
+and RGBA filter path pass. No camera/display frames are persisted or committed.
+Physical IDE appearance, true TCC deny/revoke, external USB cameras, physical
+unplug, sleep/wake, extra displays, source-specific recovery, other platforms and
+long runs are NOT RUN. CLI success is not an IDE permission qualification. See
+[CAPTURE.md](hydra/CAPTURE.md) for the capability matrix and masked-black limitation.
+
 ## Hydra local video adapter — Step 20
 
 Implementation `8f7bceb` (parent `be96282`). Native

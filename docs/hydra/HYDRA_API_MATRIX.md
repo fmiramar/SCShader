@@ -91,8 +91,8 @@ Declared arguments below exclude the implicit receiving chain. The factory prepe
 | `init({src,dynamic}), dynamic` | C | DOM-backed source handles require an adapter; native source API may provide alternatives. | NOT IMPLEMENTED |
 | `initImage(url="", params)` | B | Native alternative: `h.image(slot,path,action)`, PNG/JPEG/PNM local files. Browser URL/params parity unsupported. | IMPLEMENTED native Step 19; [IMAGES.md](IMAGES.md) |
 | `initVideo(url="", params)` | B | Native alternative: `h.video(slot,path,decoder,loop,rate,action)`, opt-in external FFmpeg and local files. Browser URL/params parity unsupported. | IMPLEMENTED native Step 20; [VIDEO.md](VIDEO.md) |
-| `initCam(index,params)` | B | Permission-controlled camera source; handle absent device. | NOT IMPLEMENTED |
-| `initScreen(index=0,params)` | B | Permission-controlled desktop capture; upstream browser helper ignores index. | NOT IMPLEMENTED |
+| `initCam(index,params)` | B | Native `h.initCam(slot,index,action)` after explicit captureDevices enumeration; macOS AVFoundation and no microphone. | IMPLEMENTED native Step 21; [CAPTURE.md](CAPTURE.md) |
+| `initScreen(index=0,params)` | B | Native `h.initScreen(slot,index,action)` selects an enumerated whole display; nil chooses the first. No browser/window-picker parity. | IMPLEMENTED native Step 21; [CAPTURE.md](CAPTURE.md) |
 | `initStream(streamName,params), pb` | C | Patch-bay video event transport; adapter required, outside core. | NOT IMPLEMENTED |
 | `initCanvas(width=1000,height=1000)` | C | Returns browser 2D context; native texture bridge does not reproduce Canvas API. | NOT IMPLEMENTED |
 | `source.clear()` | B | Native `h.clearSource(slot,action)` releases an image/video source; cleared samples are transparent black. | IMPLEMENTED native Steps 19–20 |
@@ -161,4 +161,4 @@ Step 12 adds output-only src sampling and four targets; see [OUTPUTS.md](OUTPUTS
 
 Step 13 implements temporal output `src` and native `prev`; see [TEMPORAL_SEMANTICS.md](TEMPORAL_SEMANTICS.md). All 52 names are recognized within the documented native argument scope. Media `src`, upstream alias behavior and full runtime parity remain unqualified.
 
-Step 19 adds typed still-image source slots; see [IMAGES.md](IMAGES.md). Video and capture adapters remain later scope.
+Steps 19–21 add typed native source slots: [images](IMAGES.md), [local video](VIDEO.md) and [macOS camera/display capture](CAPTURE.md). Browser URL and cross-platform capture parity remain outside the implemented scope.

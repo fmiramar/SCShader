@@ -12,9 +12,10 @@ class SCCheckTests(TestCase):
         tests = Path(__file__).resolve().parents[1] / "sc"
         defaults = default_checks(tests)
         self.assertNotIn("hydra_video_smoke", defaults)
+        self.assertNotIn("hydra_capture_smoke", defaults)
         self.assertNotIn("timing_benchmark", defaults)
         self.assertEqual(set(defaults), {p.stem for p in tests.glob("*.scd")}
-                         - {"hydra_video_smoke", "timing_benchmark"})
+                         - {"hydra_video_smoke", "hydra_capture_smoke", "timing_benchmark"})
 
     def test_success_marker_cannot_hide_shutdown_or_server_errors(self):
         marker = "SCSHADER_TEST_OK\n"

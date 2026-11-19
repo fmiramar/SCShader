@@ -204,6 +204,7 @@ pub struct Renderer {
     hydra_program: [Option<crate::hydra::ir::Program>; 4],
     hydra_selected: i32,
     hydra_videos: [Option<crate::hydra::video::Video>; 4],
+    hydra_discovery: Option<crate::hydra::capture::Discovery>,
     hydra_clock: Option<crate::hydra::clock::Clock>,
     hydra_diagnostic: Option<String>,
     instance: wgpu::Instance,
@@ -301,6 +302,7 @@ impl Renderer {
     }
     pub fn clear_hydra_candidate(&mut self) {
         self.hydra_videos = std::array::from_fn(|_| None);
+        self.hydra_discovery = None;
         self.hydra_output = None;
         self.hydra_program = std::array::from_fn(|_| None);
         self.hydra_selected = -1;
@@ -649,6 +651,7 @@ impl Renderer {
             hydra_selected: -1,
             hydra_clock: None,
             hydra_videos: std::array::from_fn(|_| None),
+            hydra_discovery: None,
             hydra_diagnostic: None,
             last_reload_check: Instant::now(),
             last_uniform_time: 0.0,
@@ -761,6 +764,7 @@ impl Renderer {
     }
 
     pub fn recover(mut self, vsync: bool) -> Result<Self, String> {
+        let discovery = self.hydra_discovery.take();
         let videos = std::mem::replace(&mut self.hydra_videos, std::array::from_fn(|_| None));
         let hydra_state = (
             self.hydra_program.clone(),
@@ -938,6 +942,7 @@ impl Renderer {
         restored.select_hydra(hydra_state.1)?;
         restored.hydra_clock = hydra_state.2;
         restored.hydra_videos = videos;
+        restored.hydra_discovery = discovery;
         restored.queue.submit([]);
         restored.poll_gpu();
         if let Some(issue) = restored.gpu_issue() {
@@ -1097,6 +1102,32 @@ impl Renderer {
             .decode()
             .map(|image| image.to_rgba8())
             .map_err(|error| error.to_string())
+    }
+    pub fn scan_hydra_capture(&mut self, decoder: &str) -> Result<(), String> {
+        self.hydra_discovery = Some(crate::hydra::capture::Discovery::new(decoder)?);
+        Ok(())
+    }
+    pub fn hydra_capture_devices(&self) -> Result<crate::hydra::capture::Devices, String> {
+        Ok(self
+            .hydra_discovery
+            .as_ref()
+            .ok_or("enumerate capture devices first")?
+            .snapshot())
+    }
+    pub fn load_hydra_capture(
+        &mut self,
+        slot: usize,
+        kind: &str,
+        index: i32,
+    ) -> Result<(), String> {
+        let discovery = self
+            .hydra_discovery
+            .as_ref()
+            .ok_or("enumerate capture devices first")?;
+        let device = discovery.select(kind, index)?;
+        let video = crate::hydra::video::Video::capture(device, &discovery.decoder)?;
+        self.hydra_videos[slot] = Some(video);
+        Ok(())
     }
     pub fn load_hydra_video(
         &mut self,

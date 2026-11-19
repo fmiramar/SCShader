@@ -1,4 +1,5 @@
 //! Opt-in Hydra transport. Graph activation is gated on the native compiler.
+pub mod capture;
 pub mod clock;
 pub mod compiler;
 pub mod families;
@@ -66,6 +67,21 @@ impl Request {
             }
             "commit" | "abort" | "close" => {
                 args.len() == 3 && scoped && integer(&args, 2, 1, i32::MAX)
+            }
+            "capture-scan" => {
+                args.len() == 4
+                    && scoped
+                    && integer(&args, 2, 1, i32::MAX)
+                    && matches!(&args[3],OscType::String(p) if !p.is_empty() && p.len()<=4096 && !p.contains('\0'))
+            }
+            "capture-devices" => args.len() == 3 && scoped && integer(&args, 2, 1, i32::MAX),
+            "capture" => {
+                args.len() == 6
+                    && scoped
+                    && integer(&args, 2, 1, i32::MAX)
+                    && integer(&args, 3, 0, 3)
+                    && matches!(&args[4],OscType::String(k) if k=="camera" || k=="screen")
+                    && integer(&args, 5, 0, 255)
             }
             "video" => {
                 args.len() == 8
@@ -197,12 +213,16 @@ struct Session {
     selected: i32,
     present_sequence: i32,
     source_sequences: [Option<(i32, String)>; 4],
+    scan_sequence: Option<(i32, String)>,
     clock_sequence: Option<(i32, f32, f32, f32, i32)>,
     parameter_sequences: [[Option<(i32, f32)>; 256]; 4],
     upload: Option<Upload>,
     results: VecDeque<(i32, &'static str, String)>,
 }
 pub enum Preparation<'a> {
+    CaptureScan(&'a str),
+    CaptureDevices(&'a mut capture::Devices),
+    Capture(usize, &'a str, i32),
     Commit(usize, &'a ir::Program),
     Present(i32),
     Parameter(usize, u32, f32),
@@ -291,6 +311,9 @@ impl Transport {
             | Preparation::Clock(..)
             | Preparation::Parameter(..)
             | Preparation::Image(..)
+            | Preparation::CaptureScan(..)
+            | Preparation::CaptureDevices(..)
+            | Preparation::Capture(..)
             | Preparation::Video(..)
             | Preparation::VideoControl(..)
             | Preparation::VideoStatus(..) => Ok(()),
@@ -323,11 +346,12 @@ impl Transport {
                     0.into(),
                     OscType::Blob(limits.into_iter().flat_map(u32::to_be_bytes).collect()),
                     format!(
-                        "staging-ir-v1;wgsl-v1:{};output-o0-v1;outputs-temporal-v1;numeric-v1;clock-v1;image-sources-v1;video-ffmpeg-v1",
+                        "staging-ir-v1;wgsl-v1:{};output-o0-v1;outputs-temporal-v1;numeric-v1;clock-v1;image-sources-v1;video-ffmpeg-v1{}",
                         registry::supported()
                             .map(|s| s.name)
                             .collect::<Vec<_>>()
-                            .join(",")
+                            .join(","),
+                        if cfg!(target_os="macos") {";capture-avfoundation-v1"} else {""}
                     )
                     .into(),
                 ],
@@ -364,6 +388,7 @@ impl Transport {
                     present_sequence: 0,
                     parameter_sequences: [[None; 256]; 4],
                     clock_sequence: None,
+                    scan_sequence: None,
                     source_sequences: std::array::from_fn(|_| None),
                     upload: None,
                     results: VecDeque::new(),
@@ -398,7 +423,7 @@ impl Transport {
             args: vec![self.epoch.clone().into(), session.id.into(), tx.into()],
         };
         let source_signature =
-            if ["image", "video", "video-control"].contains(&r.operation.as_str()) {
+            if ["image", "video", "video-control", "capture"].contains(&r.operation.as_str()) {
                 let slot = r.int(3) as usize;
                 let sig = format!("{}:{:?}", r.operation, &r.args[4..]);
                 if let Some((last, old)) = &session.source_sequences[slot] {
@@ -553,6 +578,45 @@ impl Transport {
                 }
                 reply.suffix = "aborted";
             }
+            "capture-scan" => {
+                if let Some((last, decoder)) = &session.scan_sequence {
+                    if tx == *last && decoder == r.text(3) {
+                        return Ok(reply);
+                    }
+                    if tx <= *last {
+                        return Err(failure(
+                            target,
+                            "E_HYDRA_STALE",
+                            "stale capture discovery sequence",
+                        ));
+                    }
+                }
+                prepare(Preparation::CaptureScan(r.text(3)))
+                    .map_err(|e| failure(target, "E_HYDRA_CAPTURE", e))?;
+                session.scan_sequence = Some((tx, r.text(3).into()));
+            }
+            "capture-devices" => {
+                let mut devices = capture::Devices::default();
+                prepare(Preparation::CaptureDevices(&mut devices))
+                    .map_err(|e| failure(target, "E_HYDRA_CAPTURE", e))?;
+                reply.suffix = "capture-devices.reply";
+                reply.args.extend([
+                    devices.state.into(),
+                    devices.error.into(),
+                    (devices.devices.len() as i32).into(),
+                ]);
+                for d in devices.devices {
+                    let mut name = d.name;
+                    name.truncate(name.floor_char_boundary(96));
+                    reply
+                        .args
+                        .extend([d.kind.into(), d.index.into(), name.into()]);
+                }
+            }
+            "capture" => {
+                prepare(Preparation::Capture(r.int(3) as usize, r.text(4), r.int(5)))
+                    .map_err(|e| failure(target, "E_HYDRA_CAPTURE", e))?;
+            }
             "video" => {
                 let OscType::Float(rate) = r.args[7] else {
                     unreachable!()
@@ -589,6 +653,12 @@ impl Transport {
                     status.decoded.into(),
                     status.dropped.into(),
                     status.error.into(),
+                    status.kind.into(),
+                    status.input_width.into(),
+                    status.input_height.into(),
+                    (video::WIDTH as i32).into(),
+                    (video::HEIGHT as i32).into(),
+                    OscType::Float(30.),
                 ]);
             }
             "image" => {
@@ -824,6 +894,52 @@ mod tests {
         assert_eq!(reply.suffix, "video-status.reply");
         assert_eq!(reply.args[4], OscType::String("playing".into()));
         assert_eq!(reply.args[6], OscType::Int(7));
+    }
+    #[test]
+    fn capture_discovery_retry_and_source_ordering() {
+        let mut t = Transport::default();
+        open(&mut t);
+        let args = scoped(&t, vec![10.into(), "/decoder".into()]);
+        let request = Request::parse("capture-scan", args.clone(), sender()).unwrap();
+        assert!(
+            t.execute_with(request, 0., |_| Err("not available".into()))
+                .is_err()
+        );
+        assert!(t.session.as_ref().unwrap().scan_sequence.is_none());
+        run(&mut t, "capture-scan", args.clone(), 0.).unwrap();
+        let request = Request::parse("capture-scan", args, sender()).unwrap();
+        t.execute_with(request, 0., |_| panic!("retry rescanned devices"))
+            .unwrap();
+        let args = scoped(&t, vec![11.into(), 0.into(), "camera".into(), 0.into()]);
+        run(&mut t, "capture", args, 0.).unwrap();
+        let args = scoped(&t, vec![10.into(), 0.into(), "old.ppm".into()]);
+        assert!(run(&mut t, "image", args, 0.).is_err());
+        let args = scoped(&t, vec![12.into()]);
+        let request = Request::parse("capture-devices", args, sender()).unwrap();
+        let reply = t
+            .execute_with(request, 0., |p| {
+                if let Preparation::CaptureDevices(result) = p {
+                    result.state = "ready".into();
+                    result.devices = (0..16)
+                        .map(|index| capture::Device {
+                            kind: "camera",
+                            index,
+                            name: "é".repeat(256),
+                        })
+                        .collect();
+                }
+                Ok(())
+            })
+            .unwrap();
+        let bytes = rosc::encoder::encode(&rosc::OscPacket::Message(rosc::OscMessage {
+            addr: format!("/scshader/v1/hydra/{}", reply.suffix),
+            args: reply.args,
+        }))
+        .unwrap();
+        assert!(
+            bytes.len() < 4096,
+            "device labels exceeded the bounded reply"
+        );
     }
     #[test]
     fn concurrent_parameters_keep_independent_sequence_order() {
