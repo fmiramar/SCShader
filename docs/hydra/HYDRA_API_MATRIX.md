@@ -2,7 +2,7 @@
 
 Reference: `hydra-synth` commit **9d29a9f4fd8f9081b9759943f38db36f05b9a88f**, retrieved 2026-11-12. The reference checkout is ignored under `build/hydra-reference`. Only API metadata and independently written behavior notes are included here; no upstream shader implementation is incorporated.
 
-Updated through Step 24 (2026-11-19), against SCShader source `532af16`.
+Updated through Step 25 (2026-11-19); audited implementation `c3a0c79`.
 This inventory covers 52 shader definitions, the original 32 runtime/service rows,
 20 array/dynamic rows and nine additional inspected source surfaces. Every row has
 an explicit compatibility status; definitions and browser/adapter decisions are in
@@ -19,6 +19,9 @@ coercion and automatic texture-object-to-expression conversion are unsupported.
 Use explicit src/sum/native numeric handles. Browser GPU equality remains NOT RUN.
 Existing native evidence is linked per family and service; Step 24 is a source
 and documentation audit, not a new hardware qualification.
+The subsequent [Step 25 verification](VERIFICATION.md) maps code and proof for
+every native operator family, checks all declared defaults and adds the bounded
+composed corpus. Status counts and argument limitations are unchanged.
 
 ## Shader operations
 

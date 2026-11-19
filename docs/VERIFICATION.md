@@ -1,5 +1,24 @@
 # Verification
 
+## Hydra Step 25 — compatibility and regression audit (2026-11-19)
+
+See [the complete audit](hydra/VERIFICATION.md) for code/proof mapping, exact
+commands, corpus and profile results, retained failures and platform limits.
+Implementation `c3a0c7912caa0619a6f7675680568fb1dc250a9e` corrects signed negative
+sequence offsets in the SC serializer; Rust production code, dependencies and
+version remain unchanged. Renderer SHA-256 remains
+`60e3d99e52b932a9b39811481099772f54a78567b3788c83fb59648519ae55b1`.
+
+All 52 registry/default definitions match the pinned source. Native Metal checks
+pass 50 operation comparisons, ten composed cases (zero channel difference) and
+the production feedback/source/custom/export/resource fixture. Rust: 97 main tests
+pass, two opt-in media tests ignored; Python: 133 pass, five Windows skips.
+All 53 installed SC checks pass, including SCDoc and legacy regression checks.
+All 18 help demos and both opt-in export checks pass. The brief 720p samples
+remain near 60 FPS with the same 22,118,664-byte owned texture estimate. The
+ordinary arm64 binary/source packages and all 156 installed files are verified.
+No browser GPU, other-backend or long-duration qualification is inferred.
+
 ## Hydra Step 24 — pinned-source compatibility disclosure (2026-11-19)
 
 Implementation baseline `532af16` (export follow-up). No Rust/SC runtime,

@@ -1,5 +1,13 @@
 # Milestone P1 — native desktop compatibility first
 
+Hydra Step 25: [compatibility and regression audit](hydra/VERIFICATION.md) verifies
+all 52 operator defaults, 50 native operation comparisons, ten composed pixel
+cases and 53 installed SC regressions on Apple M5/Metal. A signed negative
+sequence-offset bug is corrected with pinned-reference and SC/Rust regressions.
+Dynamic argument/easing gaps remain explicit. Step 26 documentation/examples and
+handoff is next; browser GPU, other native backends and long-run gates remain
+separate.
+
 Hydra Step 24: [compatibility disclosure](hydra/COMPATIBILITY.md) now classifies
 all 113 inventory rows, including browser/network gaps and individual constructor
 options. The source audit matches the pinned 52 shader names/categories and 14

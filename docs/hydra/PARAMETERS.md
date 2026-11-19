@@ -32,7 +32,9 @@ expression operators and automatic Function producers remain unsupported; SC
 Routines/Patterns may call set at their chosen control rate.
 
 Sequences contain 1..64 finite scalars. `fast` changes rate; zero follows the
-pinned upstream fallback to one. `offset` uses remainder modulo one. `smooth`
+pinned upstream fallback to one. `offset` uses JavaScript signed remainder modulo one: `offset(-0.25)`
+retains −0.25, rather than wrapping to +0.75. The Step 25 audit corrected the
+client serializer and checks the signed phase against the pinned reference. `smooth`
 accepts 0..1, with zero selecting discrete steps. Positive smoothing centers the
 interpolation interval about each step. `ease(\linear)` enables full smoothing.
 `ease(\easeInOutQuad)` matches the pinned piecewise quadratic easing; other easing names report an
@@ -72,4 +74,4 @@ Checks cover numeric pixels with unchanged pipeline identity, sequence/reference
 traces, malformed numeric sources, revision/sequence/failure guards, source SC
 snapshot/commit/set and installed regression checks. Native numerical checks use
 Apple M5/Metal; browser GPU and other platforms remain unqualified. See
-VERIFICATION.md and the runnable `examples/hydra/06_parameters.scd`.
+[the Step 25 audit](VERIFICATION.md) and the runnable `examples/hydra/06_parameters.scd`.

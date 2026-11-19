@@ -28,12 +28,13 @@ Updated: 2026-11-19
 | 22 — Custom shader functions | PASS in native automated/installed scope | [CUSTOM_FUNCTIONS.md](CUSTOM_FUNCTIONS.md): typed WGSL bodies, all five categories, frozen generations, rollback and session-local registration; arbitrary GLSL source unsupported. |
 | 23 — Screenshot/recording/resolution/presentation | PASS in native short-check/installed scope; user confirms corrected IDE example | [EXPORT.md](EXPORT.md): opt-in PNG/H.264 MP4, one staging buffer, bounded writer, live drop semantics, fixed pixel size/aspect; IDE follow-up adds offscreen hidden-window export and queued steps through cleanup. |
 | 24 — Browser/network compatibility audit | PASS in pinned-source/documentation scope | [COMPATIBILITY.md](COMPATIBILITY.md), updated [matrix](HYDRA_API_MATRIX.md): 113 classified rows; native alternatives, unsupported browser behavior and unimplemented optional adapters disclosed. Source completeness checker passes; no network/browser runtime added. |
+| 25 — Compatibility and regression audit | PASS in bounded native Metal scope | [VERIFICATION.md](VERIFICATION.md): all 52 defaults, 50 operation comparisons, ten composed pixel cases, signed-offset correction, 53 installed SC checks, help/legacy/export regressions and one brief 720p profile. Browser GPU/other backends/long runs remain unqualified. |
 
 Checkpoint A is available for one-output procedural visuals and live replacement.
 The user confirms `01_osc.scd` runs perfectly; new Step 09 visuals have automated
 native checks but await user observation. This is a development checkpoint.
 
-Checkpoint B is available in the documented native scope. Checkpoint C is available in the documented native scope. Next: Step 25 compatibility/regression audit, `gpt-6.1-sol` / `high`. The user reports
+Checkpoint B is available in the documented native scope. Checkpoint C is available in the documented native scope. Next: Step 26 documentation, examples, packaging and handoff, `gpt-6.1-terra` / `medium`. The user reports
 the updated capture example is working well so far; broader hardware/permission
 qualification remains separate.
 The user confirms clock v2 looks correct; their log shows all eight events,

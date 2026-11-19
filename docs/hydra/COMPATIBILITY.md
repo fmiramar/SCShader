@@ -152,6 +152,8 @@ metadata and never executes browser code, starts media, or opens network ports.
 
 Step 24 changes documentation and its audit tooling only. No new browser GPU,
 WebRTC, external texture, Windows/Linux/Intel or long-run qualification is added.
-Step 25 still needs the representative compatibility/regression corpus, precise
-argument/default/domain review and updated help/legacy checks. Explicit status
-coverage closes this audit step; it does not close those behavioral release gates.
+The subsequent [Step 25 behavioral audit](VERIFICATION.md) supplies the bounded
+Metal corpus, default review and installed SC/help/legacy regressions. It corrects
+a signed negative sequence-offset discrepancy; other dynamic/easing limitations
+remain unchanged. That result does not extend Step 24 to browser pixels, other
+native backends or final-release gates.
