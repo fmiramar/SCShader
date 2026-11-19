@@ -32,7 +32,7 @@ session; retrying a closed handle currently reports `E_HYDRA_SESSION`.
 
 `limits` is exactly five big-endian u32 values, in order: maximum IR bytes
 (65536), chunk bytes (2048), nodes (256), depth (64), expanded operations (4096).
-`features` is `staging-ir-v1;wgsl-v1:<comma-separated supported registry names>;output-o0-v1;outputs-temporal-v1;numeric-v1;clock-v1;image-sources-v1;video-ffmpeg-v1;custom-wgsl-v1`. The 52 names and their defaults/types are in `renderer/src/hydra/registry.rs`; discovery order is not an ABI guarantee.
+`features` is `staging-ir-v1;wgsl-v1:<comma-separated supported registry names>;output-o0-v1;outputs-temporal-v1;numeric-v1;clock-v1;image-sources-v1;video-ffmpeg-v1;custom-wgsl-v1;export-rgba-v1`. The 52 names and their defaults/types are in `renderer/src/hydra/registry.rs`; discovery order is not an ABI guarantee.
 This narrower discovery payload supersedes the ADR's provisional full-limit
 payload for the staging feature only. Future compiler/source/presentation
 capabilities must explicitly document their additional fields before advertising.
@@ -216,3 +216,46 @@ must use the newly returned wire name. Resizing and retained-program recovery
 do not look up the current catalog. Session close clears the catalog; it is
 neither process-global nor persistent across epochs. No arbitrary GLSL snippet
 compatibility is advertised.
+
+## Export and render resolution (Step 23)
+
+Capability `export-rgba-v1` adds immediate structural requests. Clock/parameter
+scheduling permissions are unchanged; timed export/resolution requests are rejected.
+
+| Suffix | Arguments after address | Reply |
+| --- | --- | --- |
+| `resolution` | epoch:s, session:i, sequence:i, width:i, height:i | `ack(epoch, session, sequence)` |
+| `screenshot` | epoch, session, sequence, path:s | `ack(epoch, session, sequence)` for acceptance |
+| `record-start` | epoch, session, sequence, path:s, encoder:s, fps:i | `ack(epoch, session, sequence)` for acceptance |
+| `record-stop` | epoch, session, sequence | `ack(epoch, session, sequence)` for stop acceptance |
+| `export-status` | epoch, session, request:i | `export-status.reply(epoch, session, request, state:s, path:s, width:i, height:i, fps:i, written:i, dropped:i, buffers:i, error:s)` |
+
+All requests retain epoch/session/owner guards. Resolution is 1…4096 in each
+axis, or exactly 0,0 to follow window physical pixels. Dimensions are additionally
+limited by the active device. Export is 1…2048 per axis, PNG only for screenshot,
+MP4 for recording, with even dimensions and integer FPS 1…60. Export/encoder paths
+are strings of at most 4096 bytes without NUL; output paths are absolute, new and
+have an existing parent. No file overwrite is authorized by this protocol.
+
+Successful mutation sequences strictly increase across these four mutations.
+An exact retry of the latest accepted mutation returns its acknowledgement without
+reallocating/restarting/writing another file. Older/conflicting sequences fail
+`E_HYDRA_STALE`; failed requests do not advance the mutation sequence.
+Status requests do not advance it. Acceptance does not promise file completion.
+
+State is `idle`, `screenshot`, `recording`, `stopping`, `finished` or `error`.
+`finished` means the writer completed (including successful encoder exit for MP4).
+`written` counts frames written, `dropped` missed/busy sample opportunities;
+both saturate at int32 maximum on the wire. `buffers` is 1 while the single export
+readback buffer is owned, 0 after terminal cleanup. Error text is at most 512 UTF-8
+bytes. Initial status has empty path/error and zero dimensions/counts. FPS is 0
+for PNG. The last terminal status is retained until a new accepted export or close.
+
+`E_HYDRA_EXPORT` reports synchronous path, size, busy, process-start or resolution
+errors. Asynchronous mapping/encoding/finalization errors appear in status with
+state `error`. Prior output programs/presentation remain active. During export,
+resolution changes, concurrent export and Legacy selection are rejected. Output
+selection/quadrants and ordinary window changes remain available. Session close
+aborts export and clears explicit resolution; device recovery aborts recording
+while retaining the chosen render resolution. See [EXPORT.md](../docs/hydra/EXPORT.md)
+for exact queue, timing, format and lifecycle limits. Export never reads the desktop.

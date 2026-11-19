@@ -9,7 +9,7 @@ pub struct Output {
     pub texture: wgpu::Texture,
     frame: wgpu::Buffer,
     bindings: wgpu::BindGroup,
-    presenter: wgpu::RenderPipeline,
+    presenter: Presenter,
     presentation: wgpu::BindGroup,
     pub width: u32,
     pub height: u32,
@@ -87,79 +87,8 @@ impl Output {
                 entries
             },
         });
-        let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: None,
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Texture {
-                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                    multisampled: false,
-                },
-                count: None,
-            }],
-        });
-        let presentation = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: None,
-            layout: &layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::TextureView(
-                    &texture.create_view(&Default::default()),
-                ),
-            }],
-        });
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: None,
-            bind_group_layouts: &[Some(&layout)],
-            immediate_size: 0,
-        });
-        let source = format!(
-            r#"
-@group(0) @binding(0) var image: texture_2d<f32>;
-struct Vertex {{ @builtin(position) position:vec4<f32>, @location(0) uv:vec2<f32> }};
-@vertex fn vs_main(@builtin(vertex_index) i:u32)->Vertex {{
- let p=array<vec2<f32>,3>(vec2<f32>(-1.,-1.),vec2<f32>(3.,-1.),vec2<f32>(-1.,3.))[i];
- var v:Vertex;v.position=vec4<f32>(p,0.,1.);v.uv=p*0.5+vec2<f32>(0.5);return v;
-}}
-@fragment fn fs_main(v:Vertex)->@location(0) vec4<f32> {{
- let size=textureDimensions(image); let uv=vec2<f32>(v.uv.x,1.-v.uv.y);
- let point=clamp(vec2<i32>(uv*vec2<f32>(size)),vec2<i32>(0),vec2<i32>(size)-vec2<i32>(1));
- let c=textureLoad(image,point,0); {}
-}}
-"#,
-            if format.is_srgb() {
-                "let low=c.rgb/12.92;let high=pow((c.rgb+vec3<f32>(0.055))/1.055,vec3<f32>(2.4));return vec4<f32>(select(high,low,c.rgb<=vec3<f32>(0.04045)),c.a);"
-            } else {
-                "return c;"
-            }
-        );
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Hydra presentation"),
-            source: wgpu::ShaderSource::Wgsl(source.into()),
-        });
-        let presenter = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Hydra presentation"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                compilation_options: Default::default(),
-                buffers: &[],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                compilation_options: Default::default(),
-                targets: &[Some(format.into())],
-            }),
-            primitive: Default::default(),
-            depth_stencil: None,
-            multisample: Default::default(),
-            multiview_mask: None,
-            cache: None,
-        });
+        let presenter = Presenter::new(device, format);
+        let presentation = presenter.bindings(device, &texture);
         if let Some(error) = pollster::block_on(scope.pop()) {
             return Err(error.to_string());
         }
@@ -239,6 +168,7 @@ struct Vertex {{ @builtin(position) position:vec4<f32>, @location(0) uv:vec2<f32
         }
         pass.draw(0..3, 0..1);
     }
+    #[allow(dead_code)] // Direct single-image presenter used by GPU fixtures.
     pub fn encode_present(&self, encoder: &mut wgpu::CommandEncoder, view: &wgpu::TextureView) {
         self.encode_present_region(encoder, view, None);
     }
@@ -246,6 +176,105 @@ struct Vertex {{ @builtin(position) position:vec4<f32>, @location(0) uv:vec2<f32
         &self,
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
+        region: Option<[f32; 4]>,
+    ) {
+        self.presenter
+            .encode(encoder, view, &self.presentation, region);
+    }
+}
+
+// One presentation implementation for both window formats and RGBA export.
+pub struct Presenter {
+    pipeline: wgpu::RenderPipeline,
+    layout: wgpu::BindGroupLayout,
+}
+impl Presenter {
+    pub fn new(device: &wgpu::Device, format: wgpu::TextureFormat) -> Self {
+        let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    multisampled: false,
+                },
+                count: None,
+            }],
+        });
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: None,
+            bind_group_layouts: &[Some(&layout)],
+            immediate_size: 0,
+        });
+        let source = format!(
+            r#"
+@group(0) @binding(0) var image: texture_2d<f32>;
+struct Vertex {{ @builtin(position) position:vec4<f32>, @location(0) uv:vec2<f32> }};
+@vertex fn vs_main(@builtin(vertex_index) i:u32)->Vertex {{
+ let p=array<vec2<f32>,3>(vec2<f32>(-1.,-1.),vec2<f32>(3.,-1.),vec2<f32>(-1.,3.))[i];
+ var v:Vertex;v.position=vec4<f32>(p,0.,1.);v.uv=p*0.5+vec2<f32>(0.5);return v;
+}}
+@fragment fn fs_main(v:Vertex)->@location(0) vec4<f32> {{
+ let size=textureDimensions(image); let uv=vec2<f32>(v.uv.x,1.-v.uv.y);
+ let point=clamp(vec2<i32>(uv*vec2<f32>(size)),vec2<i32>(0),vec2<i32>(size)-vec2<i32>(1));
+ let c=textureLoad(image,point,0); {}
+}}
+"#,
+            if format.is_srgb() {
+                "let low=c.rgb/12.92;let high=pow((c.rgb+vec3<f32>(0.055))/1.055,vec3<f32>(2.4));return vec4<f32>(select(high,low,c.rgb<=vec3<f32>(0.04045)),c.a);"
+            } else {
+                "return c;"
+            }
+        );
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Hydra presentation"),
+            source: wgpu::ShaderSource::Wgsl(source.into()),
+        });
+        let presenter = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Hydra presentation"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                compilation_options: Default::default(),
+                buffers: &[],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                compilation_options: Default::default(),
+                targets: &[Some(format.into())],
+            }),
+            primitive: Default::default(),
+            depth_stencil: None,
+            multisample: Default::default(),
+            multiview_mask: None,
+            cache: None,
+        });
+        Self {
+            pipeline: presenter,
+            layout,
+        }
+    }
+    pub fn bindings(&self, device: &wgpu::Device, texture: &wgpu::Texture) -> wgpu::BindGroup {
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &self.layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(
+                    &texture.create_view(&Default::default()),
+                ),
+            }],
+        })
+    }
+    pub fn encode(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        view: &wgpu::TextureView,
+        bindings: &wgpu::BindGroup,
         region: Option<[f32; 4]>,
     ) {
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -268,8 +297,8 @@ struct Vertex {{ @builtin(position) position:vec4<f32>, @location(0) uv:vec2<f32
         if let Some([x, y, w, h]) = region {
             pass.set_viewport(x, y, w, h, 0., 1.);
         }
-        pass.set_pipeline(&self.presenter);
-        pass.set_bind_group(0, &self.presentation, &[]);
+        pass.set_pipeline(&self.pipeline);
+        pass.set_bind_group(0, bindings, &[]);
         pass.draw(0..3, 0..1);
     }
 }

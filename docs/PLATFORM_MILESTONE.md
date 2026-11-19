@@ -1,5 +1,11 @@
 # Milestone P1 — native desktop compatibility first
 
+Hydra Step 23: [PNG/MP4 export and render resolution](hydra/EXPORT.md) add
+opt-in screenshots, bounded external-FFmpeg recording and fixed physical-pixel
+resolution with aspect-preserving window presentation. Native GPU, PNG/MP4 decode and nine
+installed SC checks pass. Recording can drop frames and does not
+provide offline deterministic rendering. Other-platform/long-run gates remain.
+
 Hydra Step 22: [custom WGSL operations](hydra/CUSTOM_FUNCTIONS.md) add typed,
 session-local registration and all five categories. Invalid code preserves the
 last working output; accepted programs retain frozen definitions after removal.

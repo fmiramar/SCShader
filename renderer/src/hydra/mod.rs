@@ -4,6 +4,7 @@ pub mod capture;
 pub mod clock;
 pub mod compiler;
 pub mod custom;
+pub mod export;
 pub mod families;
 pub mod gpu;
 pub mod ir;
@@ -70,6 +71,10 @@ impl Request {
             "commit" | "abort" | "close" => {
                 args.len() == 3 && scoped && integer(&args, 2, 1, i32::MAX)
             }
+            "resolution" => args.len()==5 && scoped && integer(&args,2,1,i32::MAX) && integer(&args,3,0,4096) && integer(&args,4,0,4096) && ((args[3]==0.into())==(args[4]==0.into())),
+            "screenshot" => args.len()==4 && scoped && integer(&args,2,1,i32::MAX) && matches!(&args[3],OscType::String(v) if !v.is_empty() && v.len()<=4096 && !v.contains('\0')),
+            "record-start" => args.len()==6 && scoped && integer(&args,2,1,i32::MAX) && [3,4].iter().all(|i|matches!(&args[*i],OscType::String(v) if !v.is_empty() && v.len()<=4096 && !v.contains('\0'))) && integer(&args,5,1,60),
+            "record-stop" | "export-status" => args.len()==3 && scoped && integer(&args,2,1,i32::MAX),
             "function-set" => {
                 args.len() == 4
                     && scoped
@@ -217,6 +222,7 @@ struct Upload {
     touched: f64,
 }
 struct Session {
+    export_sequence: Option<(i32, String, Vec<OscType>)>,
     functions: Vec<custom::Definition>,
     function_sequence: Option<(i32, String, Vec<OscType>, String)>,
     id: i32,
@@ -236,6 +242,11 @@ struct Session {
     results: VecDeque<(i32, &'static str, String)>,
 }
 pub enum Preparation<'a> {
+    Resolution(u32, u32),
+    Screenshot(&'a str),
+    RecordStart(&'a str, &'a str, u32),
+    RecordStop,
+    ExportStatus(&'a mut export::Snapshot),
     Function(&'a custom::Definition),
     CaptureScan(&'a str),
     CaptureDevices(&'a mut capture::Devices),
@@ -327,7 +338,12 @@ impl Transport {
                 compiler::compile(&definition.fixture()).map(|_| ())
             }
             Preparation::Commit(_, program) => compiler::compile(program).map(|_| ()),
-            Preparation::Present(_)
+            Preparation::Resolution(..)
+            | Preparation::Screenshot(..)
+            | Preparation::RecordStart(..)
+            | Preparation::RecordStop
+            | Preparation::ExportStatus(..)
+            | Preparation::Present(_)
             | Preparation::Clock(..)
             | Preparation::Parameter(..)
             | Preparation::Image(..)
@@ -366,7 +382,7 @@ impl Transport {
                     0.into(),
                     OscType::Blob(limits.into_iter().flat_map(u32::to_be_bytes).collect()),
                     format!(
-                        "staging-ir-v1;wgsl-v1:{};output-o0-v1;outputs-temporal-v1;numeric-v1;clock-v1;image-sources-v1;video-ffmpeg-v1;custom-wgsl-v1{}",
+                        "staging-ir-v1;wgsl-v1:{};output-o0-v1;outputs-temporal-v1;numeric-v1;clock-v1;image-sources-v1;video-ffmpeg-v1;custom-wgsl-v1;export-rgba-v1{}",
                         registry::supported()
                             .map(|s| s.name)
                             .collect::<Vec<_>>()
@@ -397,6 +413,7 @@ impl Transport {
                     .checked_add(1)
                     .ok_or_else(|| failure(target, "E_HYDRA_LIMIT", "session IDs exhausted"))?;
                 self.session = Some(Session {
+                    export_sequence: None,
                     functions: vec![],
                     function_sequence: None,
                     id,
@@ -461,6 +478,51 @@ impl Transport {
                 None
             };
         match r.operation.as_str() {
+            "resolution" | "screenshot" | "record-start" | "record-stop" => {
+                if let Some((last, op, args)) = &session.export_sequence {
+                    if tx == *last && op == &r.operation && *args == r.args[3..] {
+                        return Ok(reply);
+                    }
+                    if tx <= *last {
+                        return Err(failure(
+                            target,
+                            "E_HYDRA_STALE",
+                            "stale export/resolution sequence",
+                        ));
+                    }
+                }
+                match r.operation.as_str() {
+                    "resolution" => {
+                        prepare(Preparation::Resolution(r.int(3) as u32, r.int(4) as u32))
+                    }
+                    "screenshot" => prepare(Preparation::Screenshot(r.text(3))),
+                    "record-start" => prepare(Preparation::RecordStart(
+                        r.text(3),
+                        r.text(4),
+                        r.int(5) as u32,
+                    )),
+                    _ => prepare(Preparation::RecordStop),
+                }
+                .map_err(|e| failure(target, "E_HYDRA_EXPORT", e))?;
+                session.export_sequence = Some((tx, r.operation.clone(), r.args[3..].to_vec()));
+            }
+            "export-status" => {
+                let mut status = export::Snapshot::default();
+                prepare(Preparation::ExportStatus(&mut status))
+                    .map_err(|e| failure(target, "E_HYDRA_EXPORT", e))?;
+                reply.suffix = "export-status.reply";
+                reply.args.extend([
+                    status.state.into(),
+                    status.path.into(),
+                    (status.width as i32).into(),
+                    (status.height as i32).into(),
+                    (status.fps as i32).into(),
+                    (status.written.min(i32::MAX as u64) as i32).into(),
+                    (status.dropped.min(i32::MAX as u64) as i32).into(),
+                    status.buffers.into(),
+                    status.error.into(),
+                ]);
+            }
             "function-set" | "function-remove" => {
                 if let Some((last, operation, args, wire)) = &session.function_sequence {
                     if tx == *last && operation == &r.operation && *args == r.args[3..] {
@@ -1016,6 +1078,57 @@ mod tests {
         assert!(
             bytes.len() < 4096,
             "device labels exceeded the bounded reply"
+        );
+    }
+    #[test]
+    fn export_mutations_retry_without_restarting_writers_and_keep_failed_sequence() {
+        let mut t = Transport::default();
+        open(&mut t);
+        let args = scoped(
+            &t,
+            vec![
+                10.into(),
+                "/tmp/record.mp4".into(),
+                "/tmp/ffmpeg".into(),
+                30.into(),
+            ],
+        );
+        let request = Request::parse("record-start", args.clone(), sender()).unwrap();
+        t.execute_with(request, 0., |p| {
+            assert!(matches!(p, Preparation::RecordStart(..)));
+            Ok(())
+        })
+        .unwrap();
+        let request = Request::parse("record-start", args, sender()).unwrap();
+        t.execute_with(request, 0., |_| panic!("retry started a second encoder"))
+            .unwrap();
+        let args = scoped(&t, vec![11.into(), 320.into(), 180.into()]);
+        let request = Request::parse("resolution", args, sender()).unwrap();
+        assert!(
+            t.execute_with(request, 0., |_| Err("export active".into()))
+                .is_err()
+        );
+        assert_eq!(
+            t.session
+                .as_ref()
+                .unwrap()
+                .export_sequence
+                .as_ref()
+                .unwrap()
+                .0,
+            10
+        );
+        let args = scoped(&t, vec![9.into()]);
+        assert!(run(&mut t, "record-stop", args, 0.).is_err());
+        let args = scoped(&t, vec![12.into()]);
+        run(&mut t, "record-stop", args, 0.).unwrap();
+        assert!(
+            Request::parse(
+                "resolution",
+                scoped(&t, vec![13.into(), 0.into(), 100.into()]),
+                sender()
+            )
+            .is_err()
         );
     }
     #[test]

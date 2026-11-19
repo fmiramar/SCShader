@@ -332,10 +332,73 @@ impl Outputs {
         width: u32,
         height: u32,
     ) {
+        self.present_regions(mode, width, height, |output, region| {
+            output.encode_present_region(encoder, view, region)
+        });
+    }
+    pub fn encode_present_fit(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        view: &wgpu::TextureView,
+        mode: i32,
+        width: u32,
+        height: u32,
+    ) {
+        let scale = (width as f64 / self.width as f64).min(height as f64 / self.height as f64);
+        let w = ((self.width as f64 * scale).floor() as u32)
+            .max(1)
+            .min(width);
+        let h = ((self.height as f64 * scale).floor() as u32)
+            .max(1)
+            .min(height);
+        let x = (width - w) / 2;
+        let y = (height - h) / 2;
+        drop(encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Hydra letterbox clear"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            ..Default::default()
+        }));
+        self.present_regions(mode, w, h, |output, region| {
+            let mut region = region.unwrap_or([0., 0., w as f32, h as f32]);
+            region[0] += x as f32;
+            region[1] += y as f32;
+            output.encode_present_region(encoder, view, Some(region));
+        });
+    }
+    #[allow(dead_code)] // Production export; compiler-only fixtures do not capture.
+    pub fn encode_export(
+        &self,
+        device: &wgpu::Device,
+        presenter: &super::output::Presenter,
+        encoder: &mut wgpu::CommandEncoder,
+        view: &wgpu::TextureView,
+        mode: i32,
+        size: (u32, u32),
+    ) {
+        self.present_regions(mode, size.0, size.1, |output, region| {
+            let bindings = presenter.bindings(device, &output.texture);
+            presenter.encode(encoder, view, &bindings, region);
+        });
+    }
+    fn present_regions(
+        &self,
+        mode: i32,
+        width: u32,
+        height: u32,
+        mut draw: impl FnMut(&Output, Option<[f32; 4]>),
+    ) {
         if (0..4).contains(&mode) {
-            self.current(mode as usize).encode_present(encoder, view);
+            draw(self.current(mode as usize), None);
         } else {
-            self.blank.encode_present(encoder, view);
+            draw(&self.blank, None);
             for i in 0..4 {
                 let x = if i / 2 == 0 { 0 } else { width / 2 };
                 let y = if i % 2 == 0 { 0 } else { height / 2 };
@@ -350,9 +413,8 @@ impl Outputs {
                     height - height / 2
                 };
                 if w > 0 && h > 0 {
-                    self.current(i).encode_present_region(
-                        encoder,
-                        view,
+                    draw(
+                        self.current(i),
                         Some([x as f32, y as f32, w as f32, h as f32]),
                     );
                 }

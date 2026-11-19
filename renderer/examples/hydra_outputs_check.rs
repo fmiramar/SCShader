@@ -1,6 +1,8 @@
 #[allow(dead_code)] // Compiler fixtures do not exercise the transport decoder.
 #[path = "../src/hydra/custom.rs"]
 mod custom;
+#[path = "../src/hydra/export.rs"]
+mod export;
 #[path = "../src/hydra/parameters.rs"]
 mod parameters;
 // Native production output/sampling/presentation proof; no device hooks.
@@ -251,6 +253,18 @@ fn main() -> Result<(), Box<dyn Error>> {
         assert_eq!(resized.texture_bytes(), 4 + 8 * 16 * 12 * 4);
         let pixels = read(&device, &queue, &resized.current(0).texture)?;
         assert!(pixels.chunks_exact(4).all(|p| p == [51, 102, 153, 255]));
+        let mut wide = set.resized(&device, 8, 4)?;
+        wide.prepare(&device, 0, &solid(1., 0., 0.))?;
+        wide.encode_outputs(&device, &queue, 0., 0., 1);
+        let mut encoder = device.create_command_encoder(&Default::default());
+        wide.encode_present_fit(&mut encoder, &view, 0, 8, 8);
+        queue.submit(Some(encoder.finish()));
+        let fitted = read(&device, &queue, &target)?;
+        assert_eq!(&fitted[..4], &[0, 0, 0, 255]);
+        assert_eq!(
+            &fitted[(4 * 8 + 4) * 4..(4 * 8 + 4) * 4 + 4],
+            &[255, 0, 0, 255]
+        );
         if let Some(error) = pollster::block_on(scope.pop()) {
             return Err(error.to_string().into());
         }
@@ -433,6 +447,51 @@ fn main() -> Result<(), Box<dyn Error>> {
         timeout: Some(Duration::from_secs(5)),
     })?;
     let baseline = counts();
+    {
+        let mut output = outputs::Outputs::new(&device, 8, 8, wgpu::TextureFormat::Bgra8UnormSrgb)?;
+        output.prepare(&device, 0, &solid(0.2, 0.4, 0.6))?;
+        let path =
+            std::env::temp_dir().join(format!("scshader-export-pixels-{}.png", std::process::id()));
+        let mut export = export::Export::default();
+        export.start(&device, path.to_str().unwrap(), "", 8, 8, 0)?;
+        assert_eq!(export.texture_bytes(), 8 * 8 * 4);
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while export.busy() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "PNG GPU export stalled"
+            );
+            device.poll(wgpu::PollType::Poll)?;
+            export.poll();
+            output.encode_outputs(&device, &queue, 0., 0., 1);
+            let mut encoder = device.create_command_encoder(&Default::default());
+            export.encode(&device, &output, 0, &mut encoder);
+            queue.submit(Some(encoder.finish()));
+            export.submitted();
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        let status = export.snapshot();
+        assert_eq!(status.state, "finished", "{}", status.error);
+        assert_eq!(status.path, path.to_str().unwrap());
+        assert_eq!(export.texture_bytes(), 0);
+        assert_eq!(status.written, 1);
+        assert_eq!(status.buffers, 0);
+        let png = image::open(&path)?.into_rgba8();
+        assert!(png.pixels().all(|p| p.0 == [51, 102, 153, 255]));
+        std::fs::remove_file(path)?;
+    }
+    device.poll(wgpu::PollType::Wait {
+        submission_index: None,
+        timeout: Some(Duration::from_secs(5)),
+    })?;
+    assert_eq!(
+        counts(),
+        baseline,
+        "export GPU allocations did not return to baseline"
+    );
+    println!(
+        "export: PNG pixels from BGRA/sRGB presentation, one-shot readback and resource disposal PASS"
+    );
     {
         let mut edits = outputs::Outputs::new(&device, 8, 8, wgpu::TextureFormat::Rgba8Unorm)?;
         edits.prepare(&device, 1, &solid(0., 1., 0.))?;

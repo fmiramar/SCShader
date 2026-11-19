@@ -200,6 +200,8 @@ pub enum HotReload {
 }
 
 pub struct Renderer {
+    hydra_export: crate::hydra::export::Export,
+    hydra_resolution: Option<(u32, u32)>,
     hydra_output: Option<crate::hydra::outputs::Outputs>,
     hydra_program: [Option<crate::hydra::ir::Program>; 4],
     hydra_selected: i32,
@@ -255,6 +257,63 @@ pub struct Renderer {
 }
 
 impl Renderer {
+    fn hydra_dimensions(&self) -> (u32, u32) {
+        self.hydra_resolution
+            .unwrap_or((self.config.width, self.config.height))
+    }
+    pub fn set_hydra_resolution(&mut self, width: u32, height: u32) -> Result<(), String> {
+        self.hydra_export.poll();
+        if self.hydra_export.busy() {
+            return Err("wait for export to finish before changing resolution".into());
+        }
+        let fixed = if width == 0 && height == 0 {
+            None
+        } else {
+            Some((width, height))
+        };
+        let (w, h) = fixed.unwrap_or((self.config.width, self.config.height));
+        if let Some(output) = &self.hydra_output {
+            if output.dimensions() != (w, h) {
+                self.hydra_output = Some(output.resized(&self.device, w, h)?);
+            }
+        } else {
+            self.hydra_output = Some(crate::hydra::outputs::Outputs::new(
+                &self.device,
+                w,
+                h,
+                self.config.format,
+            )?);
+        }
+        self.hydra_resolution = fixed;
+        Ok(())
+    }
+    pub fn start_hydra_export(
+        &mut self,
+        path: &str,
+        encoder: &str,
+        fps: u32,
+    ) -> Result<(), String> {
+        self.hydra_export.poll();
+        if self.hydra_selected < 0 {
+            return Err("select a Hydra output or quadrants before exporting".into());
+        }
+        let (w, h) = self
+            .hydra_output
+            .as_ref()
+            .ok_or("Hydra outputs not initialized")?
+            .dimensions();
+        self.hydra_export
+            .start(&self.device, path, encoder, w, h, fps)
+    }
+    pub fn stop_hydra_export(&mut self) -> Result<(), String> {
+        self.hydra_export.poll();
+        self.hydra_export.stop()
+    }
+    pub fn hydra_export_status(&mut self) -> crate::hydra::export::Snapshot {
+        self.hydra_export.poll();
+        self.hydra_export.snapshot()
+    }
+
     pub fn configure_hydra_clock(
         &mut self,
         bpm: f32,
@@ -288,8 +347,8 @@ impl Renderer {
         if self.hydra_output.is_none() {
             self.hydra_output = Some(crate::hydra::outputs::Outputs::new(
                 &self.device,
-                self.config.width,
-                self.config.height,
+                self.hydra_dimensions().0,
+                self.hydra_dimensions().1,
                 self.config.format,
             )?);
         }
@@ -308,6 +367,8 @@ impl Renderer {
         crate::hydra::gpu::Candidate::prepare(&self.device, &definition.fixture(), &mut candidate)
     }
     pub fn clear_hydra_candidate(&mut self) {
+        self.hydra_export = Default::default();
+        self.hydra_resolution = None;
         self.hydra_videos = std::array::from_fn(|_| None);
         self.hydra_discovery = None;
         self.hydra_output = None;
@@ -329,10 +390,13 @@ impl Renderer {
         if mode >= 0 && self.hydra_output.is_none() {
             self.hydra_output = Some(crate::hydra::outputs::Outputs::new(
                 &self.device,
-                self.config.width,
-                self.config.height,
+                self.hydra_dimensions().0,
+                self.hydra_dimensions().1,
                 self.config.format,
             )?);
+        }
+        if mode < 0 && self.hydra_export.busy() {
+            return Err("stop export before selecting Legacy mode".into());
         }
         self.hydra_selected = mode;
         Ok(())
@@ -653,6 +717,8 @@ impl Renderer {
             shaders,
             active_shader_id: RESOURCE_ID,
             graph_nodes: Vec::new(),
+            hydra_export: Default::default(),
+            hydra_resolution: None,
             hydra_output: None,
             hydra_program: std::array::from_fn(|_| None),
             hydra_selected: -1,
@@ -771,6 +837,9 @@ impl Renderer {
     }
 
     pub fn recover(mut self, vsync: bool) -> Result<Self, String> {
+        let hydra_resolution = self.hydra_resolution;
+        // Device recovery aborts active export rather than silently producing a discontinuous file.
+        self.hydra_export = Default::default();
         let discovery = self.hydra_discovery.take();
         let videos = std::mem::replace(&mut self.hydra_videos, std::array::from_fn(|_| None));
         let hydra_state = (
@@ -916,6 +985,7 @@ impl Renderer {
             restored.scheduled_events,
             restored.late_events,
         ) = state;
+        restored.hydra_resolution = hydra_resolution;
         if let Some((width, height)) = hydra_state.3 {
             // A rejected resize may leave valid Hydra dimensions different from the surface.
             restored.hydra_output = Some(crate::hydra::outputs::Outputs::new(
@@ -992,6 +1062,7 @@ impl Renderer {
                 * u64::from(texture.format().block_copy_size(None).unwrap_or(4))
         };
         hydra_bytes
+            + self.hydra_export.texture_bytes()
             + bytes(&self.fallback_texture._texture)
             + bytes(&self.fallback_buffer.texture)
             + self
@@ -1172,8 +1243,8 @@ impl Renderer {
                 if self.hydra_output.is_none() {
                     match crate::hydra::outputs::Outputs::new(
                         &self.device,
-                        self.config.width,
-                        self.config.height,
+                        self.hydra_dimensions().0,
+                        self.hydra_dimensions().1,
                         self.config.format,
                     ) {
                         Ok(o) => self.hydra_output = Some(o),
@@ -1212,8 +1283,8 @@ impl Renderer {
         if self.hydra_output.is_none() {
             self.hydra_output = Some(crate::hydra::outputs::Outputs::new(
                 &self.device,
-                self.config.width,
-                self.config.height,
+                self.hydra_dimensions().0,
+                self.hydra_dimensions().1,
                 self.config.format,
             )?);
         }
@@ -1619,7 +1690,9 @@ impl Renderer {
             shader.uniforms.resolution = [size.width as f32, size.height as f32];
         });
         self.surface.configure(&self.device, &self.config);
-        if let Some(output) = &self.hydra_output {
+        if self.hydra_resolution.is_none()
+            && let Some(output) = &self.hydra_output
+        {
             match output.resized(&self.device, size.width, size.height) {
                 Ok(output) => self.hydra_output = Some(output),
                 Err(error) => {
@@ -1741,6 +1814,7 @@ impl Renderer {
 
     pub fn render(&mut self) -> Result<(), String> {
         let _timing = crate::timing::enter(crate::timing::Stage::Render);
+        self.hydra_export.poll();
         let frame_started_at = Instant::now();
         // Acquire before staging per-frame uniforms. A skipped/occluded frame
         // must not accumulate uploads that never reach a queue submission.
@@ -1828,13 +1902,25 @@ impl Renderer {
                     |clock| clock.frame(Instant::now(), time_delta, self.stats.frame_index as u32),
                 );
                 output.encode_frame(&self.device, &self.queue, frame);
-                output.encode_present(
-                    &mut encoder,
-                    &view,
-                    self.hydra_selected,
-                    self.config.width,
-                    self.config.height,
-                );
+                self.hydra_export
+                    .encode(&self.device, output, self.hydra_selected, &mut encoder);
+                if self.hydra_resolution.is_some() {
+                    output.encode_present_fit(
+                        &mut encoder,
+                        &view,
+                        self.hydra_selected,
+                        self.config.width,
+                        self.config.height,
+                    );
+                } else {
+                    output.encode_present(
+                        &mut encoder,
+                        &view,
+                        self.hydra_selected,
+                        self.config.width,
+                        self.config.height,
+                    );
+                }
             }
         } else {
             let graph_nodes = if self.graph_nodes.is_empty() {
@@ -1923,6 +2009,7 @@ impl Renderer {
             let _timing = crate::timing::enter(crate::timing::Stage::Submit);
             self.queue.submit(Some(encoder.finish()));
         }
+        self.hydra_export.submitted();
         {
             let _timing = crate::timing::enter(crate::timing::Stage::Present);
             self.queue.present(frame);

@@ -3,7 +3,7 @@
 
 Live checks open short-lived renderer windows and some boot a private audio server.
 Install Classes/HelpSource and build the debug renderer before running this tool.
-The timing benchmark and external-decoder video/capture checks require explicit selection.
+The timing benchmark and external-decoder video/capture/export checks require explicit selection.
 """
 from __future__ import annotations
 
@@ -72,7 +72,7 @@ def check_passed(check, text, returncode, timed_out=False):
 
 def default_checks(tests: Path):
     return [path.stem for path in sorted(tests.glob("*.scd"))
-            if path.stem not in {"timing_benchmark", "hydra_video_smoke", "hydra_capture_smoke"}]
+            if path.stem not in {"timing_benchmark", "hydra_video_smoke", "hydra_capture_smoke", "hydra_export_smoke"}]
 
 
 def main() -> int:

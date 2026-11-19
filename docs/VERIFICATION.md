@@ -1,5 +1,68 @@
 # Verification
 
+## Hydra Step 23 — export, render pixels and aspect (2026-11-19)
+
+Working-tree implementation based on `e0bb6525beef6262b07bd455ca792285c15f3b05`;
+version remains **0.0.18**. Native arm64 macOS 26.6.2, Apple M5 / Metal,
+SuperCollider 3.14.1, Rust 1.97.1 and external FFmpeg/ffprobe 9.0.1 with libx264.
+No dependency/lockfile/version change and no shipped GPU test hooks.
+The ordinary arm64 renderer SHA-256 is
+`44d65ea74342c613d75a28ae3ccf295fce72b282efe9437e248c2ba5669e22cf`.
+The unchanged camera helper remains
+`6fbebc59ff2d27cbd1e7327424d0a3077483be74dec59b600249e4b97e247d8f`.
+
+Passed:
+
+- Pinned formatting and locked all-target/all-feature strict Clippy. Rust:
+  96 main tests plus 45 example-fixture tests pass; two live camera tests remain
+  ignored. Python: 138 run, 133 pass, five platform-specific skips.
+- Native Metal production-output checker: existing source/history/custom/numeric
+  regressions plus aspect-fit pixels for linear/sRGB targets and PNG channel
+  values from BGRA/sRGB presentation. One-shot export and the existing 32 edits
+  return all eight tracked resource classes to baseline. Checker SHA-256:
+  `92afc6b0e9bf7cb252624ee7668a6a8fa825ee99f988b17aa8531cc33d9c37b4`.
+- Source and installed opt-in export checks: odd-size 319×181 RGBA PNG,
+  320×180 single-output PNG, exact quadrant order/orientation/channels, fixed
+  pixel dimensions across window resize, no-overwrite/odd-video/busy guards and
+  repeated cleanup. The installed H.264 MP4 contains exactly 38 decoded frames
+  at 30 FPS, duration 1.266667 seconds, matching the writer counter. No audio.
+- A deliberately stalled owned encoder fills the bounded queue, reports drops
+  with one staging buffer, exits after timed shutdown, releases staging and
+  leaves no test process running. A subsequent PNG has the correct quadrant
+  pixels. The external checker decodes actual files; an ACK alone is not a pass.
+- Nine installed SC checks pass: `hydra_export_smoke` through actual installed
+  example startup and automatic renderer discovery; plus `compile_check`,
+  `hydra_ast_unit`, `hydra_custom_smoke`, `hydra_outputs_smoke`,
+  `hydra_feedback_smoke`, `hydra_params_example_smoke`, `hydra_images_smoke`
+  and `graph_smoke`. The eight regressions explicitly select the installed binary.
+- Ordinary arm64 package and native helper pixel self-test pass. Candidate and
+  final package installations each verify all 154 files against the ZIP and
+  preserve the executable hashes above. The prior extension is backed up outside
+  Extensions. Final prefix: `fmiramar-hydra23-reviewed`; binary and matching
+  vendored-source ZIPs/checksums remain local. Existing notice review is matched;
+  distribution/signing gates are unchanged.
+
+Preserved negative evidence: the first example completion loop compared String
+states using identity-based collection membership, so it timed out despite a
+valid finished PNG; explicit state equality corrects it. The first aspect-fit
+pixel test found transparent rather than opaque black bars; an explicit opaque
+clear fixes the implementation, preserving the pixel assertion. Initial Clippy
+helper/fixture warnings were corrected. Source, GPU and installed reruns pass.
+Raw evidence is under ignored `build/hydra-tests/export-23/`.
+
+Scope: screenshot and live, lossy MP4 export only, with bounded readback/writer
+ownership and explicit FFmpeg provisioning. Sampling may drop frames; constant-FPS
+movie duration follows written frame count, not wall time. No offline rendering
+or timing-measurement claim. Physical IDE/fullscreen observation, export during
+logical/physical device loss, long recording and Windows/Linux/Intel hardware
+are NOT RUN. No camera or desktop capture was activated for this step. See
+[EXPORT.md](hydra/EXPORT.md) for formats, API and bounds.
+
+Step 22 feedback: the user's ordered IDE log confirms readiness, expected invalid
+WGSL rejection, removal guard, successful new composition at revision 2 and clean
+shutdown without scsynth. Visual continuity through the rejection/removal blocks
+was not separately itemized.
+
 ## Hydra Step 22 — custom WGSL functions (2026-11-19)
 
 Working-tree implementation based on `cd55ed8c840a9c8d17ddd9ecdc2c9e7c88dd6152`;

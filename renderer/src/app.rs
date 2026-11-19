@@ -312,6 +312,20 @@ impl App {
                             .as_mut()
                             .ok_or_else(|| "renderer is not initialized".to_owned())?;
                         match preparation {
+                            crate::hydra::Preparation::Resolution(w, h) => {
+                                renderer.set_hydra_resolution(w, h)
+                            }
+                            crate::hydra::Preparation::Screenshot(path) => {
+                                renderer.start_hydra_export(path, "", 0)
+                            }
+                            crate::hydra::Preparation::RecordStart(path, encoder, fps) => {
+                                renderer.start_hydra_export(path, encoder, fps)
+                            }
+                            crate::hydra::Preparation::RecordStop => renderer.stop_hydra_export(),
+                            crate::hydra::Preparation::ExportStatus(status) => {
+                                *status = renderer.hydra_export_status();
+                                Ok(())
+                            }
                             crate::hydra::Preparation::Function(definition) => {
                                 renderer.validate_hydra_function(definition)
                             }

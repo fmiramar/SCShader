@@ -111,6 +111,31 @@ SCHydra : Object {
 
     prev { this.checkLive; ^SCHydraExpr.new(this, \prev, []) }
 
+    exportRequest { |operation,arguments,action|
+        var id,suffix=(operation=="export-status").if({"export-status.reply"},{"ack"});
+        this.checkLive;if(this.canStream.not){Error("Hydra is not ready or a request is active").throw};
+        id=this.nextSequence;presenting=true;
+        presentTask=Routine({
+            var result=this.request([("/scshader/v1/hydra/"++operation).asSymbol,epoch,session,id]++arguments,suffix,{|msg|msg[1].asString==epoch and:{msg[2]==session and:{msg[3]==id}}});
+            if(result[\ok] and:{operation=="export-status"}){
+                var msg=result[\message];result=(ok:true,state:msg[4].asString,path:msg[5].asString,width:msg[6],height:msg[7],fps:msg[8],written:msg[9],dropped:msg[10],buffers:msg[11],error:msg[12].asString);
+            };
+            presenting=false;lastError=result[\ok].if({nil},{result});action.value(result);
+        }).play(SystemClock);^this
+    }
+    setResolution { |width,height,action|
+        [width,height].do{|v|if(v.isInteger.not or:{v<0 or:{v>4096}}){Error("Resolution must contain integers 1..4096, or 0,0 to follow the window").throw}};
+        if((width==0)!=(height==0)){Error("Use 0,0 to follow the window").throw};
+        ^this.exportRequest("resolution",[width,height],action)
+    }
+    screenshot { |path,action| ^this.exportRequest("screenshot",[path.asString.standardizePath],action) }
+    startRecording { |path,encoder,fps=30,action|
+        if(fps.isInteger.not or:{fps<1 or:{fps>60}}){Error("Recording FPS must be an integer 1..60").throw};
+        ^this.exportRequest("record-start",[path.asString.standardizePath,encoder.asString.standardizePath,fps],action)
+    }
+    stopRecording { |action| ^this.exportRequest("record-stop",[],action) }
+    exportStatus { |action| ^this.exportRequest("export-status",[],action) }
+
     functionIdentifier { |value,limit|
         var text=value.asString.copy,alpha={|c|(c>=65 and:{c<=90}) or:{c>=97 and:{c<=122}}};
         if(text.isEmpty or:{text.size>limit}){Error("Custom identifier length is invalid").throw};
