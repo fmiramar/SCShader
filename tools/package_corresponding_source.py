@@ -91,6 +91,7 @@ def create(project: Path, output: Path, binary: Path, target: str) -> dict:
                 "documented in docs/PLATFORMS.md. These external system tools are not bundled.\n"
                 "From THIS directory (not renderer/), build without a crates.io download:\n"
                 f"  cargo build --manifest-path renderer/Cargo.toml --release --locked --offline --target {target}\n"
+                + (f"  bash tools/build_camera_macos.sh renderer/target/{target}/release/SCShaderCamera.app {target.replace('-darwin','-macos11.0')}\n" if target.endswith("-apple-darwin") else "") +
                 "Rustup/toolchain/target installation may itself require a network connection.\n"
                 "The source is portable; this does not assert byte-identical executables or\n"
                 "runtime qualification on another machine. Do not discard the vendor folder.\n"

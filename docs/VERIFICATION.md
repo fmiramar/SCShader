@@ -1,5 +1,67 @@
 # Verification
 
+## Camera IDE follow-up — native permission owner and repeatable cleanup
+
+Parent `4c38ced`; implementation is the commit introducing this record. The user
+confirms screen capture and its SC permission prompt, but reports camera startup
+with a green camera indicator, no prompt/image, inputWidth/inputHeight zero and
+no decoded frames before the ten-second timeout. This is negative IDE evidence
+against the previous FFmpeg camera path, despite its earlier CLI passes. The
+installed SuperCollider 3.14.1 Info.plist has microphone usage text but no
+NSCameraUsageDescription. Apple's camera-authorization requirement makes this a
+concrete launch/permission integration issue; the log alone does not prove denial.
+No SuperCollider bundle or OS permission settings were changed.
+
+Camera now runs in the bundled, explicitly launched SCShader Camera app with its
+own camera usage declaration, native AVFoundation session and AppKit loop. A
+private Unix socket carries bounded RGBA frames to a renderer bridge. The helper
+checks/requests its own video permission, never microphone access, and exits when
+its controller closes. Permission waiting is visible in status, with a 60-second
+prompt deadline; ordinary no-frame failure remains ten seconds. Timeout errors
+retain native/decoder diagnostics. Cleanup in 09_capture.scd is safe during an
+in-progress shutdown and after it finishes, replacing the nil.quit failure.
+
+Native Apple M5 / Metal, macOS 26.6.2, aarch64-apple-darwin, Rust 1.97.1, SC 3.14.1;
+version 0.0.18, Cargo.lock and dependencies unchanged. Ordinary renderer SHA-256:
+`b5c04986b8700fae7a0fca696ac60b79435c82fd3596789715fb739a9b0d5a59`.
+Camera helper executable SHA-256:
+`6fbebc59ff2d27cbd1e7327424d0a3077483be74dec59b600249e4b97e247d8f`.
+This development helper is ad-hoc signed; no release-trust qualification is claimed.
+
+PASS: native helper pixel proof (padded BGRA rows, RGB channels, upright halves,
+opaque letterbox), native camera/display lifecycle with real nonblack frames,
+actual input dimensions, pause/resume, bridge/helper PID exit and stalled-screen
+cleanup. Camera reported 1920×1080 and screen 2940×1912, uploaded as 640×360 RGBA.
+Initial camera exposure frames may be black: the live test still requires a
+nonblack frame within a bounded five-second warm-up. File-video lifecycle passes.
+Formatting, strict all-target/all-feature Clippy, 89 primary Rust tests and 32
+example-module tests pass; both live tests pass separately. Python: 138 tests,
+five platform skips, remaining tests pass. Source archives include Swift/plist
+and the helper build instructions; no captured frames are stored or committed.
+
+Four installed candidate SC checks pass: actual capture startup/helper, video,
+image and legacy graph. Capture tests verify two live sources/effects, metadata,
+wrong-kind/live-seek rejections, independent pause/resume, resize, image replacement
+and cleanup called during shutdown and again afterward. Source compile/AST checks
+pass. Final package/notice assembly and exact installation verification pass;
+existing extensions are backed up outside Extensions. Final installed capture
+and video checks use normal bundled helper/renderer discovery without developer
+path overrides.
+
+Evidence: `build/hydra-tests/capture-21-camera-fix/`. Preserved negative evidence
+includes initial nonblocking-socket failure (`native-camera.log`), initial black
+warm-up assertion (`native-camera-final.log`), the Clippy finding (`clippy.log`),
+and source-mutation rejection during a provisional package (`package-candidate.log`).
+The accepted socket is now explicitly blocking, with a delayed-response regression;
+the warm-up check retains its visible-frame assertion. `native-camera-warmup.log`,
+`native-video-final.log`, `rust-final2.log`, `clippy-final2.log`, `python-final.log`,
+`source-classes/`, `installed-candidate/`, `installed-final/` and final package logs
+record positive evidence. No test assertions were removed to claim a pass.
+Computer-use UI access was unavailable; the new camera IDE visual check remains
+pending with the user. Screen IDE appearance is user-confirmed. True OS denial,
+USB camera, physical unplug/sleep, other backends/platforms and long runs remain
+NOT RUN. See [CAPTURE.md](hydra/CAPTURE.md).
+
 ## Hydra camera/display adapter — Step 21
 
 Parent `bf07c70`; implementation is the commit introducing this record. Native

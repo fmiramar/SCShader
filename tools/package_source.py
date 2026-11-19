@@ -26,14 +26,14 @@ FILES = (
 DIRECTORIES = (
     ".github", "Classes", "HelpSource", "docs", "examples", "licenses",
     "protocol", "renderer/src", "renderer/examples", "renderer/shaders",
-    "renderer/tests", "tests", "tools",
+    "renderer/tests", "renderer/mac-camera", "tests", "tools",
 )
 SKIP_NAMES = {".git", ".DS_Store", "__MACOSX", "__pycache__", "target", "build", "stage", "dist"}
 SKIP_SUFFIXES = {".pyc", ".log", ".csv", ".zip", ".so", ".dylib", ".dll", ".exe", ".scx"}
 SOURCE_SUFFIXES = {
     ".md", ".rs", ".toml", ".lock", ".sc", ".schelp", ".scd", ".wgsl",
     ".glsl", ".frag", ".ppm", ".json", ".py", ".sh", ".ps1", ".m",
-    ".yml", ".yaml", ".txt", ".wprp",
+    ".yml", ".yaml", ".txt", ".wprp", ".swift", ".plist",
 }
 
 

@@ -1,5 +1,11 @@
 # Milestone P1 — native desktop compatibility first
 
+Hydra capture follow-up: the user confirms screen capture in the IDE but reports
+camera startup with no frames. Camera now uses a bundled native AVFoundation app
+with its own usage declaration and permission prompt; SuperCollider is unchanged.
+Native frames/pixel and lifetime checks pass; camera IDE retest is pending.
+The example also makes cleanup safe to run repeatedly. See [CAPTURE.md](hydra/CAPTURE.md).
+
 Hydra Step 21: [camera/display capture](hydra/CAPTURE.md) adds explicit macOS
 AVFoundation device discovery and source selection through external FFmpeg. Native
 camera/display frames, pause/resume, stall detection and installed SC checks pass.

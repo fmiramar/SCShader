@@ -158,3 +158,12 @@ returns E_HYDRA_VIDEO without mutation. [CAPTURE.md](../docs/hydra/CAPTURE.md)
 defines explicit permission handling, timing, bounded storage, disposal and the
 platform matrix. Microphones/audio, ScreenCaptureKit and Windows/Linux adapters
 are not implemented by this feature.
+
+Camera follow-up: on macOS, kind=camera uses the bundled SCShader Camera app as
+its own native AVFoundation permission owner; kind=screen/discovery retain
+FFmpeg. Status additionally permits state `permission` while its camera prompt
+is pending (up to 60 seconds). The installed example waits up to 75 seconds;
+ordinary no-frame failure remains ten seconds. Existing fields/ordering do not
+change. Timeout errors retain bounded native diagnostics. The local bridge and
+helper protocol are internal, not new OSC endpoints. See CAPTURE.md for source
+ownership, helper discovery and development build requirements.

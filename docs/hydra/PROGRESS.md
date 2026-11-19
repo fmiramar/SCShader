@@ -1,6 +1,6 @@
 # Hydra implementation progress
 
-Updated: 2026-11-17
+Updated: 2026-11-18
 
 | Step | Status | Evidence |
 | --- | --- | --- |
@@ -24,7 +24,7 @@ Updated: 2026-11-17
 | 18 — Pattern integration / Checkpoint C | PASS in installed native scope | [PATTERNS.md](PATTERNS.md): two concurrent control Pbinds, audio Pbind, independent parameter ordering, legacy Event identity and regression checks. Manual performance observation pending. |
 | 19 — Static image sources | PASS in native automated scope | [IMAGES.md](IMAGES.md): four typed image sources, shared decoder, replacement/clear/resize and native pixel regressions. Manual image appearance pending. |
 | 20 — Local video playback | PASS in native automated scope; user reports video example working | [VIDEO.md](VIDEO.md): explicit external FFmpeg, one pending RGBA frame, stable GPU uploads, loop/play/pause/rate/seek/EOS and decoder cleanup. Seven installed SC regressions pass. Other platforms and camera/screen input NOT RUN. |
-| 21 — Camera/display sources | PASS in native automated scope; physical IDE appearance pending | [CAPTURE.md](CAPTURE.md): macOS external FFmpeg/AVFoundation, bounded discovery and frame queue, explicit kind/index selection, native sizes, two installed sources/effects, pause/resume, timeout and cleanup. Other platforms/OS denial/physical unplug NOT RUN. |
+| 21 — Camera/display sources | Screen IDE confirmed; native-camera corrective build passes automation, IDE retest pending | [CAPTURE.md](CAPTURE.md): native camera helper owns permission; FFmpeg display/discovery, bounded frames, source controls, timeout diagnostics and repeated cleanup. Original FFmpeg camera failed in IDE. Other platforms/deny/unplug NOT RUN. |
 
 Checkpoint A is available for one-output procedural visuals and live replacement.
 The user confirms `01_osc.scd` runs perfectly; new Step 09 visuals have automated

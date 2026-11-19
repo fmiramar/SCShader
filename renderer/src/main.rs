@@ -17,6 +17,24 @@ use app::{AppConfig, WindowConfig};
 const DEFAULT_OSC_PORT: u16 = 57_140;
 
 fn main() {
+    #[cfg(target_os = "macos")]
+    if std::env::args().nth(1).as_deref() == Some("--camera-bridge") {
+        let args = std::env::args().skip(2).collect::<Vec<_>>();
+        let result = if args.len() == 3 {
+            hydra::camera::bridge(
+                std::path::Path::new(&args[0]),
+                &args[1],
+                std::path::Path::new(&args[2]),
+            )
+        } else {
+            Err("camera bridge requires a helper bundle, selected device name and private socket directory".into())
+        };
+        if let Err(error) = result {
+            eprintln!("SCShader Camera: {error}");
+            std::process::exit(1);
+        }
+        return;
+    }
     match parse_args().and_then(app::run) {
         Ok(code) => std::process::exit(code),
         Err(message) => {

@@ -1,4 +1,5 @@
 //! Opt-in Hydra transport. Graph activation is gated on the native compiler.
+pub mod camera;
 pub mod capture;
 pub mod clock;
 pub mod compiler;

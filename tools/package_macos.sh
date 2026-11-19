@@ -43,6 +43,9 @@ cp -R "$project_dir/renderer/shaders" "$extension_root/shaders"
 cp -R "$project_dir/docs" "$project_dir/protocol" "$project_dir/examples" "$extension_root/"
 cp "$project_dir/README.md" "$project_dir/START_HERE.md" "$project_dir/AGENTS.md" "$project_dir/LICENSE" "$project_dir/COPYING" "$project_dir/CHANGELOG.md" "$project_dir/VERSION" "$project_dir/SCShader.quark" "$extension_root/"
 cp "$renderer_binary" "$extension_root/renderer/"
+camera_target="${notice_target%-darwin}-macos11.0"
+# Native camera permission belongs to this app, independent of the SC IDE's plist.
+bash "$project_dir/tools/build_camera_macos.sh" "$extension_root/renderer/SCShaderCamera.app" "$camera_target"
 notice_flag=
 case "${SCSHADER_REQUIRE_NOTICE_TEXTS:-0}" in
   0) ;;

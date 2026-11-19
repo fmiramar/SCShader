@@ -6,7 +6,7 @@
 // macOS Camera and Screen Recording permissions apply to the launching app/FFmpeg.
 // BEGIN STARTUP
 (
-if(~hydraCaptureServer.notNil){Error("Run cleanup before restarting capture").throw};
+if(~hydraCaptureServer.notNil or:{~hydraCaptureClosing==true}){Error("Run cleanup and wait for CAPTURE STOPPED before restarting capture").throw};
 ~hydraCaptureDecoder=(["SCSHADER_FFMPEG".getenv,"/opt/homebrew/bin/ffmpeg","/usr/local/bin/ffmpeg"].detect{|p|p.notNil and:{File.exists(p)}});
 if(~hydraCaptureDecoder.isNil){Error("Install FFmpeg separately; set SCSHADER_FFMPEG to its absolute path").throw};
 ~hydraCaptureDevicesReady=false;
@@ -26,12 +26,13 @@ if(~hydraCaptureDecoder.isNil){Error("Install FFmpeg separately; set SCSHADER_FF
 });
 // Wait for a real frame before presenting. Used by the following blocks and the smoke check.
 ~hydraCaptureStart={|kind,slot,output,index,action|
- var h=~hydraCapture,poll,accepted,deadline=Main.elapsedTime+12;
+ var h=~hydraCapture,poll,accepted,permissionNotice=false,deadline=Main.elapsedTime+(kind==\camera).if({75},{12});
  poll={
   if(h.isFreed.not){h.captureStatus(slot,{|status|
    if(status[\ok].not or:{status[\state]=="error" or:{Main.elapsedTime>deadline}}){
     status.postln;("CAPTURE FAILED: "++kind++"; inspect permissions/device, then clear or cleanup").postln;action.value((ok:false,message:status));
    }{
+    if(status[\state]=="permission" and:{permissionNotice.not}){permissionNotice=true;"CAMERA PERMISSION: approve SCShader Camera in the macOS prompt to receive frames".postln};
     if(status[\decoded]>0 and:{status[\inputWidth]>0}){
      h.src(slot).scale(1.05).out(output,{|committed|
       if(committed[\ok]){h.render(output,{|shown|if(shown[\ok]){(kind.asString.toUpper++" READY: "++status[\inputWidth]++"x"++status[\inputHeight]++" -> 640x360 RGBA").postln};action.value(shown)})}{action.value(committed)};
@@ -43,6 +44,13 @@ if(~hydraCaptureDecoder.isNil){Error("Install FFmpeg separately; set SCSHADER_FF
  accepted={|result|if(result[\ok]){poll.value}{result.postln;action.value(result)}};
  if(kind==\camera){h.initCam(slot,index,accepted)}{h.initScreen(slot,index,accepted)};
 };
+~hydraCaptureStop={
+ var h=~hydraCapture,server=~hydraCaptureServer;
+ if(server.notNil){
+  ~hydraCaptureClosing=true;~hydraCapture=nil;~hydraCaptureServer=nil;~hydraCaptureDevicesReady=false;
+  h.tryPerform(\free);server.quit({~hydraCaptureClosing=false;"CAPTURE STOPPED".postln});
+ }{(~hydraCaptureClosing==true).if({"CAPTURE STOPPING"},{"CAPTURE ALREADY STOPPED"}).postln};
+};
 )
 // END STARTUP
 
@@ -51,6 +59,7 @@ if(~hydraCaptureDecoder.isNil){Error("Install FFmpeg separately; set SCSHADER_FF
 // ~hydraCaptureScreenIndex=2;  // example only: use YOUR listed screen index
 
 // 2. Explicitly start the selected camera in s0/o0. Wait for CAMERA READY.
+// On first use, macOS asks for SCShader Camera access. Allow it to receive frames.
 // Nil index chooses the first enumerated camera. Expect a slightly zoomed live image.
 (
 ~hydraCaptureStart.value(\camera,\s0,\o0,~hydraCaptureCameraIndex,{|result|result.postln});
@@ -93,5 +102,5 @@ if(~hydraCaptureDecoder.isNil){Error("Install FFmpeg separately; set SCSHADER_FF
 
 // 9. Cleanup releases all captures and discovery resources; run before restarting.
 (
-~hydraCapture.free;~hydraCaptureServer.quit({~hydraCaptureServer=nil;"CAPTURE STOPPED".postln});
+~hydraCaptureStop.value;
 )

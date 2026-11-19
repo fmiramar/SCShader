@@ -1,7 +1,13 @@
 // Opt-in: running this test authorizes live camera and entire-display capture.
 (
 var root=ShaderDef.filenameSymbol.asString.dirname.dirname,text=File.readAllString(root +/+ "examples/hydra/09_capture.scd"),a,b,done=false,finish,request,call,check,status;
-finish={|ok,msg|if(done.not){done=true;msg.postln;~hydraCapture.tryPerform(\free);~hydraCaptureServer.tryPerform(\quit,{if(ok){"SCSHADER_HYDRA_CAPTURE_OK".postln;0.exit}{1.exit}});SystemClock.sched(2,{if(ok){0.exit}{1.exit};nil})}};
+finish={|ok,msg|
+ var exit={if(ok){"SCSHADER_HYDRA_CAPTURE_OK".postln;0.exit}{1.exit}},server=~hydraCaptureServer;
+ if(done.not){done=true;msg.postln;~hydraCapture.tryPerform(\free);
+  if(server.notNil){server.quit(exit)}{exit.value};
+  SystemClock.sched(2,{if(ok){0.exit}{1.exit};nil});
+ }
+};
 request={|operation|var condition=Condition.new,result;operation.value({|r|result=r;condition.unhang});condition.hang;result};
 call={|operation|var result=request.value(operation);if(result[\ok].not){Error(result.asString).throw};result};
 check={|condition,message|if(condition.not){Error(message).throw}};
@@ -34,8 +40,11 @@ Routine({
   call.value({|reply|~hydraCapture.image(\s0,~hydraCaptureAssets +/+ "hydra_image_test.ppm",reply)});
   // Reopen a running source; session disposal must release it.
   call.value({|reply|~hydraCapture.initCam(\s0,nil,reply)});0.1.wait;
-  finish.value(true,"Installed camera/screen example: selection, two live effects, metadata, independent pause/resume, resize, clear, image replacement and free pass");
+  ~hydraCaptureStop.value;~hydraCaptureStop.value;
+  while{~hydraCaptureClosing==true}{0.05.wait};
+  ~hydraCaptureStop.value;
+  finish.value(true,"Installed camera/screen example: selection, two live effects, metadata, independent pause/resume, resize, clear, image replacement and repeated cleanup pass");
  }{|error|finish.value(false,error.asString)}};
 }).play(SystemClock);
-SystemClock.sched(25,{finish.value(false,"Camera/screen capture timeout; inspect macOS permissions");nil});
+SystemClock.sched(90,{finish.value(false,"Camera/screen capture timeout; inspect macOS permissions");nil});
 )

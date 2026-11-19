@@ -42,6 +42,9 @@ struct State {
     input_width: i32,
     input_height: i32,
     last_frame: Instant,
+    permission_wait: bool,
+    diagnostic_tail: String,
+    helper_pid: i32,
 }
 pub struct Video {
     shared: Arc<(Mutex<State>, Condvar)>,
@@ -49,6 +52,8 @@ pub struct Video {
     worker: Option<JoinHandle<()>>,
     watchdog: Option<JoinHandle<()>>,
     live: bool,
+    #[cfg(target_os = "macos")]
+    camera_socket: Option<super::camera::SocketDirectory>,
 }
 impl Video {
     pub fn new(path: &str, decoder: &str, looping: bool, rate: f32) -> Result<Self, String> {
@@ -75,6 +80,17 @@ impl Video {
             Input::Capture(d) => d.kind,
         };
         let live = kind != "file";
+        #[cfg(target_os = "macos")]
+        let camera_socket = if kind == "camera" {
+            super::camera::bundle_path()?;
+            Some(super::camera::SocketDirectory::new()?)
+        } else {
+            None
+        };
+        #[cfg(target_os = "macos")]
+        let socket_path = camera_socket.as_ref().map(|s| s.0.clone());
+        #[cfg(not(target_os = "macos"))]
+        let socket_path = None;
         let shared = Arc::new((
             Mutex::new(State {
                 stop: false,
@@ -92,6 +108,9 @@ impl Video {
                 input_width: 0,
                 input_height: 0,
                 last_frame: Instant::now(),
+                permission_wait: false,
+                diagnostic_tail: String::new(),
+                helper_pid: 0,
             }),
             Condvar::new(),
         ));
@@ -99,7 +118,7 @@ impl Video {
         let (s, c, d) = (shared.clone(), child.clone(), decoder.to_owned());
         let worker = thread::Builder::new()
             .name("hydra-video".into())
-            .spawn(move || run(s, c, input, &d))
+            .spawn(move || run(s, c, input, &d, socket_path))
             .map_err(|e| e.to_string())?;
         let mut video = Self {
             shared,
@@ -107,6 +126,8 @@ impl Video {
             worker: Some(worker),
             watchdog: None,
             live,
+            #[cfg(target_os = "macos")]
+            camera_socket,
         };
         if live {
             let (s, c) = (video.shared.clone(), video.child.clone());
@@ -145,6 +166,9 @@ impl Video {
         s.ready = None;
         s.error.clear();
         s.last_frame = Instant::now();
+        s.permission_wait = false;
+        s.diagnostic_tail.clear();
+        s.helper_pid = 0;
         // Interrupt a pipe read; the worker owns wait/reap and restart.
         if let Some(child) = self.child.lock().unwrap().as_mut() {
             let _ = child.kill();
@@ -164,6 +188,8 @@ impl Video {
                 "ended"
             } else if !s.playing {
                 "paused"
+            } else if s.permission_wait {
+                "permission"
             } else if s.decoded == 0 {
                 "loading"
             } else {
@@ -196,6 +222,10 @@ impl Drop for Video {
         if let Some(worker) = self.watchdog.take() {
             let _ = worker.join();
         }
+        #[cfg(target_os = "macos")]
+        {
+            self.camera_socket = None;
+        }
     }
 }
 fn run(
@@ -203,6 +233,7 @@ fn run(
     child: Arc<Mutex<Option<Child>>>,
     input: Input,
     decoder: &str,
+    socket_path: Option<std::path::PathBuf>,
 ) {
     loop {
         let (version, position, rate, looping) = {
@@ -255,6 +286,32 @@ fn run(
             }
         }
         cmd.args(["-map","0:v:0","-an","-sn","-dn","-vf","fps=30,scale=640:360:force_original_aspect_ratio=decrease,pad=640:360:(ow-iw)/2:(oh-ih)/2","-pix_fmt","rgba","-threads","1","-f","rawvideo","pipe:1"]).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+        #[cfg(target_os = "macos")]
+        if let Input::Capture(device) = &input
+            && device.kind == "camera"
+        {
+            let bundle = super::camera::bundle_path().expect("camera bundle preflight");
+            let folder = socket_path.as_ref().expect("camera socket preflight");
+            // The socket path is removed after each connection; resume recreates its owned directory.
+            if !folder.exists() {
+                let _ = std::fs::create_dir(folder);
+            }
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(folder, std::fs::Permissions::from_mode(0o700));
+            let executable = std::env::var_os("SCSHADER_CAMERA_BRIDGE")
+                .map(std::path::PathBuf::from)
+                .unwrap_or_else(|| std::env::current_exe().expect("renderer executable"));
+            cmd = Command::new(executable);
+            cmd.arg("--camera-bridge")
+                .arg(bundle)
+                .arg(&device.name)
+                .arg(folder)
+                .stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped());
+        }
+        #[cfg(not(target_os = "macos"))]
+        let _ = &socket_path;
         let mut process = match cmd.spawn() {
             Ok(c) => c,
             Err(e) => {
@@ -289,6 +346,23 @@ fn run(
                                 input_header = false;
                                 break;
                             }
+                            let mut s = metadata.0.lock().unwrap();
+                            if s.version == version {
+                                if let Some(state) =
+                                    line.trim().strip_prefix("SCSHADER_CAMERA_PERMISSION ")
+                                {
+                                    s.permission_wait = state == "waiting";
+                                    s.last_frame = Instant::now();
+                                }
+                                if let Some(pid) = line
+                                    .trim()
+                                    .strip_prefix("SCSHADER_CAMERA_PID ")
+                                    .and_then(|v| v.parse::<i32>().ok())
+                                {
+                                    s.helper_pid = pid;
+                                }
+                            }
+                            drop(s);
                             if let Some((w, h)) = super::capture::input_dimensions(&line) {
                                 let mut s = metadata.0.lock().unwrap();
                                 if s.version == version {
@@ -303,6 +377,14 @@ fn run(
                     }
                     if tail.len() > 2048 {
                         tail.drain(..tail.len() - 2048);
+                    }
+                    if live {
+                        let mut s = metadata.0.lock().unwrap();
+                        if s.version == version {
+                            let mut text = String::from_utf8_lossy(&tail).into_owned();
+                            text.truncate(text.floor_char_boundary(1024));
+                            s.diagnostic_tail = text;
+                        }
                     }
                 }
                 String::from_utf8_lossy(&tail).into_owned()
@@ -406,6 +488,9 @@ fn run(
                 } else {
                     format!("decoder failed: {detail}")
                 };
+            } else if live && !detail.is_empty() && !s.error.contains(&detail) {
+                s.error.push_str(" Decoder: ");
+                s.error.push_str(&detail);
             }
         }
     }
@@ -414,8 +499,17 @@ fn run(
 fn watchdog(shared: Arc<(Mutex<State>, Condvar)>, child: Arc<Mutex<Option<Child>>>) {
     let mut s = shared.0.lock().unwrap();
     while !s.stop {
-        if s.playing && s.last_frame.elapsed() > Duration::from_secs(10) {
-            s.error="capture delivered no frame for 10 seconds; check device connection and macOS Camera/Screen Recording permissions, then enumerate/reopen".into();
+        let timeout = if s.permission_wait { 60 } else { 10 };
+        if s.playing && s.last_frame.elapsed() > Duration::from_secs(timeout) {
+            let owner = if s.kind == "camera" {
+                "SCShader Camera permission prompt"
+            } else {
+                "Screen Recording permission for the launching app"
+            };
+            s.error = format!(
+                "capture delivered no frame for {timeout} seconds; inspect the device or {owner}. {}",
+                s.diagnostic_tail
+            );
             s.playing = false;
             if let Some(child) = child.lock().unwrap().as_mut() {
                 let _ = child.kill();
@@ -433,7 +527,7 @@ fn watchdog(shared: Arc<(Mutex<State>, Condvar)>, child: Arc<Mutex<Option<Child>
 mod tests {
     use super::*;
     fn until(video: &Video, predicate: impl Fn(&Snapshot) -> bool) -> Snapshot {
-        let deadline = Instant::now() + Duration::from_secs(5);
+        let deadline = Instant::now() + Duration::from_secs(if video.live { 75 } else { 5 });
         loop {
             let s = video.snapshot();
             assert!(s.error.is_empty(), "{}", s.error);
@@ -463,6 +557,26 @@ mod tests {
                 .success(),
             "decoder PID {pid} survived cleanup"
         );
+    }
+    #[cfg(target_os = "macos")]
+    fn helper_exited(pid: i32) {
+        if pid <= 1 {
+            return;
+        }
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while Command::new("/bin/kill")
+            .args(["-0", &pid.to_string()])
+            .stderr(Stdio::null())
+            .status()
+            .unwrap()
+            .success()
+        {
+            assert!(
+                Instant::now() < deadline,
+                "native camera helper {pid} survived closing its controller"
+            );
+            thread::sleep(Duration::from_millis(20));
+        }
     }
     #[cfg(target_os = "macos")]
     #[test]
@@ -501,12 +615,31 @@ mod tests {
                 state.input_width, state.input_height, WIDTH, HEIGHT, state.decoded
             );
             let first_pid = pid(&video);
-            let image = video.take().unwrap();
-            assert_eq!(image.dimensions(), (WIDTH, HEIGHT));
-            assert!(
-                image.pixels().any(|p| p.0[..3].iter().any(|&v| v > 20)),
-                "capture is entirely black"
-            );
+            let first_helper = video.shared.0.lock().unwrap().helper_pid;
+            if kind == "camera" {
+                assert!(first_helper > 1);
+            }
+            let warmup = Instant::now() + Duration::from_secs(5);
+            // Native cameras can deliver black exposure/warm-up frames at startup.
+            // Keep the visible-image assertion and require a nonblack frame within a bound.
+            loop {
+                if let Some(image) = video.take() {
+                    assert_eq!(image.dimensions(), (WIDTH, HEIGHT));
+                    if image.pixels().any(|p| p.0[..3].iter().any(|&v| v > 20)) {
+                        break;
+                    }
+                }
+                assert!(
+                    Instant::now() < warmup,
+                    "capture remained entirely black after five seconds of warm-up"
+                );
+                assert!(
+                    video.snapshot().error.is_empty(),
+                    "{}",
+                    video.snapshot().error
+                );
+                thread::sleep(Duration::from_millis(20));
+            }
             assert!(video.control("seek", 1.).is_err());
             video.control("pause", 0.).unwrap();
             let paused = video.snapshot().decoded;
@@ -515,7 +648,9 @@ mod tests {
             video.control("play", 0.).unwrap();
             until(&video, |s| s.decoded > paused + 2);
             reaped(first_pid);
+            helper_exited(first_helper);
             let final_pid = pid(&video);
+            let final_helper = video.shared.0.lock().unwrap().helper_pid;
             if kind == "screen" {
                 // Stop only this test-owned capture process to simulate a stalled source.
                 assert!(
@@ -539,6 +674,7 @@ mod tests {
             }
             drop(video);
             reaped(final_pid);
+            helper_exited(final_helper);
         }
     }
     #[test]

@@ -52,6 +52,13 @@ class SourcePackageTests(TestCase):
         result = create_archive(self.project, self.plan, self.output)
         self.assertEqual(len(result["files"]), len(FILES) + 1)
 
+    def test_native_camera_source_and_permission_declaration_are_included(self):
+        for name in ["main.swift","Info.plist"]:
+            (self.project / "renderer/mac-camera" / name).write_text("camera fixture\n")
+        files=collect_source(self.project,self.plan)
+        self.assertIn(f"{ROOT}/SCShader/renderer/mac-camera/main.swift",files)
+        self.assertIn(f"{ROOT}/SCShader/renderer/mac-camera/Info.plist",files)
+
     def test_unreviewed_file_type_rejected(self):
         (self.project / "tools/.env").write_text("secret fixture", encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "Unreviewed"):
