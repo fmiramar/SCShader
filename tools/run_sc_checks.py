@@ -72,7 +72,7 @@ def check_passed(check, text, returncode, timed_out=False):
 
 def default_checks(tests: Path):
     return [path.stem for path in sorted(tests.glob("*.scd"))
-            if path.stem not in {"timing_benchmark", "hydra_video_smoke", "hydra_capture_smoke", "hydra_export_smoke"}]
+            if path.stem not in {"timing_benchmark", "hydra_video_smoke", "hydra_capture_smoke", "hydra_export_smoke", "hydra_export_example_smoke"}]
 
 
 def main() -> int:

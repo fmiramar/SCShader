@@ -8,7 +8,13 @@ controls the captured single output or quadrants, with the established layout:
 o0 top-left, o1 bottom-left, o2 top-right, o3 bottom-right.
 
 Use [11_export.scd](../../examples/hydra/11_export.scd) after recompiling classes.
-Run its numbered blocks in order and wait for each result. It creates a capture
+Wait for `EXPORT READY` after startup, then run numbered blocks 2…7 in order.
+These blocks use one FIFO task runner, so submitting the next block immediately
+queues it until the prior export is finished. `EXPORT STEP QUEUED/START/DONE`
+messages distinguish scheduling from completion. Cleanup queues after recording
+finalization. Each export receives a fresh sequence suffix, including repeated
+button/block execution. A failed task reports its error and clears remaining
+queued tasks. It creates a capture
 folder in the user's home directory, prints its location, saves a PNG, records
 approximately five seconds, then saves a smaller single-output PNG. Files have a
 per-start name and existing files are never overwritten. Startup alone exports
@@ -71,8 +77,17 @@ set a smaller fixed resolution before exporting again.
 
 ## Timing, bounds and lifecycle
 
-Recording samples the live render loop using monotonic wall-clock deadlines.
-It does **not** drive the Hydra clock and provides no offline deterministic-render
+Recording samples the live renderer using monotonic wall-clock deadlines.
+When macOS hides/minimizes a window or surface presentation is unavailable,
+active export renders Hydra offscreen at its capture deadlines. Export and its
+completion polling do not require a window frame to be presented. Hidden export
+uses paced event-loop wakeups and the same single readback buffer; a pending map
+prevents additional capture-frame submissions. Hydra time continues, and its
+frame uniform includes offscreen export frames. The window presentation counter
+counts actual presentations, separately from these exports. Restoring the window
+resumes presentation. Offscreen work is submitted only for active export.
+
+Capture does **not** drive the Hydra clock and provides no offline deterministic-render
 mode. A busy readback or writer drops samples; missed deadlines are also counted.
 There is no catch-up allocation or render-thread encoder wait. The movie's constant
 frame rate is the requested FPS, so its duration is **writtenFrames / FPS**.
@@ -106,6 +121,11 @@ Native Apple M5/Metal tests cover valid odd-size PNG, exact RGBA/quadrant
 orientation, single output, fixed pixel dimensions across window resize, H.264
 frame count/duration, rejected overwrite/odd/busy/resolution requests, stalled
 encoder shutdown, successful screenshot after encoder failure and repeated cleanup.
+A macOS native minimization test reproduces the old zero-frame/empty-PNG failure,
+then verifies PNG pixels and an animated MP4 with the window still minimized,
+unchanged presentation count and successful window restoration. Actual example
+blocks 2…7 are executed back-to-back through their shared FIFO runner and all
+files are decoded. These close gaps in the original visible-window-only tests.
 Native GPU accounting returns all eight tracked resource classes to baseline after
 one-shot export; window letterboxing is checked in linear/sRGB targets. The
 opt-in checker is:
@@ -122,3 +142,12 @@ See [VERIFICATION.md](../VERIFICATION.md) for the tested binary and negative
 evidence. Physical IDE/fullscreen appearance, custom export under device loss,
 Windows/Linux/Intel hardware, other encoders/formats and long recordings remain
 NOT RUN. This is a short native development checkpoint.
+
+The dedicated macOS regression requires already-granted Accessibility permission
+and operates only its owned test renderer. It does not change permissions/settings:
+
+```sh
+python3 tools/check_hydra_export_occluded.py --renderer /absolute/path/to/renderer \
+  --ffmpeg /absolute/path/to/ffmpeg --ffprobe /absolute/path/to/ffprobe \
+  --output-dir build/export-minimized-new
+```

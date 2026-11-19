@@ -154,6 +154,13 @@ pub struct Export {
     started: Option<Instant>,
 }
 impl Export {
+    pub fn needs_frame(&self) -> bool {
+        self.next.is_some_and(|t| Instant::now() >= t)
+            && self
+                .readback
+                .as_ref()
+                .is_some_and(|r| r.mapping.is_none() && !r.submitted)
+    }
     pub fn busy(&self) -> bool {
         self.writer.is_some()
     }

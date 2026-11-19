@@ -1,5 +1,12 @@
 # Milestone P1 — native desktop compatibility first
 
+Hydra export IDE follow-up: a hidden/minimized window could prevent frame capture,
+leave an empty PNG and cause the following MP4 request to fail as busy. The old
+binary reproduces that failure under native minimization. Active export now
+renders offscreen without window presentation, and the example queues its steps
+through cleanup. Native hidden PNG/video and back-to-back example checks pass;
+see [EXPORT.md](hydra/EXPORT.md) and the verification record.
+
 Hydra Step 23: [PNG/MP4 export and render resolution](hydra/EXPORT.md) add
 opt-in screenshots, bounded external-FFmpeg recording and fixed physical-pixel
 resolution with aspect-preserving window presentation. Native GPU, PNG/MP4 decode and nine

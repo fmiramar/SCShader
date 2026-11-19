@@ -454,6 +454,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             std::env::temp_dir().join(format!("scshader-export-pixels-{}.png", std::process::id()));
         let mut export = export::Export::default();
         export.start(&device, path.to_str().unwrap(), "", 8, 8, 0)?;
+        assert!(export.needs_frame());
         assert_eq!(export.texture_bytes(), 8 * 8 * 4);
         let deadline = std::time::Instant::now() + Duration::from_secs(5);
         while export.busy() {

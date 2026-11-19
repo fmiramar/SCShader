@@ -26,7 +26,7 @@ Updated: 2026-11-19
 | 20 — Local video playback | PASS in native automated scope; user reports video example working | [VIDEO.md](VIDEO.md): explicit external FFmpeg, one pending RGBA frame, stable GPU uploads, loop/play/pause/rate/seek/EOS and decoder cleanup. Seven installed SC regressions pass. Other platforms and camera/screen input NOT RUN. |
 | 21 — Camera/display sources | Native automation passes; user reports updated capture example working | [CAPTURE.md](CAPTURE.md): native camera helper owns permission; FFmpeg display/discovery, bounded frames, source controls, timeout diagnostics and repeated cleanup. Original FFmpeg camera failed in IDE. Other platforms/deny/unplug NOT RUN. |
 | 22 — Custom shader functions | PASS in native automated/installed scope | [CUSTOM_FUNCTIONS.md](CUSTOM_FUNCTIONS.md): typed WGSL bodies, all five categories, frozen generations, rollback and session-local registration; arbitrary GLSL source unsupported. |
-| 23 — Screenshot/recording/resolution/presentation | PASS in native short-check/installed scope | [EXPORT.md](EXPORT.md): opt-in PNG/H.264 MP4, one staging buffer, bounded writer, live drop semantics, fixed pixel size and aspect-preserving window presentation. |
+| 23 — Screenshot/recording/resolution/presentation | PASS in native short-check/installed scope | [EXPORT.md](EXPORT.md): opt-in PNG/H.264 MP4, one staging buffer, bounded writer, live drop semantics, fixed pixel size/aspect; IDE follow-up adds offscreen hidden-window export and queued steps through cleanup. |
 
 Checkpoint A is available for one-output procedural visuals and live replacement.
 The user confirms `01_osc.scd` runs perfectly; new Step 09 visuals have automated

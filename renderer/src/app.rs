@@ -1289,6 +1289,9 @@ impl ApplicationHandler for App {
                 self.send_focus_input(focused);
             }
             WindowEvent::Occluded(occluded) => {
+                if let Some(renderer) = self.renderer.as_mut() {
+                    renderer.set_window_occluded(occluded);
+                }
                 crate::timing::event(if occluded { "occluded" } else { "unoccluded" });
             }
             WindowEvent::CursorLeft { .. } => self.pending_mouse_position = None,
@@ -1330,8 +1333,20 @@ impl ApplicationHandler for App {
         if !self.check_gpu(event_loop) {
             return;
         }
+        if let Some(renderer) = self.renderer.as_mut() {
+            renderer.service_hydra_export();
+        }
+        let hidden_export = self
+            .renderer
+            .as_ref()
+            .is_some_and(Renderer::hidden_export_active);
+        event_loop.set_control_flow(if hidden_export {
+            ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(5))
+        } else {
+            ControlFlow::Poll
+        });
         self.poll_hot_reload();
-        if let Some(window) = self.window.as_ref() {
+        if !hidden_export && let Some(window) = self.window.as_ref() {
             window.request_redraw();
         }
     }

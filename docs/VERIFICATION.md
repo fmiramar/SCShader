@@ -1,5 +1,67 @@
 # Verification
 
+## Hydra export IDE follow-up — window-independent capture and ordered steps
+
+2026-11-19, implementation based on `7f2f7d420daaa5635f7d19a497e5a0b703d885b9`.
+The user's IDE run produced a PNG but no MP4, a busy export rejection and
+`export ended without a captured frame`. The observed PNG is zero bytes.
+This is negative evidence against the earlier visible-window-only checks.
+The user's exact window visibility was not logged. A native minimized-window
+regression reproduces the same zero-frame error on the previous ordinary arm64
+renderer `44d65ea7…e22cf`, confirming that capture incorrectly depended on
+successful surface presentation. No user capture file was overwritten/deleted.
+
+Active export now submits due Hydra frames offscreen when the window is hidden,
+minimized or its surface is unavailable. Event-loop service polls completion
+without needing a redraw; hidden export uses paced wakeups and a pending readback
+prevents another export-frame submission. Hydra time/frames advance; window
+presentation counters stay separate. No always-on readback or encoder is added.
+The example uses one FIFO task runner for steps 2…7, fresh file sequence suffixes,
+explicit queued/start/done messages and cleanup after finalization. Step 4 saves
+its promised single-output PNG. Existing low-level busy/overwrite guards remain.
+
+Native target: macOS 26.6.2 arm64, Apple M5 / Metal, SC 3.14.1, pinned Rust 1.97.1,
+external FFmpeg/ffprobe 9.0.1. Version remains 0.0.18, lockfile/dependencies unchanged.
+Ordinary renderer SHA-256:
+`60e3d99e52b932a9b39811481099772f54a78567b3788c83fb59648519ae55b1`.
+The camera helper is unchanged (`6fbebc59…d8f`). Final local artifact prefix:
+`fmiramar-hydra23-occlusion-reviewed`, with binary/matching vendored-source ZIPs
+and checksums. Candidate/final installs each verify all 154 files against the ZIP;
+tested product files and executable hashes match. Prior installs are backed up
+outside Extensions. No GPU test hooks, release/tag or permission changes.
+
+Passed:
+
+- Formatting, locked all-target/all-feature strict Clippy, 96 main Rust tests
+  plus 45 fixture tests; two opt-in camera tests ignored. Python: 138 run,
+  133 pass, five platform skips.
+- Production GPU pixel/resource regression, including all eight tracked resource
+  classes returning to baseline. Checker SHA-256:
+  `6783c3a9d64767a641c55bab2b4f8fd3bfdaf2aff431cf01a5709b2e03db69c9`.
+- Native owned-window minimization with the ordinary installed binary: correct
+  320×180 quadrant PNG, animated H.264 MP4 containing 37 decoded frames, no
+  automatic window restore and zero reported window presentations during capture.
+  Explicitly restoring the window resumes presentation. Existing Accessibility
+  permission was used only for the owned test window. The first restore probe
+  hit AppKit's transient missing AX window; bounded retry now waits for its return
+  and still asserts actual native restoration and new presentation frames.
+- Six installed SC checks: both opt-in export/API and actual example checks,
+  `compile_check`, `hydra_feedback_smoke`, `hydra_custom_smoke`, `graph_smoke`.
+  Installed export uses automatic renderer discovery. All example blocks 2…7
+  are executed immediately back-to-back and finish in FIFO order, including
+  window/follow-resolution controls and cleanup. Both example PNGs and MP4 decode.
+- Existing odd-PNG, single-output, overwrite/odd-video/busy/resolution guards,
+  stalled encoder timeout/drop/disposal and successful capture after failure pass.
+  Installed regular video: 37 frames at 30 FPS, duration 1.233333 seconds.
+- Native arm64 packaging and helper pixel self-test pass. No camera or desktop
+  capture was activated. No test renderer or encoder remains running.
+
+Raw passing and failing evidence remains under ignored
+`build/hydra-tests/export-23-followup/`, including the old minimized failure and
+transient AX restore probe. This closes the demonstrated export/window dependency;
+new IDE observation, other native platforms, real GPU loss and long recordings
+remain separate. See [EXPORT.md](hydra/EXPORT.md).
+
 ## Hydra Step 23 — export, render pixels and aspect (2026-11-19)
 
 Working-tree implementation based on `e0bb6525beef6262b07bd455ca792285c15f3b05`;

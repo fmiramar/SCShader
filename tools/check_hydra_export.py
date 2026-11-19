@@ -84,7 +84,7 @@ def main() -> int:
         stalled.write_text(f"#!{sys.executable}\nimport time\ntime.sleep(30)\n")
         stalled.chmod(0o700)
         environment["SCSHADER_EXPORT_STALLED_ENCODER"] = str(stalled)
-    command = [sys.executable, str(PROJECT / "tools/run_sc_checks.py"), "hydra_export_smoke",
+    command = [sys.executable, str(PROJECT / "tools/run_sc_checks.py"), "hydra_export_smoke", "hydra_export_example_smoke",
                "--output-dir", str(output / "sc")]
     if args.renderer:
         command += ["--renderer", str(args.renderer.resolve())]
@@ -96,6 +96,18 @@ def main() -> int:
     if not match:
         raise ValueError("missing SC written-frame result")
     report = verify(output / "files", args.ffmpeg, args.ffprobe, int(match[1]))
+    example = output / "files/example"
+    quadrants, = example.glob("*-quadrants.png")
+    single, = example.glob("*-single.png")
+    movie, = example.glob("*-quadrants.mp4")
+    decode(quadrants,args.ffmpeg,640,360)
+    decode(single,args.ffmpeg,320,180)
+    info=json.loads(subprocess.check_output([str(args.ffprobe),"-v","error","-count_frames","-show_entries","stream=codec_name,width,height,nb_read_frames","-of","json",str(movie)],timeout=15))
+    stream,=info["streams"]
+    if (stream["codec_name"],stream["width"],stream["height"])!=("h264",640,360) or int(stream["nb_read_frames"])<6:
+        raise ValueError("queued example movie is invalid")
+    decode(movie,args.ffmpeg,640,360)
+    report["queued_example"]="two valid PNGs and H.264 MP4, in order"
     (output / "result.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2))
     return 0

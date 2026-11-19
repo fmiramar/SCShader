@@ -201,6 +201,9 @@ pub enum HotReload {
 
 pub struct Renderer {
     hydra_export: crate::hydra::export::Export,
+    window_occluded: bool,
+    surface_unavailable: bool,
+    hydra_hidden_frames: u32,
     hydra_resolution: Option<(u32, u32)>,
     hydra_output: Option<crate::hydra::outputs::Outputs>,
     hydra_program: [Option<crate::hydra::ir::Program>; 4],
@@ -257,6 +260,53 @@ pub struct Renderer {
 }
 
 impl Renderer {
+    pub fn set_window_occluded(&mut self, occluded: bool) {
+        self.window_occluded = occluded;
+    }
+    fn export_without_window(&self) -> bool {
+        self.window_occluded
+            || self.window.is_minimized() == Some(true)
+            || self.window.is_visible() == Some(false)
+    }
+    pub fn hidden_export_active(&self) -> bool {
+        self.hydra_export.busy() && self.export_without_window()
+    }
+    pub fn service_hydra_export(&mut self) {
+        self.hydra_export.poll();
+        if self.surface_unavailable || self.export_without_window() {
+            self.render_hydra_export_frame();
+        }
+    }
+    fn hydra_frame(&self, delta: f32) -> crate::hydra::parameters::Frame {
+        let index = (self.stats.frame_index as u32).wrapping_add(self.hydra_hidden_frames);
+        self.hydra_clock.map_or_else(
+            || crate::hydra::parameters::Frame::new(0., delta, index),
+            |clock| clock.frame(Instant::now(), delta, index),
+        )
+    }
+    fn render_hydra_export_frame(&mut self) {
+        if self.hydra_selected < 0 || !self.hydra_export.needs_frame() {
+            return;
+        }
+        self.upload_hydra_video_frames();
+        let time = self.started_at.elapsed().as_secs_f32();
+        let delta = (time - self.last_uniform_time).max(0.);
+        let frame = self.hydra_frame(delta);
+        if let Some(output) = &mut self.hydra_output {
+            self.last_uniform_time = time;
+            output.encode_frame(&self.device, &self.queue, frame);
+            let mut encoder = self
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Hydra export without presentation"),
+                });
+            self.hydra_export
+                .encode(&self.device, output, self.hydra_selected, &mut encoder);
+            self.queue.submit(Some(encoder.finish()));
+            self.hydra_export.submitted();
+            self.hydra_hidden_frames = self.hydra_hidden_frames.wrapping_add(1);
+        }
+    }
     fn hydra_dimensions(&self) -> (u32, u32) {
         self.hydra_resolution
             .unwrap_or((self.config.width, self.config.height))
@@ -718,6 +768,9 @@ impl Renderer {
             active_shader_id: RESOURCE_ID,
             graph_nodes: Vec::new(),
             hydra_export: Default::default(),
+            window_occluded: false,
+            surface_unavailable: false,
+            hydra_hidden_frames: 0,
             hydra_resolution: None,
             hydra_output: None,
             hydra_program: std::array::from_fn(|_| None),
@@ -1815,6 +1868,10 @@ impl Renderer {
     pub fn render(&mut self) -> Result<(), String> {
         let _timing = crate::timing::enter(crate::timing::Stage::Render);
         self.hydra_export.poll();
+        if self.hydra_export.busy() && self.export_without_window() {
+            self.render_hydra_export_frame();
+            return Ok(());
+        }
         let frame_started_at = Instant::now();
         // Acquire before staging per-frame uniforms. A skipped/occluded frame
         // must not accumulate uploads that never reach a queue submission.
@@ -1824,15 +1881,19 @@ impl Renderer {
             wgpu::CurrentSurfaceTexture::Timeout | wgpu::CurrentSurfaceTexture::Occluded => {
                 // Flush uploads from OSC data-buffer commands even without a
                 // presentable frame, and service completed resource cleanup.
+                self.surface_unavailable = true;
+                self.render_hydra_export_frame();
                 self.queue.submit([]);
                 return Ok(());
             }
             wgpu::CurrentSurfaceTexture::Outdated => {
+                self.surface_unavailable = true;
                 self.queue.submit([]);
                 self.surface.configure(&self.device, &self.config);
                 return Ok(());
             }
             wgpu::CurrentSurfaceTexture::Lost => {
+                self.surface_unavailable = true;
                 if self.surface_recreated {
                     return Err(
                         "GPU presentation surface was lost again before presenting a frame"
@@ -1853,6 +1914,7 @@ impl Renderer {
             }
         };
         self.surface_recreated = false;
+        self.surface_unavailable = false;
         let now = self.started_at.elapsed().as_secs_f64();
         let time = now as f32;
         let time_delta = (time - self.last_uniform_time).max(0.0);
@@ -1890,17 +1952,8 @@ impl Renderer {
 
         self.upload_hydra_video_frames();
         if self.hydra_selected >= 0 {
+            let frame = self.hydra_frame(time_delta);
             if let Some(output) = &mut self.hydra_output {
-                let frame = self.hydra_clock.map_or_else(
-                    || {
-                        crate::hydra::parameters::Frame::new(
-                            0.,
-                            time_delta,
-                            self.stats.frame_index as u32,
-                        )
-                    },
-                    |clock| clock.frame(Instant::now(), time_delta, self.stats.frame_index as u32),
-                );
                 output.encode_frame(&self.device, &self.queue, frame);
                 self.hydra_export
                     .encode(&self.device, output, self.hydra_selected, &mut encoder);

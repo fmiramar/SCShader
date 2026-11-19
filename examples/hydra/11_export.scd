@@ -1,13 +1,34 @@
 // Step 23. No audio server or screen-capture permission is needed.
-// Recompile classes, reopen this file, run numbered blocks and wait for each result.
+// Recompile classes and reopen this file. Wait for EXPORT READY after Step 1.
+// Steps 2..7 queue in order; wait for EXPORT STEP DONE messages to inspect files.
 // 1. Start four outputs at 640x360 render pixels, independent of Retina window size.
 // BEGIN STARTUP
 (
 if(~hydraExportServer.notNil or:{~hydraExportClosing==true}){Error("Run cleanup and wait for EXPORT STOPPED first").throw};
-~hydraExportReady=false;
+~hydraExportReady=false;~hydraExportQueue=List.new;~hydraExportRunner=nil;
+~hydraExportCompleted=0;~hydraExportTaskError=nil;~hydraExportSerial=0;
 ~hydraExportFolder=~hydraExportFolder ? (Platform.userHomeDir +/+ "SCShader-Captures");
 if(PathName(~hydraExportFolder).isFolder.not){~hydraExportFolder.mkdir};
 ~hydraExportName=Date.localtime.stamp ++ "-" ++ Main.elapsedTime.asString.replace(".","_");
+~hydraExportFile={|suffix|
+ ~hydraExportSerial=~hydraExportSerial+1;
+ ~hydraExportFolder +/+ (~hydraExportName++"-"++~hydraExportSerial.asString++"-"++suffix)
+};
+~hydraExportRun={|label,body|
+ if(~hydraExportReady!=true){Error("Wait for EXPORT READY before queuing a step").throw};
+ ~hydraExportQueue.add([label,body]);("EXPORT STEP QUEUED: "++label).postln;
+ if(~hydraExportRunner.isNil){~hydraExportRunner=Routine({
+  var task;
+  while{~hydraExportQueue.notEmpty and:{~hydraExportReady==true}}{
+   task=~hydraExportQueue.removeAt(0);("EXPORT STEP START: "++task[0]).postln;
+   try{task[1].value;~hydraExportCompleted=~hydraExportCompleted+1;("EXPORT STEP DONE: "++task[0]).postln}{|error|
+    ~hydraExportTaskError=error.errorString;error.reportError;~hydraExportQueue.clear;
+    "EXPORT QUEUE CLEARED: inspect the error, then retry or run cleanup".postln;
+   };
+  };
+  ~hydraExportRunner=nil;
+ }).play(SystemClock)};
+};
 ~hydraExportCall={|operation|
  var result,condition=Condition.new;operation.value({|r|result=r;condition.unhang});condition.hang;
  if(result[\ok].not){Error(result.asString).throw};result
@@ -38,6 +59,8 @@ if(PathName(~hydraExportAssets).isFolder.not){~hydraExportAssets=ShaderDef.filen
 });
 ~hydraExportStop={
  var h=~hydraExport,server=~hydraExportServer;
+ ~hydraExportQueue.tryPerform(\clear);
+ if(~hydraExportRunner!==thisThread){~hydraExportRunner.tryPerform(\stop);~hydraExportRunner=nil};
  if(server.notNil){~hydraExportClosing=true;~hydraExport=nil;~hydraExportServer=nil;~hydraExportReady=false;
   h.tryPerform(\free);~hydraExportWindow.tryPerform(\free);
   server.quit({~hydraExportClosing=false;"EXPORT STOPPED".postln});
@@ -46,60 +69,74 @@ if(PathName(~hydraExportAssets).isFolder.not){~hydraExportAssets=ShaderDef.filen
 )
 // END STARTUP
 
-// 2. Save the quadrant presentation to a new PNG. Wait for state: finished.
-// Acceptance means queued; finished means the file has actually been written.
+// 2. Queue a quadrant PNG. A new name is generated each time this block is run.
+// BEGIN SCREENSHOT
 (
-Routine({
- ~hydraExportCall.value({|r|~hydraExport.screenshot(~hydraExportFolder +/+ (~hydraExportName++"-quadrants.png"),r)});
+~hydraExportRun.value("quadrant PNG",{
+ ~hydraExportCall.value({|r|~hydraExport.screenshot(~hydraExportFile.value("quadrants.png"),r)});
  ~hydraExportWait.value;
-}).play(SystemClock);
+});
 )
+// END SCREENSHOT
 
-// 3. Record approximately five seconds of quadrants to MP4 (no audio).
-// FFmpeg is an optional, separately installed encoder; it is not bundled.
-// Frames may drop; video duration is writtenFrames / FPS, not guaranteed wall time.
+// 3. Queue approximately five seconds of MP4. It starts after Step 2 finishes.
+// FFmpeg is optional and separately installed; no audio is recorded.
+// Files continue rendering while the window is covered or minimized.
+// Frames may drop; movie duration is writtenFrames / FPS.
 // BEGIN RECORD
 (
-~hydraExportEncoder=(["SCSHADER_FFMPEG".getenv,"/opt/homebrew/bin/ffmpeg","/usr/local/bin/ffmpeg"]
- .detect{|p|p.notNil and:{File.exists(p)}});
-if(~hydraExportEncoder.isNil){Error("Install FFmpeg with libx264/MP4, then set SCSHADER_FFMPEG to its absolute executable path").throw};
-Routine({
- ~hydraExportCall.value({|r|~hydraExport.startRecording(~hydraExportFolder +/+ (~hydraExportName++"-quadrants.mp4"),~hydraExportEncoder,30,r)});
+~hydraExportRun.value("quadrant MP4",{
+ ~hydraExportEncoder=(["SCSHADER_FFMPEG".getenv,"/opt/homebrew/bin/ffmpeg","/usr/local/bin/ffmpeg"]
+  .detect{|p|p.notNil and:{File.exists(p)}});
+ if(~hydraExportEncoder.isNil){Error("Install FFmpeg with libx264/MP4, then set SCSHADER_FFMPEG to its absolute executable path").throw};
+ ~hydraExportCall.value({|r|~hydraExport.startRecording(~hydraExportFile.value("quadrants.mp4"),~hydraExportEncoder,30,r)});
  5.wait;
  ~hydraExportCall.value({|r|~hydraExport.stopRecording(r)});
  ~hydraExportWait.value;
-}).play(SystemClock);
+});
 )
 // END RECORD
 
-// 4. Select only o0, then use a smaller 320x180 render/export resolution.
-// Changing dimensions clears all four feedback histories but retains programs,
-// source images and numeric controls. This block also saves a new single-output PNG.
+// 4. Queue single o0 at 320x180 render pixels and save a new single-output PNG.
+// Resizing clears feedback histories and retains programs, sources and controls.
+// BEGIN RESOLUTION
 (
-Routine({
+~hydraExportRun.value("320x180 single PNG",{
  ~hydraExportCall.value({|r|~hydraExport.render(\o0,r)});
  ~hydraExportCall.value({|r|~hydraExport.setResolution(320,180,r)});
+ ~hydraExportCall.value({|r|~hydraExport.screenshot(~hydraExportFile.value("single.png"),r)});
+ ~hydraExportWait.value;
  "RESOLUTION READY: 320x180 render pixels; window size is independent".postln;
-}).play(SystemClock);
+});
 )
+// END RESOLUTION
 
-// 5. Reuse existing window controls. Fixed render resolution preserves aspect
-// with black letterboxing when the window/fullscreen has another aspect ratio.
-// Render/export stays 320x180 while the window is resized or made fullscreen.
+// 5. Queue existing window controls. Fixed render resolution preserves aspect
+// with black bars when the window/fullscreen has another aspect ratio.
+// BEGIN WINDOW
 (
-~hydraExportWindow.size=960@540;
-~hydraExportWindow.fullscreen=false; // change to true to enter fullscreen
-~hydraExportWindow.requestMetrics;
+~hydraExportRun.value("window controls",{
+ ~hydraExportWindow.size=960@540;
+ ~hydraExportWindow.fullscreen=false; // change to true for fullscreen
+ ~hydraExportWindow.requestMetrics;
+});
 )
+// END WINDOW
 
-// 6. Optional: return to following the window's physical pixel dimensions.
-// Retina pixels can exceed 2048; exports then require a smaller setResolution.
+// 6. Optional: queue returning to the window's physical pixel dimensions.
+// Retina dimensions may exceed 2048; use a smaller setResolution before exporting.
+// BEGIN FOLLOW
 (
-~hydraExport.setResolution(0,0,{|result|result.postln});
+~hydraExportRun.value("follow window resolution",{
+ ~hydraExportCall.value({|r|~hydraExport.setResolution(0,0,r)});
+});
 )
+// END FOLLOW
 
-// 7. Finish recording and wait for finished before cleanup to finalize the MP4.
-// Cleanup is safe to repeat; active export is aborted if the renderer is closed.
+// 7. Queue cleanup after earlier steps, including MP4 finalization.
+// Repeating cleanup after EXPORT STOPPED is safe.
+// BEGIN CLEANUP
 (
-~hydraExportStop.value;
+if(~hydraExportReady==true){~hydraExportRun.value("cleanup",{~hydraExportStop.value})}{~hydraExportStop.value};
 )
+// END CLEANUP
